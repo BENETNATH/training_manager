@@ -1,0 +1,19 @@
+<form action="{{ action_url }}" method="post" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }}
+    <p>
+        Téléversez un fichier Excel (XLSX). Assurez-vous qu'il respecte le format du modèle.
+        <a href="{{ template_url }}" download>Télécharger le modèle</a>
+    </p>
+    <div class="mb-3">
+        {{ form.import_file.label(class="form-label") }}
+        {{ form.import_file(class="form-control") }}
+        {% for error in form.import_file.errors %}
+            <span class="text-danger">{{ error }}</span>
+        {% endfor %}
+    </div>
+    <div class="mb-3 form-check">
+        {{ form.update_existing(class="form-check-input") }}
+        {{ form.update_existing.label(class="form-check-label") }}
+    </div>
+    {{ form.submit(class="btn btn-primary") }}
+</form>

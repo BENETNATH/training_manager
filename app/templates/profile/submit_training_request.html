@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Submit Training Request</h1>
+    <div class="row">
+        <div class="col-md-8">
+            <form action="" method="post" novalidate>
+                {% include 'profile/_training_request_form.html' %}
+                <div class="mb-3">
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

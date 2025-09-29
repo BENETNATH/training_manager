@@ -1,0 +1,14 @@
+{{ form.hidden_tag() }}
+{% for field in form if field.widget.input_type != 'hidden' and field.type != 'CSRFTokenField' and field.type != 'SubmitField' %}
+    <div class="mb-3">
+        {{ field.label(class="form-label") }}
+        {{ field(class="form-control") }}
+        {% if field.errors %}
+            <div class="alert alert-danger mt-1">
+                {% for error in field.errors %}
+                    <span>{{ error }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}

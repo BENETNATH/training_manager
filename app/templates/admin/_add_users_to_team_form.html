@@ -1,0 +1,11 @@
+<form id="add-users-to-team-form" action="{{ url_for('admin.add_users_to_team', team_id=team.id) }}" method="post">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.users.label(class="form-label") }}
+        {{ form.users(class="form-control") }}
+        {% for error in form.users.errors %}
+            <span style="color: red;">{{ error }}</span>
+        {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary">Add Users</button>
+</form>

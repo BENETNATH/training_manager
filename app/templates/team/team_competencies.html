@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block content %}
+    {% for team_id, team_data in teams_competency_data.items() %}
+    {% set team = team_data.team %}
+    {% set team_members = team_data.members %}
+    {% set competency_matrix = team_data.competency_matrix %}
+    <h1 class="mb-4">Matrice des Compétences de l'Équipe {{ team.name }}</h1>
+    <p>Vue d'overview des compétences et de leur statut pour les membres de votre équipe.</p>
+
+    <div class="mb-3">
+        <label for="competencyFilter-{{ team.id }}" class="form-label">Filtrer par besoin de recyclage :</label>
+        <select class="form-select competency-filter" id="competencyFilter-{{ team.id }}" data-table-id="team-competencies-table-{{ team.id }}">
+            <option value="">Afficher tout</option>
+            <option value="needs-recycling">Afficher seulement les besoins de recyclage</option>
+        </select>
+    </div>
+
+    {% if team_members %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped team-competencies-table" id="team-competencies-table-{{ team.id }}" width="100%" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Membre</th>
+                        {% for skill in all_skills %}
+                            <th class="text-center">
+                                {{ skill.name }}<br>
+                                {% for species in skill.species %}
+                                    <span class="badge bg-info">{{ species.name }}</span>
+                                {% endfor %}
+                            </th>
+                        {% endfor %}
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member_id, data in competency_matrix.items() %}
+                        {% set member = data.user %}
+                        <tr>
+                            <td>{{ member.full_name }}</td>
+                            {% for skill in all_skills %}
+                                {% set skill_data = data.skills[skill.id] %}
+                                <td class="text-center {% if skill_data.needs_recycling %}needs-recycling-cell{% endif %}">
+                                    {% if skill_data.competency %}
+                                        {% if skill_data.needs_recycling %}
+                                            <span class="badge bg-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Recyclage dû: {{ skill_data.recycling_due_date.strftime('%Y-%m-%d') }}">
+                                                {{ skill_data.competency.level }} (Recycle)
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-success" data-bs-toggle="tooltip" data-bs-placement="top" title="Dernière Pratique: {{ skill_data.latest_practice_date.strftime('%Y-%m-%d') if skill_data.latest_practice_date else 'N/A' }}">
+                                                {{ skill_data.competency.level }}
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                            <td>
+                                <a href="{{ url_for('profile.user_profile', user_id=member.id) }}" target="_blank" class="btn btn-sm btn-primary" title="Voir le profil"><i class="fas fa-user"></i></a>
+                                <a href="{{ url_for('profile.generate_user_booklet_pdf', user_id=member.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer Livret PDF"><i class="fas fa-file-pdf"></i></a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Votre équipe n'a actuellement aucun membre.</p>
+    {% endif %}
+    {% endfor %}
+
+    <a href="{{ url_for('profile.user_profile') }}" class="btn btn-secondary mt-3">Retour au Dashboard</a>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+    
+        // Store tables in an object
+        var dataTables = {};
+    
+        // Initialize each table
+        document.querySelectorAll('.team-competencies-table').forEach(function(table) {
+            var tableId = table.getAttribute('id');
+            dataTables[tableId] = new DataTable(table, {
+                responsive: true
+            });
+        });
+    
+        // Custom filter for DataTables
+        $.fn.dataTable.ext.search.push(
+            function( settings, data, dataIndex ) {
+                var tableId = settings.sTableId;
+                var filterValue = $('#competencyFilter-' + tableId.split('-').pop()).val();
+    
+                if (filterValue === '') {
+                    return true; // Show all rows
+                }
+                
+                var row = settings.aoData[dataIndex].nTr; // Get the row node
+                if (filterValue === 'needs-recycling') {
+                    return $(row).find('.needs-recycling-cell').length > 0; // Check if any cell in the row has the class
+                }
+                return true;
+            }
+        );
+    
+        // Attach event listener to all filter dropdowns
+        document.querySelectorAll('.competency-filter').forEach(function(filter) {
+            filter.addEventListener('change', function() {
+                var tableId = this.getAttribute('data-table-id');
+                dataTables[tableId].draw();
+            });
+        });
+    });
+    </script>
+{% endblock %}

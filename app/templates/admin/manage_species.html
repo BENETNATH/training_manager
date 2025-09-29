@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Manage Species</h1>
+    <a href="{{ url_for('admin.add_species') }}" class="btn btn-success mb-3">Add New Species</a>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for species in species_list %}
+            <tr>
+                <td>{{ species.id }}</td>
+                <td>{{ species.name }}</td>
+                <td>
+                    <a href="{{ url_for('admin.edit_species', id=species.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                    <form action="{{ url_for('admin.delete_species', id=species.id) }}" method="post" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this species?');">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

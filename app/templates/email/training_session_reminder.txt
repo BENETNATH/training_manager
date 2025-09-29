@@ -1,0 +1,15 @@
+Dear {{ user.full_name }},
+
+This is a reminder for your upcoming training session:
+
+Title: {{ session.title }}
+Location: {{ session.location }}
+Start Time: {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}
+End Time: {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}
+Tutor: {{ session.tutor.full_name }}
+Skills Covered: {% for skill in session.skills_covered %}{{ skill.name }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+Please find the .ics calendar attachment to add this event to your calendar.
+
+Best regards,
+The Training Manager Team

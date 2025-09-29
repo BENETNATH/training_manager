@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>{{ title }}</h1>
+    {% if training_requests %}
+        <p>Creating session for multiple requests:</p>
+        <ul>
+            {% for req in training_requests %}
+                <li>Request by <strong>{{ req.requester.full_name }}</strong> for skills:
+                    {% for skill in req.skills_requested %}
+                        <span class="badge bg-info">{{ skill.name }}</span>
+                    {% endfor %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% elif training_request %}
+        <p>Creating session for request by <strong>{{ training_request.requester.full_name }}</strong> for skills:
+            {% for skill in training_request.skills_requested %}
+                <span class="badge bg-info">{{ skill.name }}</span>
+            {% endfor %}
+        </p>
+    {% endif %}
+    <div class="row">
+        <div class="col-md-8">
+            <form action="{% if training_requests %}{{ url_for('training.create_session_from_requests') }}{% else %}{{ url_for('training.create_training_session_from_request', request_id=training_request.id) }}{% endif %}" method="post" novalidate>
+                {{ form.csrf_token }}
+                {% if original_request_ids %}
+                    {% for req_id in original_request_ids %}
+                        <input type="hidden" name="original_request_ids" value="{{ req_id }}">
+                    {% endfor %}
+                {% endif %}
+                {% include 'admin/_training_session_form_fields.html' %}
+                <div class="mb-3">
+                    {{ form.submit(class="btn btn-primary", id="submit-training-session") }}
+                </div>
+            </form>
+            <div id="skill-coverage-status" class="mt-3"></div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    const skillsCoveredSelect = $('#skills-covered-select');
+    const tutorSelect = $('#tutor-select');
+    const skillCoverageStatusDiv = $('#skill-coverage-status');
+    const submitButton = $('#submit-training-session');
+    let allSkillsWithTutors = {}; // Map skill_id to a list of tutor_ids
+    let allTutorsData = []; // To store all tutors and their tutored skills
+
+    console.log("API Key: {{ current_user.api_key }}"); // Debugging API key
+
+    // Fetch all skills and their tutors on page load
+    function fetchAllSkillsWithTutors() {
+        fetch("{{ url_for('api.skills_skill_list') }}", {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-API-Key': '{{ current_user.api_key }}' // Assuming current_user has an API key
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            allSkillsWithTutors = {};
+            if (Array.isArray(data)) {
+                data.forEach(skill => {
+                    allSkillsWithTutors[skill.id] = skill.tutor_ids;
+                });
+            } else {
+                console.error('API returned non-array data for all skills:', data);
+                skillCoverageStatusDiv.html('<div class="alert alert-danger">Error: Unexpected skill data format.</div>');
+                return;
+            }
+            // After fetching skills, fetch all tutors
+            fetchAllTutors();
+        })
+        .catch(error => {
+            console.error('Error fetching all skills with tutors:', error);
+            skillCoverageStatusDiv.html('<div class="alert alert-danger">Error loading skill data.</div>');
+        });
+    }
+
+    // Function to fetch all tutors and their tutored skills
+    function fetchAllTutors() {
+        fetch("{{ url_for('api.users_user_list') }}", { // Assuming this endpoint returns users with tutored_skills
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-API-Key': '{{ current_user.api_key }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (Array.isArray(data)) {
+                allTutorsData = data.filter(user => user.tutored_skills && user.tutored_skills.length > 0); // Filter for actual tutors
+                updateTutorsAndCoverage(); // Initial update
+            } else {
+                console.error('API returned non-array data for all tutors:', data);
+                skillCoverageStatusDiv.html('<div class="alert alert-danger">Error: Unexpected tutor data format.</div>');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching all tutors data:', error);
+            skillCoverageStatusDiv.html('<div class="alert alert-danger">Error loading tutor data.</div>');
+        });
+    }
+
+    // Function to update the tutor dropdown based on selected skills
+    function updateTutorDropdown() {
+        const selectedSkillIds = (skillsCoveredSelect.val() || []).map(id => parseInt(id)).filter(id => !isNaN(id));
+        const currentSelectedTutorId = tutorSelect.val();
+
+        if (selectedSkillIds.length === 0) {
+            // If no skills are selected, show all tutors
+            tutorSelect.empty().append($('<option>', {
+                value: '',
+                text: 'Select a Tutor'
+            }));
+            allTutorsData.forEach(tutor => {
+                tutorSelect.append($('<option>', {
+                    value: tutor.id,
+                    text: tutor.full_name
+                }));
+            });
+            tutorSelect.val(currentSelectedTutorId); // Try to keep current selection
+            return;
+        }
+
+        fetch("{{ url_for('api.skills_skill_tutors') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-API-Key': '{{ current_user.api_key }}'
+            },
+            body: JSON.stringify({ skill_ids: selectedSkillIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            tutorSelect.empty().append($('<option>', {
+                value: '',
+                text: 'Select a Tutor'
+            }));
+            let foundCurrentTutor = false;
+            data.tutors.forEach(tutor => {
+                tutorSelect.append($('<option>', {
+                    value: tutor.id,
+                    text: tutor.full_name
+                }));
+                if (String(tutor.id) === String(currentSelectedTutorId)) {
+                    foundCurrentTutor = true;
+                }
+            });
+
+            // Re-select the previously selected tutor if still qualified
+            if (foundCurrentTutor) {
+                tutorSelect.val(currentSelectedTutorId);
+            } else {
+                tutorSelect.val(''); // Clear selection if current tutor is no longer qualified
+            }
+            updateSkillCoverageStatus();
+        })
+        .catch(error => {
+            console.error('Error fetching qualified tutors:', error);
+            skillCoverageStatusDiv.html('<div class="alert alert-danger">Error fetching qualified tutors.</div>');
+        });
+    }
+
+    // Function to display skill coverage status
+    function updateSkillCoverageStatus() {
+        const selectedSkillIds = skillsCoveredSelect.val();
+        const selectedTutorId = tutorSelect.val();
+        let statusHtml = '';
+        let allSkillsCovered = true;
+
+        if (selectedSkillIds.length === 0) {
+            skillCoverageStatusDiv.empty();
+            submitButton.prop('disabled', false); // Enable submit if no skills selected
+            return;
+        }
+
+        if (!selectedTutorId) {
+            statusHtml = '<div class="alert alert-warning">Please select a tutor to check skill coverage.</div>';
+            allSkillsCovered = false;
+        } else {
+            statusHtml = '<h6>Skill Coverage:</h6><ul>';
+            const selectedTutor = allTutorsData.find(t => String(t.id) === String(selectedTutorId));
+
+            if (selectedTutor && selectedTutor.tutored_skills) {
+                selectedSkillIds.forEach(skillId => {
+                    const skillName = skillsCoveredSelect.find(`option[value="${skillId}"]`).text();
+                    const isCovered = selectedTutor.tutored_skills.some(s => String(s.id) === String(skillId));
+                    
+                    if (isCovered) {
+                        statusHtml += `<li><i class="fas fa-check text-success"></i> ${skillName} (Covered)</li>`;
+                    } else {
+                        statusHtml += `<li><i class="fas fa-times text-danger"></i> ${skillName} (NOT Covered)</li>`;
+                        allSkillsCovered = false;
+                    }
+                });
+                statusHtml += '</ul>';
+            } else {
+                statusHtml = '<div class="alert alert-danger">Selected tutor not found or has no tutored skills data.</div>';
+                allSkillsCovered = false;
+            }
+        }
+        
+        skillCoverageStatusDiv.html(statusHtml);
+        submitButton.prop('disabled', !allSkillsCovered);
+    }
+
+    // Combined update function
+    function updateTutorsAndCoverage() {
+        updateTutorDropdown();
+        // updateSkillCoverageStatus is called within updateTutorDropdown's .then() block
+        // to ensure tutor dropdown is updated before checking coverage.
+    }
+
+    // Event listeners
+    skillsCoveredSelect.on('change', updateTutorsAndCoverage);
+    tutorSelect.on('change', updateSkillCoverageStatus);
+
+    // Initial fetch and update
+    fetchAllSkillsWithTutors();
+});
+</script>
+{% endblock %}

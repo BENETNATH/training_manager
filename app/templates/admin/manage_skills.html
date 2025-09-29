@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Manage Skills</h1>
+    <a href="{{ url_for('admin.add_skill') }}" class="btn btn-success mb-3">Add New Skill</a>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Complexity</th>
+                <th>Validity (Months)</th>
+                <th>Species</th>
+                <th>Tutors</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for skill in skills %}
+            <tr>
+                <td>{{ skill.id }}</td>
+                <td>{{ skill.name }}</td>
+                <td>{{ (skill.description | default('') | truncate(50)) if skill.description is not none else 'N/A' }}</td>
+                <td>{{ skill.complexity.value }}</td>
+                <td>{{ skill.validity_period_months if skill.validity_period_months else 'N/A' }}</td>
+                <td>
+                    {% for species in skill.species %}
+                        <span class="badge bg-info">{{ species.name }}</span>
+                    {% else %}
+                        N/A
+                    {% endfor %}
+                </td>
+                <td>
+                    {% for tutor in skill.tutors %}
+                        <span class="badge bg-secondary">{{ tutor.full_name }}</span>
+                    {% else %}
+                        No Tutors
+                    {% endfor %}
+                </td>
+                <td>
+                    <a href="{{ url_for('admin.edit_skill', id=skill.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                    <form action="{{ url_for('admin.delete_skill', id=skill.id) }}" method="post" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this skill?');">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

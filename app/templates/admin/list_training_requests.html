@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Demandes de Formation en Attente</h1>
+
+    <form method="POST" action="{{ url_for('training.create_session_from_requests') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Liste des Demandes</h6>
+                <div>
+                    <button type="submit" name="skill_grouping" value="all" class="btn btn-primary btn-sm me-2">Group with All Skills</button>
+                    <button type="submit" name="skill_grouping" value="common" class="btn btn-info btn-sm">Group with Common Skills</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="pending-requests-table" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="select-all-requests"></th>
+                                <th>ID</th>
+                                <th>Demandeur</th>
+                                <th>Compétences Demandées</th>
+                                <th>Espèce(s)</th>
+                                <th>Date de Demande</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in pending_training_requests %}
+                            <tr>
+                                <td><input type="checkbox" name="request_ids" value="{{ req.id }}"></td>
+                                <td>{{ req.id }}</td>
+                                <td>{{ req.requester.full_name }}</td>
+                                <td>
+                                    {% for skill in req.skills_requested %}
+                                        <span class="badge bg-info">{{ skill.name }}</span>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for species in req.associated_species %}
+                                        <span class="badge bg-secondary">{{ species.name }}</span>
+                                    {% endfor %}
+                                </td>
+                                <td>{{ req.request_date.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <a href="{{ url_for('training.create_training_session_from_request', request_id=req.id) }}" class="btn btn-sm btn-success" title="Planifier Session"><i class="fas fa-calendar-plus"></i></a>
+                                    <button class="btn btn-sm btn-danger reject-training-request-btn" data-request-id="{{ req.id }}" title="Rejeter"><i class="fas fa-times"></i></button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    var frenchLanguage = {
+        "sEmptyTable":     "Aucune donnée disponible dans le tableau",
+        "sInfo":           "Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments",
+        "sInfoEmpty":      "Affichage de l'élément 0 à 0 sur 0 élément",
+        "sInfoFiltered":   "(filtré de _MAX_ éléments au total)",
+        "sInfoPostFix":    "",
+        "sInfoThousands":  ",",
+        "sLengthMenu":     "Afficher _MENU_ éléments",
+        "sLoadingRecords": "Chargement...",
+        "sProcessing":     "Traitement...",
+        "sSearch":         "Rechercher :",
+        "sZeroRecords":    "Aucun élément correspondant trouvé",
+        "oPaginate": {
+            "sFirst":    "Premier",
+            "sLast":     "Dernier",
+            "sNext":     "Suivant",
+            "sPrevious": "Précédent"
+        },
+        "oAria": {
+            "sSortAscending":  ": activer pour trier la colonne par ordre croissant",
+            "sSortDescending": ": activer pour trier la colonne par ordre décroissant"
+        }
+    };
+
+    $('#pending-requests-table').DataTable({
+        language: frenchLanguage,
+        columnDefs: [{
+            orderable: false,
+            targets: 0
+        }]
+    });
+
+    // Handle select all checkbox
+    $('#select-all-requests').on('change', function() {
+        $('input[name="request_ids"]').prop('checked', $(this).prop('checked'));
+    });
+
+    // Handle AJAX rejection for training requests
+    $('#pending-requests-table').on('click', '.reject-training-request-btn', function() {
+        var button = $(this);
+        var requestId = button.data('request-id');
+        var rejectUrl = "{{ url_for('admin.reject_training_request', request_id=0) }}".replace('0', requestId);
+        var csrfToken = $('meta[name=csrf-token]').attr('content');
+
+        if (confirm('Êtes-vous sûr de vouloir rejeter cette demande de formation ?')) {
+            fetch(rejectUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    $('#pending-requests-table').DataTable().row(button.parents('tr')).remove().draw();
+                    alert(data.message);
+                } else {
+                    alert('Erreur lors du rejet : ' + (data.message || 'Erreur inconnue.'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur réseau est survenue.');
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Skills Without Tutors Report</h1>
+    <p>This report lists all skills that currently do not have any internal tutors assigned.</p>
+
+    {% if skills %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Skill Name</th>
+                <th>Description</th>
+                <th>Complexity</th>
+                <th>Validity (Months)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for skill in skills %}
+            <tr>
+                <td>{{ skill.id }}</td>
+                <td>{{ skill.name }}</td>
+                <td>{{ skill.description | truncate(100) }}</td>
+                <td>{{ skill.complexity.value }}</td>
+                <td>{{ skill.validity_period_months if skill.validity_period_months else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>All skills currently have at least one tutor assigned. Great job!</p>
+    {% endif %}
+
+    <a href="{{ url_for('admin.index') }}" class="btn btn-secondary mt-3">Back to Admin Dashboard</a>
+{% endblock %}

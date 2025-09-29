@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Validate External Trainings</h1>
+    <p>Review and validate external training submissions.</p>
+
+    {% if trainings %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Trainer</th>
+                <th>Date</th>
+                <th>Skills Claimed</th>
+                <th>Attachment</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for training in trainings %}
+            <tr>
+                <td>{{ training.id }}</td>
+                <td>{{ training.user.full_name }}</td>
+                <td>{{ training.external_trainer_name }}</td>
+                <td>{{ training.date.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    {% for skill in training.skills_claimed %}
+                        <span class="badge bg-info">{{ skill.name }}</span>
+                    {% else %}
+                        N/A
+                    {% endfor %}
+                </td>
+                <td>
+                    {% if training.attachment_path %}
+                        <a href="{{ url_for('static', filename=training.attachment_path) }}" target="_blank">View Attachment</a>
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td>{{ training.status.value }}</td>
+                <td>
+                    {# TODO: Implement actual validation/rejection logic #}
+                    <form action="#" method="post" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-success" disabled>Approve</button>
+                    </form>
+                    <form action="#" method="post" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-danger" disabled>Reject</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No pending external trainings to validate.</p>
+    {% endif %}
+
+    <a href="{{ url_for('admin.index') }}" class="btn btn-secondary mt-3">Back to Admin Dashboard</a>
+{% endblock %}

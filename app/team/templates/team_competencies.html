@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+
+    {% if teams_competency_data %}
+        {% for team_id, data in teams_competency_data.items() %}
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3>Team: {{ data.team.name }}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="team-competencies-table-{{ team_id }}" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Member</th>
+                                    {% for skill in all_skills %}
+                                        <th>{{ skill.name }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for member_id, member_data in data.competency_matrix.items() %}
+                                    <tr>
+                                        <td>{{ member_data.user.full_name }}</td>
+                                        {% for skill in all_skills %}
+                                            {% set comp_info = member_data.skills[skill.id] %}
+                                            <td>
+                                                {% if comp_info.competency %}
+                                                    Level: {{ comp_info.competency.level }}<br>
+                                                    Last Practice: {{ comp_info.latest_practice_date.strftime('%Y-%m-%d') if comp_info.latest_practice_date else 'N/A' }}<br>
+                                                    {% if comp_info.needs_recycling %}
+                                                        <span class="badge bg-danger">Recycling Due: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                    {% elif comp_info.recycling_due_date %} {# Check if recycling_due_date exists before displaying #}
+                                                        <span class="badge bg-warning">Recycling: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>You are not currently leading any teams or there are no members in your led teams.</p>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // Initialize DataTables for each team's competency table
+    {% for team_id, data in teams_competency_data.items() %}
+        $('#team-competencies-table-{{ team_id }}').DataTable({
+            "scrollX": true, // Enable horizontal scrolling
+            "paging": false, // Disable pagination
+            "info": false,   // Disable table information display
+            "searching": false // Disable search box
+        });
+    {% endfor %}
+});
+</script>
+{% endblock %}

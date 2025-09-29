@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Manage Training Paths</h1>
+    <a href="{{ url_for('admin.add_training_path') }}" class="btn btn-success mb-3">Add New Training Path</a>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Skills</th>
+                <th>Assigned Users</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for path in training_paths %}
+            <tr>
+                <td>{{ path.id }}</td>
+                <td>{{ path.name }}</td>
+                <td>{{ path.description | truncate(50) }}</td>
+                <td>
+                    {% for skill in path.skills %}
+                        <span class="badge bg-info">{{ skill.name }}</span>
+                    {% else %}
+                        N/A
+                    {% endfor %}
+                </td>
+                <td>
+                    {% for user in path.assigned_users %}
+                        <span class="badge bg-secondary">{{ user.full_name }}</span>
+                    {% else %}
+                        N/A
+                    {% endfor %}
+                </td>
+                <td>
+                    <a href="{{ url_for('admin.edit_training_path', id=path.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                    <form action="{{ url_for('admin.delete_training_path', id=path.id) }}" method="post" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this training path?');">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_formhelpers.html" import render_field %}
+
+{% block content %}
+    <h1 class="mb-4">Valider la Session de Formation</h1>
+    <h2 class="mb-4">{{ session.title }}</h2>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Détails</h6>
+        </div>
+        <div class="card-body">
+            <p><strong>Tuteur :</strong> {{ session.tutor.full_name }}</p>
+            <p><strong>Date :</strong> {{ session.start_time.strftime('%d/%m/%Y') }}</p>
+            <h5>Compétences Couvertes</h5>
+            <ul>
+            {% for skill in session.skills_covered %}
+                <li>{{ skill.name }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Valider les Participants</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('admin.validate_training_session', session_id=session.id) }}">
+                {{ form.hidden_tag() }}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Participant</th>
+                            {% for skill in session.skills_covered %}
+                                <th>{{ skill.name }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendee_form in form.attendees %}
+                            <tr>
+                                <td>{{ attendee_form.form.user_label.data }}</td>
+                                {% for competency_form in attendee_form.form.competencies %}
+                                    <td>
+                                        {{ competency_form.form.acquired() }}
+                                        {{ competency_form.form.user_id() }}
+                                        {{ competency_form.form.skill_id() }}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <button type="submit" class="btn btn-primary">Valider les Compétences</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

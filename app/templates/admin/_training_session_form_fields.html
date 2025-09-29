@@ -1,0 +1,33 @@
+{{ form.hidden_tag() }}
+{% for field in form if field.widget.input_type != 'hidden' and field.type != 'CSRFTokenField' and field.type != 'SubmitField' %}
+    <div class="mb-3">
+        {% if field.type == 'BooleanField' %}
+            <div class="form-check">
+                {{ field(class="form-check-input") }}
+                {{ field.label(class="form-check-label") }}
+            </div>
+        {% elif field.name == 'skill_name_display' %}
+            <label class="form-label">{{ field.label.text }}</label>
+            <p class="form-control-plaintext">{{ field.data }}</p>
+        {% else %}
+            {{ field.label(class="form-label") }}
+            {% if field.flags.required %}
+                <span class="text-danger">*</span>
+            {% endif %}
+            {% if field.name == 'tutor' %}
+                {{ field(class="form-control", id="tutor-select") }}
+            {% elif field.name == 'skills_covered' %}
+                {{ field(class="form-control", id="skills-covered-select") }}
+            {% else %}
+                {{ field(class="form-control") }}
+            {% endif %}
+        {% endif %}
+        {% if field.errors %}
+            <div class="alert alert-danger mt-1">
+                {% for error in field.errors %}
+                    <span>{{ error }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}
