@@ -43,7 +43,18 @@
                     {% if required_skills_todo %}
                         <ul class="list-group list-group-flush">
                             {% for skill in required_skills_todo %}
-                                <li class="list-group-item">{{ skill.name }}</li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ skill.name }}
+                                    <div>
+                                        {% if skill.species %}
+                                            {% for species in skill.species %}
+                                                <span class="badge bg-secondary me-1">{{ species.name }}</span>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="badge bg-secondary me-1">N/A</span>
+                                        {% endif %}
+                                    </div>
+                                </li>
                             {% endfor %}
                         </ul>
                     {% else %}
@@ -70,7 +81,16 @@
                             {% for comp in skills_to_recycle %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     {{ comp.skill.name }}
-                                    <span class="badge bg-danger rounded-pill">Échéance: {{ comp.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                    <div>
+                                        {% if comp.skill.species %}
+                                            {% for species in comp.skill.species %}
+                                                <span class="badge bg-secondary me-1">{{ species.name }}</span>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="badge bg-secondary me-1">N/A</span>
+                                        {% endif %}
+                                        <span class="badge bg-danger rounded-pill">Échéance: {{ comp.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                    </div>
                                 </li>
                             {% endfor %}
                         </ul>
@@ -98,6 +118,7 @@
                                 <th scope="col">Dernière Pratique</th>
                                 <th scope="col">Échéance Recyclage</th>
                                 <th scope="col">Validité</th>
+                                <th scope="col">Espèces</th>
                                 <th scope="col">Actions</th>
                             </tr>
                         </thead>
@@ -130,6 +151,15 @@
                                         {% endif %}
                                     </td>
                                     <td>
+                                        {% if comp.species %}
+                                            {% for species in comp.species %}
+                                                <span class="badge bg-secondary me-1">{{ species.name }}</span>
+                                            {% endfor %}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
                                         <a href="{{ url_for('profile.generate_certificate', competency_id=comp.id) }}" target="_blank" class="btn btn-sm btn-primary" title="Télécharger l'attestation"><i class="fas fa-download"></i></a>
                                     </td>
                                 </tr>
@@ -156,6 +186,11 @@
                                 {% for skill in req.skills_requested %}
                                     <span class="badge bg-info me-1">{{ skill.name }}</span>
                                 {% endfor %}
+                                {% if req.species_requested %}
+                                    {% for species in req.species_requested %}
+                                        <span class="badge bg-secondary me-1">{{ species.name }}</span>
+                                    {% endfor %}
+                                {% endif %}
                                 {% if req.status == TrainingRequestStatus.PROPOSED_SKILL %}
                                     <span class="badge bg-warning">Compétence Proposée</span>
                                 {% else %}

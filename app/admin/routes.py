@@ -8,7 +8,7 @@ from app import db
 from app.admin import bp
 from app.admin.forms import UserForm, TeamForm, SpeciesForm, SkillForm, TrainingPathForm, ImportForm, AddUserToTeamForm, TrainingValidationForm, AttendeeValidationForm, CompetencyValidationForm
 from app.training.forms import TrainingSessionForm # Import TrainingSessionForm
-from app.models import User, Team, Species, Skill, TrainingPath, ExternalTraining, TrainingRequest, TrainingRequestStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity
+from app.models import User, Team, Species, Skill, TrainingPath, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim
 from app.decorators import admin_required
 from sqlalchemy import func, extract
 import openpyxl # Import openpyxl
@@ -23,6 +23,7 @@ from datetime import datetime, timedelta # Import datetime, timedelta
 def index():
     # Metrics for the cards
     pending_requests_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PENDING).count()
+    pending_external_trainings_count = ExternalTraining.query.filter_by(status=ExternalTrainingStatus.PENDING).count()
     skills_without_tutors_count = Skill.query.filter(~Skill.tutors.any()).count()
     
     # Placeholder for more complex metrics
@@ -65,6 +66,7 @@ def index():
     return render_template('admin/index.html',
                            title='Admin Dashboard',
                            pending_requests_count=pending_requests_count,
+                           pending_external_trainings_count=pending_external_trainings_count,
                            skills_without_tutors_count=skills_without_tutors_count,
                            recycling_needed_count=recycling_needed_count,
                            next_session=next_session,
@@ -1129,32 +1131,35 @@ def reject_training_request(request_id):
 @login_required
 @admin_required
 def validate_external_trainings():
-    pending_external_trainings = ExternalTraining.query.filter_by(status='Pending').all()
+    pending_external_trainings = ExternalTraining.query.filter_by(status=ExternalTrainingStatus.PENDING).all()
     return render_template('admin/validate_external_trainings.html', title='Validate External Trainings', trainings=pending_external_trainings)
 
 @bp.route('/validate_external_trainings/approve/<int:training_id>', methods=['POST'])
 @login_required
 @admin_required
 def approve_external_training(training_id):
-    external_training = ExternalTraining.query.get_or_404(training_id)
+    external_training = ExternalTraining.query.options(db.joinedload(ExternalTraining.skill_claims).joinedload(ExternalTrainingSkillClaim.skill)).get_or_404(training_id)
     external_training.status = ExternalTrainingStatus.APPROVED
     external_training.validator = current_user
     db.session.add(external_training)
 
-    # Create competencies for skills claimed in this external training
-    for skill in external_training.skills_claimed:
-        # Check if competency already exists for this user and skill
-        existing_competency = Competency.query.filter_by(user_id=external_training.user_id, skill_id=skill.id).first()
-        if not existing_competency:
-            competency = Competency(
-                user=external_training.user,
-                skill=skill,
-                level='Intermediate', # Default level for external training, can be adjusted
-                evaluation_date=external_training.date,
-                evaluator=current_user,
-                certificate_path=external_training.attachment_path # Use external training attachment as certificate
-            )
-            db.session.add(competency)
+    # Create competencies for each skill claim
+    for skill_claim in external_training.skill_claims:
+        competency = Competency(
+            user=external_training.user,
+            skill=skill_claim.skill,
+            level=skill_claim.level,
+            evaluation_date=external_training.date
+        )
+        db.session.add(competency)
+        db.session.flush() # Flush to assign an ID to the new competency before modifying its relationships
+
+        # Transfer species_claimed from ExternalTrainingSkillClaim to Competency
+        competency.species = skill_claim.species_claimed
+
+        # If user wants to be a tutor, add them to the skill's tutors
+        if skill_claim.wants_to_be_tutor and external_training.user not in skill_claim.skill.tutors:
+            skill_claim.skill.tutors.append(external_training.user)
     
     db.session.commit()
     flash('External training approved and competencies created!', 'success')

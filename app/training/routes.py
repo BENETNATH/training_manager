@@ -110,7 +110,7 @@ def create_training_session_from_request(request_id):
         # You might want to pre-populate attendees based on the request, or leave it for manual selection
         # form.attendees.data = [training_request.requester]
 
-    return render_template('training/training_session_form.html', title='Create Training Session', form=form, training_request=training_request)
+    return render_template('training/training_session_form.html', title='Create Training Session', form=form, training_request=training_request, action_url=url_for('training.create_training_session_from_request', request_id=training_request.id))
 
 @bp.route('/create_session_from_requests', methods=['GET', 'POST'])
 @login_required
@@ -278,7 +278,8 @@ def create_session_from_requests():
                            title='Create Grouped Training Session', 
                            form=form, 
                            training_requests=training_requests, # Pass all selected requests
-                           original_request_ids=[req.id for req in training_requests]) # Pass IDs for form submission
+                           original_request_ids=[req.id for req in training_requests], # Pass IDs for form submission
+                           action_url=url_for('training.create_session_from_requests'))
 
 # Placeholder for actual email templates
 # I will create these later if needed, for now, they are just referenced.

@@ -12,7 +12,7 @@
                 <th>User</th>
                 <th>Trainer</th>
                 <th>Date</th>
-                <th>Skills Claimed</th>
+                <th>Claimed Skills & Details</th>
                 <th>Attachment</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -26,11 +26,26 @@
                 <td>{{ training.external_trainer_name }}</td>
                 <td>{{ training.date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    {% for skill in training.skills_claimed %}
-                        <span class="badge bg-info">{{ skill.name }}</span>
+                    <ul class="list-unstyled mb-0">
+                    {% for skill_claim in training.skill_claims %}
+                        <li class="mb-2 p-2 border rounded bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="mb-0 text-primary">{{ skill_claim.skill.name }}</h6>
+                                <span class="badge bg-info">{{ skill_claim.level }}</span>
+                            </div>
+                            {% if skill_claim.wants_to_be_tutor %}
+                                <span class="badge bg-success me-1">Wants to Tutor</span>
+                            {% endif %}
+                            {% if skill_claim.species_claimed %}
+                                {% for species in skill_claim.species_claimed %}
+                                    <span class="badge bg-secondary me-1">{{ species.name }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </li>
                     {% else %}
-                        N/A
+                        <li>N/A</li>
                     {% endfor %}
+                    </ul>
                 </td>
                 <td>
                     {% if training.attachment_path %}
@@ -41,12 +56,13 @@
                 </td>
                 <td>{{ training.status.value }}</td>
                 <td>
-                    {# TODO: Implement actual validation/rejection logic #}
-                    <form action="#" method="post" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-success" disabled>Approve</button>
+                    <form action="{{ url_for('admin.approve_external_training', training_id=training.id) }}" method="post" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
                     </form>
-                    <form action="#" method="post" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-danger" disabled>Reject</button>
+                    <form action="{{ url_for('admin.reject_external_training', training_id=training.id) }}" method="post" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-sm btn-danger">Reject</button>
                     </form>
                 </td>
             </tr>

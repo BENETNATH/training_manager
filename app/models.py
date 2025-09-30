@@ -42,10 +42,31 @@ training_request_species_requested = db.Table('training_request_species_requeste
     db.Column('species_id', db.Integer, db.ForeignKey('species.id'), primary_key=True)
 )
 
-external_training_skills_claimed = db.Table('external_training_skills_claimed',
-    db.Column('external_training_id', db.Integer, db.ForeignKey('external_training.id'), primary_key=True),
-    db.Column('skill_id', db.Integer, db.ForeignKey('skill.id'), primary_key=True)
+# Many-to-Many relationship table for ExternalTrainingSkillClaim and Species
+external_training_skill_claim_species_association = db.Table('external_training_skill_claim_species_association',
+    db.Column('external_training_skill_claim_external_training_id', db.Integer, db.ForeignKey('external_training_skill_claim.external_training_id'), primary_key=True),
+    db.Column('external_training_skill_claim_skill_id', db.Integer, db.ForeignKey('external_training_skill_claim.skill_id'), primary_key=True),
+    db.Column('species_id', db.Integer, db.ForeignKey('species.id'), primary_key=True)
 )
+
+class ExternalTrainingSkillClaim(db.Model):
+    external_training_id = db.Column(db.Integer, db.ForeignKey('external_training.id'), primary_key=True)
+    skill_id = db.Column(db.Integer, db.ForeignKey('skill.id'), primary_key=True)
+    level = db.Column(db.String(64), nullable=False, default='Novice') # e.g., 'Novice', 'Intermediate', 'Expert'
+    wants_to_be_tutor = db.Column(db.Boolean, default=False)
+
+    external_training = db.relationship('ExternalTraining', back_populates='skill_claims')
+    skill = db.relationship('Skill', back_populates='external_training_claims')
+    species_claimed = db.relationship(
+        'Species',
+        secondary=external_training_skill_claim_species_association,
+        primaryjoin=lambda: db.and_(
+            external_training_skill_claim_species_association.c.external_training_skill_claim_external_training_id == ExternalTrainingSkillClaim.external_training_id,
+            external_training_skill_claim_species_association.c.external_training_skill_claim_skill_id == ExternalTrainingSkillClaim.skill_id
+        ),
+        secondaryjoin=lambda: external_training_skill_claim_species_association.c.species_id == Species.id,
+        backref='external_training_skill_claims'
+    )
 
 skill_species_association = db.Table('skill_species_association',
     db.Column('skill_id', db.Integer, db.ForeignKey('skill.id'), primary_key=True),
@@ -177,7 +198,7 @@ class Skill(db.Model):
     competencies = db.relationship('Competency', back_populates='skill', lazy='dynamic')
     training_sessions_covered = db.relationship('TrainingSession', secondary=training_session_skills_covered, back_populates='skills_covered')
     training_requests_for_skill = db.relationship('TrainingRequest', secondary=training_request_skills_requested, back_populates='skills_requested')
-    external_trainings_claiming_skill = db.relationship('ExternalTraining', secondary=external_training_skills_claimed, back_populates='skills_claimed')
+    external_training_claims = db.relationship('ExternalTrainingSkillClaim', back_populates='skill', lazy='dynamic')
     skill_practice_events = db.relationship('SkillPracticeEvent', secondary=skill_practice_event_skills, back_populates='skills')
 
     def __repr__(self):
@@ -220,6 +241,11 @@ class TrainingSession(db.Model):
     def __repr__(self):
         return f'<TrainingSession {self.title}>'
 
+competency_species_association = db.Table('competency_species_association',
+    db.Column('competency_id', db.Integer, db.ForeignKey('competency.id'), primary_key=True),
+    db.Column('species_id', db.Integer, db.ForeignKey('species.id'), primary_key=True)
+)
+
 class Competency(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -234,6 +260,7 @@ class Competency(db.Model):
     skill = db.relationship('Skill', back_populates='competencies')
     evaluator = db.relationship('User', back_populates='evaluated_competencies', foreign_keys='Competency.evaluator_id')
     training_session = db.relationship('TrainingSession', back_populates='competencies')
+    species = db.relationship('Species', secondary=competency_species_association, backref='competencies')
 
     def __repr__(self):
         return f'<Competency {self.user.full_name} - {self.skill.name}>'
@@ -284,7 +311,7 @@ class ExternalTraining(db.Model):
 
     user = db.relationship('User', back_populates='external_trainings', foreign_keys='ExternalTraining.user_id')
     validator = db.relationship('User', back_populates='validated_external_trainings', foreign_keys='ExternalTraining.validator_id')
-    skills_claimed = db.relationship('Skill', secondary=external_training_skills_claimed, back_populates='external_trainings_claiming_skill')
+    skill_claims = db.relationship('ExternalTrainingSkillClaim', back_populates='external_training', lazy='select', cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<ExternalTraining {self.id} by {self.user.full_name}>'

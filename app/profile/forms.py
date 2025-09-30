@@ -1,9 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms import SubmitField, SelectMultipleField, TextAreaField, StringField, DateTimeLocalField
+from wtforms import SubmitField, SelectMultipleField, TextAreaField, StringField, DateTimeLocalField, SelectField, BooleanField, FieldList, FormField
 from wtforms.validators import DataRequired, Optional, Length
 from wtforms_sqlalchemy.fields import QuerySelectMultipleField, QuerySelectField
 from flask_wtf.file import FileField, FileAllowed
-from app.models import Skill, User, Species
+from app.models import Skill, User, Species, ExternalTrainingSkillClaim # Added ExternalTrainingSkillClaim
 
 def get_skills():
     return Skill.query.order_by(Skill.name).all()
@@ -22,11 +22,16 @@ class TrainingRequestForm(FlaskForm):
     justification = TextAreaField('Justification', render_kw={"rows": 5})
     submit = SubmitField('Submit Training Request')
 
+class ExternalTrainingSkillClaimForm(FlaskForm):
+    skill = QuerySelectField('Skill', query_factory=get_skills, get_label='name', validators=[DataRequired()])
+    level = SelectField('Competency Level', choices=[('Novice', 'Novice'), ('Intermediate', 'Intermediate'), ('Expert', 'Expert')], validators=[DataRequired()])
+    species_claimed = QuerySelectMultipleField('Species Claimed', query_factory=get_species, get_label='name', validators=[DataRequired()])
+    wants_to_be_tutor = BooleanField('Want to be tutor ?')
+
 class ExternalTrainingForm(FlaskForm):
     external_trainer_name = StringField('External Trainer Name', validators=[DataRequired()])
     date = DateTimeLocalField('Date of Training', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    skills_claimed = QuerySelectMultipleField('Skills Claimed', query_factory=get_skills,
-                                              get_label='name', validators=[DataRequired()])
+    skill_claims = FieldList(FormField(ExternalTrainingSkillClaimForm), min_entries=1, label='Skills Claimed')
     attachment = FileField('Certificate/Document Attachment', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
     submit = SubmitField('Submit External Training')
 
