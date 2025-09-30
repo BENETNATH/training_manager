@@ -27,8 +27,14 @@ def get_locale():
 
 def create_app(config_class=Config):
     load_dotenv() # Load environment variables
-    app = Flask(__name__)
+    app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_class)
+
+    # ensure the instance folder exists
+    try:
+        os.makedirs(app.instance_path)
+    except OSError:
+        pass
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -73,13 +79,6 @@ def create_app(config_class=Config):
     from app.api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
 
-    with app.app_context():
-        db.create_all() # Ensure tables are created
 
-        # Check if an admin user exists, if not, create one
-    with app.app_context(): # Push application context here
-        # Check for and create admin user if none exists
-        if not User.check_for_admin_user():
-            User.create_admin_user(app.config['ADMIN_EMAIL'], app.config['ADMIN_PASSWORD'])
 
     return app

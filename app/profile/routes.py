@@ -3,13 +3,18 @@ import io
 from flask import render_template, flash, redirect, url_for, current_app, request, send_file, abort, jsonify
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from weasyprint import HTML
+import re
+from fpdf import FPDF
+from fpdf.html import HTMLMixin
 from datetime import datetime, timedelta
 
 from app import db, mail
 from app.profile import bp
 from app.models import User, Competency, Skill, SkillPracticeEvent, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus, TrainingSession
 from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, SkillPracticeEventForm, ProposeSkillForm
+
+class MyFPDF(FPDF, HTMLMixin):
+    pass
 
 @bp.route('/<int:user_id>')
 @bp.route('/')
@@ -213,10 +218,16 @@ def generate_certificate(competency_id):
     if comp.user_id != current_user.id and not current_user.is_admin:
         abort(403)
     
-    html = render_template('certificates/certificate.html', competency=comp)
-    pdf = HTML(string=html, base_url=request.url_root).write_pdf()
+    html = render_template('certificates/certificate.html', competency=comp, current_date=datetime.utcnow())
+    html = re.sub(r'<style.*?</style>', '', html, flags=re.DOTALL) # Remove style blocks
     
-    return send_file(io.BytesIO(pdf), as_attachment=True,
+    pdf = MyFPDF()
+    pdf.add_page()
+    pdf.write_html(html)
+    
+    pdf_output = pdf.output(dest='S')
+    
+    return send_file(io.BytesIO(pdf_output), as_attachment=True,
                      download_name=f"certificate_{comp.user.full_name.replace(' ', '_')}_{comp.skill.name.replace(' ', '_')}.pdf",
                      mimetype='application/pdf')
 
@@ -247,8 +258,14 @@ def generate_user_booklet_pdf(user_id):
             comp.recycling_due_date = None
 
     html = render_template('certificates/booklet.html', user=user, competencies=competencies, current_date=datetime.utcnow())
-    pdf = HTML(string=html, base_url=request.url_root).write_pdf()
-
-    return send_file(io.BytesIO(pdf), as_attachment=True,
+    html = re.sub(r'<style.*?</style>', '', html, flags=re.DOTALL) # Remove style blocks
+    
+    pdf = MyFPDF()
+    pdf.add_page()
+    pdf.write_html(html)
+    
+    pdf_output = pdf.output(dest='S')
+    
+    return send_file(io.BytesIO(pdf_output), as_attachment=True,
                      download_name=f"booklet_{user.full_name.replace(' ', '_')}.pdf",
                      mimetype='application/pdf')

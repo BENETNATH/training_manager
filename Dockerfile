@@ -4,7 +4,7 @@ FROM python:3.9-slim-buster
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies required for WeasyPrint and other packages
+# Install system dependencies required for wkhtmltopdf and other packages
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     python3-dev \
     python3-pip \
-    wkhtmltopdf \
+
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 

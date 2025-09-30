@@ -533,6 +533,7 @@ def delete_training_path(id):
 @admin_required
 def import_export_users():
     form = ImportForm()
+    form.update_existing.label.text = "Update existing users if emails match?"
     if form.validate_on_submit():
         if form.import_file.data:
             file = form.import_file.data
@@ -543,6 +544,7 @@ def import_export_users():
                 sheet = workbook.active
                 
                 users_imported = 0
+                users_updated = 0
                 for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True)): # Skip header
                     try:
                         # Assuming Excel columns: full_name, email, password, is_admin, is_team_lead, team_name
@@ -553,22 +555,50 @@ def import_export_users():
                             is_admin = str(is_admin_str).lower() == 'true'
                             is_team_lead = str(is_team_lead_str).lower() == 'true'
                             
-                            team = Team.query.filter_by(name=team_name).first()
-                            if not team:
-                                team = Team(name=team_name)
-                                db.session.add(team)
-                                db.session.commit() # Commit to get team ID
-                            
-                            user = User(full_name=full_name, email=email, is_admin=is_admin, is_team_lead=is_team_lead, team=team)
+                            user = User(full_name=full_name, email=email, is_admin=is_admin)
                             user.set_password(password)
+                            
+                            if team_name:
+                                team = Team.query.filter_by(name=team_name).first()
+                                if not team:
+                                    team = Team(name=team_name)
+                                    db.session.add(team)
+                                
+                                user.teams.append(team)
+                                if is_team_lead:
+                                    user.teams_as_lead.append(team)
+                            
                             db.session.add(user)
                             users_imported += 1
+                        elif form.update_existing.data:
+                            user.full_name = full_name
+                            user.is_admin = str(is_admin_str).lower() == 'true'
+                            if password:
+                                user.set_password(password)
+                            
+                            is_team_lead = str(is_team_lead_str).lower() == 'true'
+                            
+                            # Clear existing teams and leadership roles
+                            user.teams.clear()
+                            user.teams_as_lead.clear()
+
+                            if team_name:
+                                team = Team.query.filter_by(name=team_name).first()
+                                if not team:
+                                    team = Team(name=team_name)
+                                    db.session.add(team)
+                                
+                                user.teams.append(team)
+                                if is_team_lead:
+                                    user.teams_as_lead.append(team)
+                            users_updated += 1
+
                     except Exception as e:
                         flash(f"Error importing row {row_idx+1}: {row} - {e}", 'danger')
                         db.session.rollback()
                         continue
                 db.session.commit()
-                flash(f"{users_imported} users imported successfully from Excel!", 'success')
+                flash(f"{users_imported} users imported, {users_updated} users updated successfully from Excel!", 'success')
             else:
                 flash('Unsupported file format. Please upload an XLSX file.', 'danger')
             
@@ -595,11 +625,11 @@ def export_users_xlsx():
     sheet.title = "Users"
 
     # Write header
-    sheet.append(['full_name', 'email', 'is_admin', 'is_team_lead', 'team_name'])
+    sheet.append(['full_name', 'email', 'password', 'is_admin', 'is_team_lead', 'team_name'])
 
     # Write data
     for user in users:
-        sheet.append([user.full_name, user.email, user.is_admin, user.is_team_lead, user.team.name if user.team else ''])
+        sheet.append([user.full_name, user.email, '', user.is_admin, bool(user.teams_as_lead), user.teams[0].name if user.teams else ''])
     
     output = io.BytesIO()
     workbook.save(output)
@@ -1162,5 +1192,4 @@ def list_training_requests():
 def tutor_less_skills_report():
     # This will require a more complex query to find skills with no associated tutors
     skills_without_tutors = Skill.query.filter(~Skill.tutors.any()).all()
-    flash('Skills without tutors report is not yet fully implemented.', 'info')
     return render_template('admin/tutor_less_skills_report.html', title='Skills Without Tutors Report', skills=skills_without_tutors)

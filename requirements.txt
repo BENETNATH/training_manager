@@ -11,11 +11,10 @@ python-dotenv
 flask-mail
 ics
 openpyxl
-weasyprint
 gunicorn
 Flask-Testing
 Flask-WTF
 WTForms-SQLAlchemy
 email_validator
 Faker
-pymysql
+fpdf2

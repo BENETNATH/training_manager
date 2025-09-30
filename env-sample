@@ -1,0 +1,20 @@
+# Flask App Configuration
+SECRET_KEY=your_super_secret_key_here
+FLASK_DEBUG=True
+
+# Database Configuration (Example for SQLite)
+# DATABASE_URL="sqlite:///instance/app.db"
+
+# Database Configuration (Example for MySQL/MariaDB)
+DATABASE_URL="mysql+pymysql://user:password@hostname/db_name"
+
+# Admin User Configuration
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=a_strong_password_here
+
+# Email Configuration (Example for a generic SMTP server)
+MAIL_SERVER=smtp.example.com
+MAIL_PORT=587
+MAIL_USE_TLS=True
+MAIL_USERNAME=your_email@example.com
+MAIL_PASSWORD=your_email_password
