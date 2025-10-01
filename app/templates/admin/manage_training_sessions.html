@@ -6,7 +6,7 @@
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
             <h6 class="m-0 font-weight-bold text-primary">Toutes les Sessions de Formation</h6>
-            <button class="btn btn-primary btn-sm" id="add-session-btn">Créer une session</button>
+            <a href="{{ url_for('admin.create_training_session') }}" class="btn btn-primary btn-sm">Créer une session</a>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -18,6 +18,8 @@
                             <th>Début</th>
                             <th>Fin</th>
                             <th>Tuteur</th>
+                            <th>Approbation Éthique</th>
+                            <th>Nb Animaux</th>
                             <th>Participants</th>
                             <th>Compétences Couvertes</th>
                             <th>Espèce(s)</th>
@@ -26,47 +28,32 @@
                     </thead>
                     <tbody>
                         {% for session in training_sessions %}
-                        <tr id="session-row-{{ session.id }}">
+                        <tr id="session-row-{{ session.id }}" class="{% if session.skills_covered and not session.tutors %}table-warning{% endif %}">
                             <td>{{ session.title }}</td>
                             <td>{{ session.location }}</td>
                             <td>{{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
                             <td>{{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                            <td>{{ session.tutor.full_name if session.tutor else 'N/A' }}</td>
-                            <td>{{ session.attendees|length }}</td>
-                            <td>{{ session.skills_covered|length }}</td>
                             <td>
-                                {% for species in session.associated_species %}
-                                    <span class="badge bg-secondary">{{ species.name }}</span>
+                                {% for tutor in session.tutors %}
+                                    <span class="badge bg-info">{{ tutor.full_name }}</span>
+                                {% else %}
+                                    N/A
                                 {% endfor %}
                             </td>
+                            <td>{{ session.ethical_authorization_id if session.ethical_authorization_id else 'N/A' }}</td>
+                            <td>{{ session.animal_count if session.animal_count is not none else 'N/A' }}</td>
+                            <td>{{ session.attendees|length }}</td>
+                            <td>{{ session.skills_covered|length }}</td>
+                            <td>{{ session.main_species.name if session.main_species else 'N/A' }}</td>
                             <td>
                                 <a href="{{ url_for('admin.view_training_session_details', session_id=session.id) }}" class="btn btn-sm btn-info" title="Voir détails"><i class="fa fa-eye"></i></a>
-                                <a href="#" class="btn btn-sm btn-warning edit-session-btn" data-edit-url="{{ url_for('admin.edit_training_session', session_id=session.id) }}" title="Éditer"><i class="fa fa-edit"></i></a>
+                                <a href="{{ url_for('admin.edit_training_session', session_id=session.id) }}" class="btn btn-sm btn-warning" title="Éditer"><i class="fa fa-edit"></i></a>
                                 <button class="btn btn-sm btn-danger delete-session-btn" data-session-id="{{ session.id }}" data-delete-url="{{ url_for('admin.delete_training_session', session_id=session.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Placeholder for Add/Edit Session -->
-    <div class="modal fade" id="session-form-modal" tabindex="-1" aria-labelledby="session-form-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="session-form-modal-label"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Session form will be loaded here via AJAX -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                    <button type="button" class="btn btn-primary" id="submit-session-form-btn">Sauvegarder</button>
-                </div>
             </div>
         </div>
     </div>
@@ -105,138 +92,6 @@ $(document).ready(function() {
         language: frenchLanguage
     });
 
-    // Handle modal opening for add session
-    var sessionFormModal = new bootstrap.Modal(document.getElementById('session-form-modal'));
-    var editingSessionRow = null;
-
-    $('#add-session-btn').on('click', function() {
-        var addUrl = "{{ url_for('admin.add_training_session') }}";
-        editingSessionRow = null; // Ensure we are in 'add' mode
-
-        $('#session-form-modal-label').text('Créer une Session de Formation');
-
-        fetch(addUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.text())
-        .then(html => {
-            $('#session-form-modal .modal-body').html(
-                `<form id="modal-session-form" action="${addUrl}" method="post" novalidate enctype="multipart/form-data">${html}</form>`
-            );
-            sessionFormModal.show();
-        })
-        .catch(error => {
-            console.error('Error loading session form:', error);
-            alert('Erreur lors du chargement du formulaire de session.');
-        });
-    });
-
-    // Handle modal opening for edit session
-    $('#training-sessions-table').on('click', '.edit-session-btn', function() {
-        var button = $(this);
-        var editUrl = button.data('edit-url');
-        editingSessionRow = button.closest('tr'); // Save the row being edited
-
-        $('#session-form-modal-label').text('Éditer la Session de Formation');
-
-        fetch(editUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.text())
-        .then(html => {
-            $('#session-form-modal .modal-body').html(
-                `<form id="modal-session-form" action="${editUrl}" method="post" novalidate enctype="multipart/form-data">${html}</form>`
-            );
-            sessionFormModal.show();
-        })
-        .catch(error => {
-            console.error('Error loading session form:', error);
-            alert('Erreur lors du chargement du formulaire de session.');
-        });
-    });
-
-    // Handle form submission from the session modal (for both add and edit)
-    $('#submit-session-form-btn').on('click', function() {
-        $('#modal-session-form').submit();
-    });
-
-    $('#session-form-modal').on('submit', '#modal-session-form', function(e) {
-        e.preventDefault();
-        var form = $(this);
-        var url = form.attr('action');
-        var formData = new FormData(this);
-        var csrfToken = $('meta[name=csrf-token]').attr('content');
-        console.log('CSRF Token:', csrfToken);
-
-        fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                var session = data.session;
-                var speciesHtml = session.associated_species.map(s => `<span class="badge bg-secondary">${s}</span>`).join(' ');
-
-                var table = $('#training-sessions-table').DataTable();
-                
-                // Create the action buttons HTML
-                var actionsHtml = 
-                    `<a href="/admin/training_sessions/${session.id}" class="btn btn-sm btn-info" title="Voir détails"><i class="fa fa-eye"></i></a> ` +
-                    `<button class="btn btn-sm btn-warning edit-session-btn" data-edit-url="/admin/training_sessions/edit/${session.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
-                    `<button class="btn btn-sm btn-danger delete-session-btn" data-session-id="${session.id}" data-delete-url="/admin/training_sessions/delete/${session.id}" title="Supprimer"><i class="fa fa-trash"></i></button>`;
-
-                if (editingSessionRow) {
-                    // Update existing row
-                    table.row(editingSessionRow).data([
-                        session.title,
-                        session.location,
-                        session.start_time,
-                        session.end_time,
-                        session.tutor_name,
-                        session.attendees_count,
-                        session.skills_covered_count,
-                        speciesHtml,
-                        actionsHtml
-                    ]).draw();
-                } else {
-                    // Add new row
-                    table.row.add([
-                        session.title,
-                        session.location,
-                        session.start_time,
-                        session.end_time,
-                        session.tutor_name,
-                        session.attendees_count,
-                        session.skills_covered_count,
-                        speciesHtml,
-                        actionsHtml
-                    ]).draw();
-                }
-
-                sessionFormModal.hide();
-            } else {
-                if (data.form_html) {
-                    form.html(data.form_html); // Re-render form with errors
-                } else {
-                    alert(data.message || 'Erreur lors de la sauvegarde de la session.');
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Une erreur réseau est survenue.');
-        });
-    });
-
     // Handle session deletion
     $('#training-sessions-table').on('click', '.delete-session-btn', function() {
         var button = $(this);
@@ -269,6 +124,6 @@ $(document).ready(function() {
             });
         }
     });
-    });
+});
 </script>
 {% endblock %}

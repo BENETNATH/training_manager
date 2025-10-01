@@ -8,7 +8,7 @@ from app import db
 from app.admin import bp
 from app.admin.forms import UserForm, TeamForm, SpeciesForm, SkillForm, TrainingPathForm, ImportForm, AddUserToTeamForm, TrainingValidationForm, AttendeeValidationForm, CompetencyValidationForm
 from app.training.forms import TrainingSessionForm # Import TrainingSessionForm
-from app.models import User, Team, Species, Skill, TrainingPath, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim
+from app.models import User, Team, Species, Skill, TrainingPath, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim, TrainingSessionTutorSkill
 from app.decorators import admin_required
 from sqlalchemy import func, extract
 import openpyxl # Import openpyxl
@@ -896,10 +896,10 @@ def export_skills_xlsx():
 
 
 
-@bp.route('/training_sessions/add', methods=['GET', 'POST'])
+@bp.route('/training_sessions/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def add_training_session():
+def create_training_session():
     form = TrainingSessionForm()
     if form.validate_on_submit():
         session = TrainingSession(
@@ -907,10 +907,33 @@ def add_training_session():
             location=form.location.data,
             start_time=form.start_time.data,
             end_time=form.end_time.data,
-            tutor=form.tutor.data,
+            main_species=Species.query.get(request.form.get('main_species')),
             ethical_authorization_id=form.ethical_authorization_id.data,
             animal_count=form.animal_count.data
         )
+        
+        skill_ids = request.form.getlist('skill')
+        tutor_ids = request.form.getlist('tutors')
+        tutor_skill_mapping = request.form.getlist('tutor_skill_mapping')
+
+        if skill_ids:
+            skills = Skill.query.filter(Skill.id.in_(skill_ids)).all()
+            session.skills_covered = skills
+        
+        if tutor_ids:
+            tutors = User.query.filter(User.id.in_(tutor_ids)).all()
+            session.tutors = tutors
+
+        # Handle tutor-skill mapping
+        for mapping in tutor_skill_mapping:
+            tutor_id, skill_id = map(int, mapping.split('-'))
+            tutor_skill = TrainingSessionTutorSkill(
+                training_session=session,
+                tutor_id=tutor_id,
+                skill_id=skill_id
+            )
+            db.session.add(tutor_skill)
+
         if form.attachment.data:
             filename = secure_filename(form.attachment.data.filename)
             upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'training_sessions')
@@ -920,35 +943,16 @@ def add_training_session():
             session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
 
         session.attendees = form.attendees.data
-        session.skills_covered = form.skills_covered.data
         
         db.session.add(session)
         db.session.commit()
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                'success': True,
-                'message': 'Session de formation créée avec succès !',
-                'session': {
-                    'id': session.id,
-                    'title': session.title,
-                    'location': session.location,
-                    'start_time': session.start_time.strftime('%Y-%m-%d %H:%M'),
-                    'end_time': session.end_time.strftime('%Y-%m-%d %H:%M'),
-                    'tutor_name': session.tutor.full_name if session.tutor else 'N/A',
-                    'attendees_count': len(session.attendees),
-                    'skills_covered_count': len(session.skills_covered),
-                    'associated_species': [s.name for s in session.associated_species]
-                }
-            })
-
         flash('Session de formation créée avec succès !', 'success')
         return redirect(url_for('admin.manage_training_sessions'))
     
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return render_template('admin/_training_session_form_fields.html', form=form)
+    return render_template('admin/create_training_session.html', title='Create Training Session', form=form, session=None)
 
-    return render_template('admin/training_session_form.html', title='Create Training Session', form=form)
+
 
 @bp.route('/training_sessions')
 @login_required
@@ -968,7 +972,7 @@ def edit_training_session(session_id):
         session.location = form.location.data
         session.start_time = form.start_time.data
         session.end_time = form.end_time.data
-        session.tutor = form.tutor.data
+        session.main_species = Species.query.get(request.form.get('main_species'))
         session.ethical_authorization_id = form.ethical_authorization_id.data
         session.animal_count = form.animal_count.data
 
@@ -981,46 +985,44 @@ def edit_training_session(session_id):
             session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
 
         session.attendees = form.attendees.data
-        session.skills_covered = form.skills_covered.data
         
-        db.session.commit()
+        # Handle skills covered
+        skill_ids = request.form.getlist('skill')
+        if skill_ids:
+            skills = Skill.query.filter(Skill.id.in_(skill_ids)).all()
+            session.skills_covered = skills
+        else:
+            session.skills_covered = []
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                'success': True,
-                'message': 'Session de formation mise à jour avec succès !',
-                'session': {
-                    'id': session.id,
-                    'title': session.title,
-                    'location': session.location,
-                    'start_time': session.start_time.strftime('%Y-%m-%d %H:%M'),
-                    'end_time': session.end_time.strftime('%Y-%m-%d %H:%M'),
-                    'tutor_name': session.tutor.full_name if session.tutor else 'N/A',
-                    'attendees_count': len(session.attendees),
-                    'skills_covered_count': len(session.skills_covered),
-                    'associated_species': [s.name for s in session.associated_species]
-                }
-            })
+        # Handle tutors
+        tutor_ids = request.form.getlist('tutors')
+        if tutor_ids:
+            tutors = User.query.filter(User.id.in_(tutor_ids)).all()
+            session.tutors = tutors
+        else:
+            session.tutors = []
+
+        # Handle tutor-skill mapping
+        # Clear existing mappings
+        TrainingSessionTutorSkill.query.filter_by(training_session_id=session.id).delete()
+        db.session.commit() # Commit the deletion before adding new ones
+
+        tutor_skill_mappings = request.form.getlist('tutor_skill_mapping')
+        for mapping in tutor_skill_mappings:
+            tutor_id, skill_id = map(int, mapping.split('-'))
+            tutor_skill = TrainingSessionTutorSkill(
+                training_session_id=session.id,
+                tutor_id=tutor_id,
+                skill_id=skill_id
+            )
+            db.session.add(tutor_skill)
+
+        db.session.commit()
 
         flash('Session de formation mise à jour avec succès !', 'success')
         return redirect(url_for('admin.manage_training_sessions'))
     
-    elif request.method == 'GET':
-        # Pre-populate form fields for GET request
-        form.title.data = session.title
-        form.location.data = session.location
-        form.start_time.data = session.start_time
-        form.end_time.data = session.end_time
-        form.tutor.data = session.tutor
-        form.ethical_authorization_id.data = session.ethical_authorization_id
-        form.animal_count.data = session.animal_count
-        form.attendees.data = session.attendees
-        form.skills_covered.data = session.skills_covered
-
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return render_template('admin/_training_session_form_fields.html', form=form)
-
-    return render_template('admin/training_session_form.html', title='Edit Training Session', form=form)
+    return render_template('admin/create_training_session.html', title='Edit Training Session', form=form, session=session)
 
 @bp.route('/training_sessions/delete/<int:session_id>', methods=['POST'])
 @login_required

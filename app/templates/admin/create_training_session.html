@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Créer une Session de Formation</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Détails de la Session</h6>
+        </div>
+        <div class="card-body">
+            <form id="create-session-form" action="{% if session %}{{ url_for('admin.edit_training_session', session_id=session.id) }}{% else %}{{ url_for('admin.create_training_session') }}{% endif %}" method="post" novalidate enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="main-species-select" class="form-label">Espèce Principale</label>
+                            <select id="main-species-select" name="main_species" class="form-control"></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="skill-select" class="form-label">Compétence(s)</label>
+                            <select id="skill-select" name="skill" class="form-control" multiple></select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tutor-select" class="form-label">Tuteur(s)</label>
+                            <select id="tutor-select" name="tutors" class="form-control" multiple></select>
+                        </div>
+                        <div id="tutor-skill-mapping" class="mb-3"></div>
+                    </div>
+                    <div class="col-md-6">
+                        {% include 'admin/_create_training_session_form_fields.html' %}
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">Créer la Session</button>
+                    <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // Initialize select2
+    $('#main-species-select').select2({
+        placeholder: "Sélectionner une espèce principale",
+        allowClear: true
+    });
+    $('#skill-select').select2({
+        placeholder: "Sélectionner une ou plusieurs compétences",
+        allowClear: true
+    });
+    $('#tutor-select').select2({
+        placeholder: "Sélectionner un ou plusieurs tuteurs",
+        allowClear: true
+    });
+    $('#attendees').select2({
+        placeholder: "Sélectionner les participants",
+        allowClear: true
+    });
+
+    // Fetch all species for the main species select
+    fetch("{{ url_for('api.species_species_list') }}")
+        .then(response => response.json())
+        .then(data => {
+            data.forEach(species => {
+                var option = new Option(species.name, species.id, false, false);
+                $('#main-species-select').append(option);
+            });
+            // Pre-select species if editing
+            {% if session and session.id %}
+                var sessionSpeciesId = {{ session.associated_species[0].id }};
+                $('#main-species-select').val(sessionSpeciesId).trigger('change');
+            {% else %}
+                $('#main-species-select').trigger('change');
+            {% endif %}
+        });
+
+    // Debounce function
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), delay);
+        };
+    }
+
+    const debouncedUpdateTutorSkillMapping = debounce(updateTutorSkillMapping, 200);
+
+    // Handle main species selection change
+    $('#main-species-select').on('change', function() {
+        var speciesId = $(this).val();
+        $('#skill-select').empty().trigger('change'); // Clear skills when species changes
+        if (speciesId) {
+            // Fetch skills for the selected species
+            fetch(`/api/species/${speciesId}/skills`)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(skill => {
+                        var option = new Option(skill.name, skill.id, false, false);
+                        $('#skill-select').append(option);
+                    });
+                    // Pre-select skills if editing
+                    {% if session and session.id and session.skills_covered %}
+                        var sessionSkillIds = [ {% for skill in session.skills_covered %}{{ skill.id }},{% endfor %} ];
+                        $('#skill-select').val(sessionSkillIds).trigger('change');
+                    {% else %}
+                        $('#skill-select').trigger('change');
+                    {% endif %}
+                });
+        } else {
+            $('#skill-select').empty().trigger('change');
+        }
+        debouncedUpdateTutorSkillMapping();
+    });
+
+    // Handle skill selection change
+    $('#skill-select').on('change', function() {
+        var skillIds = $(this).val();
+        if (skillIds && skillIds.length > 0) {
+            // Fetch tutors
+            fetch("{{ url_for('api.skills_skill_tutors') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({skill_ids: skillIds})
+            })
+                .then(response => response.json())
+                .then(data => {
+                    $('#tutor-select').empty();
+                    data.tutors.forEach(tutor => {
+                        var option = new Option(tutor.full_name, tutor.id, false, false);
+                        $('#tutor-select').append(option);
+                    });
+                    // Pre-select tutors if editing
+                    {% if session and session.id and session.tutors %}
+                        var sessionTutorIds = [ {% for tutor in session.tutors %}{{ tutor.id }},{% endfor %} ];
+                        $('#tutor-select').val(sessionTutorIds).trigger('change');
+                    {% else %}
+                        $('#tutor-select').trigger('change');
+                    {% endif %}
+                });
+        } else {
+            $('#tutor-select').empty().trigger('change');
+        }
+        debouncedUpdateTutorSkillMapping();
+    });
+
+    // Handle tutor selection change
+    $('#tutor-select').on('change', function() {
+        debouncedUpdateTutorSkillMapping();
+    });
+
+    // Pre-check if editing and mapping exists
+    var initialTutorSkillMappings = [];
+    {% if session and session.id and session.tutor_skill_mappings %}
+        {% for mapping in session.tutor_skill_mappings %}
+            initialTutorSkillMappings.push({ tutor_id: {{ mapping.tutor_id }}, skill_id: {{ mapping.skill_id }} });
+        {% endfor %}
+    {% endif %}
+
+    function updateTutorSkillMapping() {
+        console.log("updateTutorSkillMapping called");
+        var skillIds = $('#skill-select').val();
+        var tutorIds = $('#tutor-select').val();
+        var mappingTable = $('#tutor-skill-mapping');
+        mappingTable.empty(); // Clear existing table
+
+        if (skillIds && skillIds.length > 0 && tutorIds && tutorIds.length > 0) {
+            // Fetch all skills for all selected tutors
+            var tutorSkillsPromises = tutorIds.map(tutorId =>
+                fetch(`/api/tutors/${tutorId}/skills`)
+                    .then(response => response.json())
+                    .then(data => ({ tutorId: tutorId, skills: data }))
+            );
+
+            // Fetch current session's tutor skill mappings if editing
+            var sessionTutorSkillMappingsPromise = Promise.resolve([]);
+            {% if session %}
+                sessionTutorSkillMappingsPromise = fetch(`/api/training_sessions/{{ session.id }}/tutor_skill_mappings`)
+                    .then(response => response.json());
+            {% endif %}
+
+            Promise.all([Promise.all(tutorSkillsPromises), sessionTutorSkillMappingsPromise]).then(results => {
+                var tutorSkillsData = results[0];
+                var sessionTutorSkillMappings = results[1];
+
+                var tutorSkillsMap = {};
+                tutorSkillsData.forEach(item => {
+                    tutorSkillsMap[item.tutorId] = item.skills.map(s => s.id);
+                });
+
+                var table = $('<table class="table table-bordered"></table>');
+                var thead = $('<thead><tr><th>Compétence</th></tr></thead>');
+                var tbody = $('<tbody></tbody>');
+
+                tutorIds.forEach(tutorId => {
+                    var tutorName = $('#tutor-select option[value="' + tutorId + '"]').text();
+                    thead.find('tr').append('<th>' + tutorName + '</th>');
+                });
+
+                skillIds.forEach(skillId => {
+                    var skillName = $('#skill-select option[value="' + skillId + '"]').text();
+                    var row = $('<tr><td>' + skillName + '</td></tr>');
+                    tutorIds.forEach(tutorId => {
+                        var cell = $('<td></td>');
+                        var checkbox = $('<input type="checkbox" name="tutor_skill_mapping" value="' + tutorId + '-' + skillId + '" />');
+                        
+                        // Disable checkbox if tutor is not qualified for the skill
+                        if (!tutorSkillsMap[tutorId] || !tutorSkillsMap[tutorId].includes(parseInt(skillId))) {
+                            checkbox.prop('disabled', true);
+                        }
+
+                        // Pre-check if editing and mapping exists
+                        var isMapped = sessionTutorSkillMappings.some(mapping => {
+                            return mapping.tutor_id == tutorId && mapping.skill_id == skillId;
+                        });
+                        if (isMapped) {
+                            checkbox.prop('checked', true);
+                        }
+
+                        cell.append(checkbox);
+                        row.append(cell);
+                    });
+                    tbody.append(row);
+                });
+
+                table.append(thead);
+                table.append(tbody);
+                mappingTable.append(table);
+            });
+        }
+    }
+
+    // Handle checkbox change for validity check
+    $('#tutor-skill-mapping').on('change', 'input[type="checkbox"]', function() {
+        var checkbox = $(this);
+        if (checkbox.is(':checked')) {
+            var values = checkbox.val().split('-');
+            var tutorId = values[0];
+            var skillId = values[1];
+            var trainingDate = $('#start_time').val().split('T')[0];
+
+            if (tutorId && skillId && trainingDate) {
+                fetch(`/api/tutors/${tutorId}/check_validity`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({skill_id: skillId, training_date: trainingDate})
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.is_valid) {
+                            alert(data.message);
+                            checkbox.prop('checked', false);
+                        }
+                    });
+            }
+        }
+    });
+    $('#create-session-form').on('submit', function(e) {
+        var startTime = new Date($('#start_time').val());
+        var endTime = new Date($('#end_time').val());
+
+        if (endTime <= startTime) {
+            alert('L\'heure de fin doit être postérieure à l\'heure de début.');
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -2,7 +2,7 @@ from flask import jsonify, request
 from flask_restx import Resource, fields
 from app.api import api
 from app import db
-from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, Complexity, TrainingRequestStatus, ExternalTrainingStatus
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, Complexity, TrainingRequestStatus, ExternalTrainingStatus, TrainingSessionTutorSkill
 from werkzeug.security import generate_password_hash
 from functools import wraps # Import wraps
 import secrets # Import secrets
@@ -115,6 +115,12 @@ skill_ids_payload = api.model('SkillIdsPayload', {
 })
 
 
+tutor_validity_payload = api.model('TutorValidityPayload', {
+    'skill_id': fields.Integer(required=True, description='Skill ID'),
+    'training_date': fields.String(required=True, description='Date of the training')
+})
+
+
 # API Key Authentication
 def token_required(f):
     @api.doc(security='apikey')
@@ -146,6 +152,7 @@ ns_users = api.namespace('users', description='User operations')
 ns_teams = api.namespace('teams', description='Team operations')
 ns_species = api.namespace('species', description='Species operations')
 ns_skills = api.namespace('skills', description='Skill operations')
+ns_tutors = api.namespace('tutors', description='Tutor operations')
 ns_training_paths = api.namespace('training_paths', description='Training Path operations')
 ns_training_sessions = api.namespace('training_sessions', description='Training Session operations')
 ns_competencies = api.namespace('competencies', description='Competency operations')
@@ -314,6 +321,18 @@ class SpeciesList(Resource):
         db.session.commit()
         return species, 201
 
+@ns_species.route('/<int:id>/skills')
+@api.response(404, 'Species not found')
+@api.param('id', 'The species identifier')
+class SpeciesSkills(Resource):
+    @api.marshal_list_with(skill_model)
+    @api.doc(security='apikey')
+    @token_required
+    def get(self, id):
+        """Retrieve skills for a species by ID"""
+        species = Species.query.get_or_404(id)
+        return species.skills
+
 @ns_species.route('/<int:id>')
 @api.response(404, 'Species not found')
 @api.param('id', 'The species identifier')
@@ -416,6 +435,18 @@ class TrainingPathResource(Resource):
         return '', 204
 
 # Training Session Endpoints
+@ns_training_sessions.route('/<int:id>/tutor_skill_mappings')
+@api.response(404, 'Training Session not found')
+@api.param('id', 'The training session identifier')
+class TrainingSessionTutorSkillMapping(Resource):
+    @api.doc(security='apikey')
+    @token_required
+    def get(self, id):
+        """Retrieve tutor skill mappings for a training session by ID"""
+        session = TrainingSession.query.get_or_404(id)
+        mappings = TrainingSessionTutorSkill.query.filter_by(training_session_id=session.id).all()
+        return [{'tutor_id': m.tutor_id, 'skill_id': m.skill_id} for m in mappings]
+
 @ns_training_sessions.route('/')
 class TrainingSessionList(Resource):
     @api.marshal_list_with(training_session_model)
@@ -784,7 +815,7 @@ class ExternalTrainingResource(Resource):
 
 # Skill Endpoints
 @ns_skills.route('/')
-class SkillList(Resource):
+class SkillListResource(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
     @token_required
@@ -816,28 +847,92 @@ class SkillList(Resource):
         db.session.commit()
         return skill, 201
 
-@ns_skills.route('/tutors_for_skills')
-class SkillTutors(Resource):
-    @api.doc(description='Get tutors who can teach all specified skills.')
-    @api.expect(skill_ids_payload) # Add this decorator
-    @token_required # Add this decorator
+@ns_skills.route('/species')
+class SkillSpecies(Resource):
+    @api.doc(description='Get species for a list of skills.')
+    @api.expect(skill_ids_payload)
+    @token_required
     def post(self):
-        """Get tutors for a list of skills"""
-        data = api.payload # Use api.payload to get validated data
-        skill_ids = data['skill_ids'] # skill_ids is guaranteed to be present and a list of integers
-
-        # Log the incoming skill_ids for debugging
-        print(f"Received skill_ids for tutors_for_skills: {skill_ids} (Type: {type(skill_ids)})")
+        """Get species for a list of skills"""
+        data = api.payload
+        skill_ids = data['skill_ids']
 
         if not skill_ids:
-            return jsonify({'tutors': []}), 200
+            return jsonify({'species': []})
 
         # Find all skills first
         skills = Skill.query.filter(Skill.id.in_(skill_ids)).all()
         if not skills or len(skills) != len(skill_ids):
-            # Some skills were not found, or no skills were provided
-            # This case should ideally not happen if skill_ids are valid, but good to keep
-            return jsonify({'tutors': []}), 200
+            return jsonify({'species': []})
+
+        # Get all species for the first skill
+        common_species = set(skills[0].species)
+
+        # Intersect with species of other skills
+        for skill in skills[1:]:
+            common_species.intersection_update(skill.species)
+
+        # Prepare response with species details
+        species_data = []
+        for species in common_species:
+            species_data.append({
+                'id': species.id,
+                'name': species.name,
+            })
+
+        return jsonify({'species': species_data})
+
+@ns_skills.route('/tutors')
+class SkillTutors(Resource):
+    @api.doc(description='Get tutors for a list of skills.')
+    @api.expect(skill_ids_payload)
+    @token_required
+    def post(self):
+        """Get tutors for a list of skills"""
+        data = api.payload
+        skill_ids = data['skill_ids']
+
+        if not skill_ids:
+            return jsonify({'tutors': []})
+
+        # Find all skills first
+        skills = Skill.query.filter(Skill.id.in_(skill_ids)).all()
+        if not skills or len(skills) != len(skill_ids):
+            return jsonify({'tutors': []})
+
+        # Get all tutors that can teach at least one of the selected skills
+        tutors = set()
+        for skill in skills:
+            tutors.update(skill.tutors)
+
+        # Prepare response with tutor details
+        tutors_data = []
+        for tutor in tutors:
+            tutors_data.append({
+                'id': tutor.id,
+                'full_name': tutor.full_name,
+                'email': tutor.email,
+            })
+
+        return jsonify({'tutors': tutors_data})
+
+@ns_skills.route('/tutors_for_skills')
+class SkillTutorsForSkills(Resource):
+    @api.doc(description='Get tutors who can teach all specified skills.')
+    @api.expect(skill_ids_payload)
+    @token_required
+    def post(self):
+        """Get tutors for a list of skills"""
+        data = api.payload
+        skill_ids = data['skill_ids']
+
+        if not skill_ids:
+            return jsonify({'tutors': []})
+
+        # Find all skills first
+        skills = Skill.query.filter(Skill.id.in_(skill_ids)).all()
+        if not skills or len(skills) != len(skill_ids):
+            return jsonify({'tutors': []})
 
         # Get all potential tutors (users who can tutor at least one of the requested skills)
         # and then filter them down to those who can tutor ALL requested skills.
@@ -860,7 +955,7 @@ class SkillTutors(Resource):
                 'email': tutor.email,
             })
 
-        return jsonify({'tutors': tutors_data}), 200
+        return jsonify({'tutors': tutors_data})
 
 @ns_skills.route('/<int:id>')
 @api.response(404, 'Skill not found')
@@ -908,8 +1003,52 @@ class SkillResource(Resource):
         db.session.commit()
         return '', 204
 
+@ns_tutors.route('/<int:id>/skills')
+@api.response(404, 'Tutor not found')
+@api.param('id', 'The tutor identifier')
+class TutorSkills(Resource):
+    @api.marshal_list_with(skill_model)
+    @api.doc(security='apikey')
+    @token_required
+    def get(self, id):
+        """Retrieve skills for a tutor by ID"""
+        tutor = User.query.get_or_404(id)
+        return tutor.tutored_skills
+
+@ns_tutors.route('/<int:id>/check_validity')
+@api.response(404, 'Tutor not found')
+@api.param('id', 'The tutor identifier')
+class TutorValidity(Resource):
+    @api.doc(description='Check if a tutor is valid for a given skill and a training date.')
+    @api.expect(tutor_validity_payload)
+    @token_required
+    def post(self, id):
+        """Check tutor validity"""
+        data = api.payload
+        skill_id = data['skill_id']
+        training_date = datetime.strptime(data['training_date'], '%Y-%m-%d')
+
+        tutor = User.query.get_or_404(id)
+
+        skill = Skill.query.get_or_404(skill_id)
+
+        if tutor not in skill.tutors:
+            return jsonify({'is_valid': False, 'message': f'{tutor.full_name} is not a tutor for {skill.name}.'})
+
+        # Check recycling period
+        competency = Competency.query.filter_by(user_id=id, skill_id=skill.id).order_by(Competency.evaluation_date.desc()).first()
+        if competency and competency.evaluation_date:
+            recycling_due_date = competency.evaluation_date + timedelta(days=skill.validity_period_months * 30.44)
+            if training_date > recycling_due_date:
+                return jsonify({'is_valid': False, 'message': f'{tutor.full_name}\'s competency for {skill.name} has expired.'})
+
+        return jsonify({'is_valid': True, 'message': 'Tutor is valid.'})
+
+        return jsonify({'is_valid': True, 'message': 'Tutor is valid.'})
+
 # Register namespaces
 api.add_namespace(ns_users)
+api.add_namespace(ns_tutors)
 api.add_namespace(ns_teams)
 api.add_namespace(ns_species)
 api.add_namespace(ns_skills)

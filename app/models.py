@@ -22,6 +22,11 @@ training_path_assigned_users = db.Table('training_path_assigned_users',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
 )
 
+training_session_tutors = db.Table('training_session_tutors',
+    db.Column('training_session_id', db.Integer, db.ForeignKey('training_session.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
 training_session_attendees = db.Table('training_session_attendees',
     db.Column('training_session_id', db.Integer, db.ForeignKey('training_session.id'), primary_key=True),
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
@@ -123,7 +128,6 @@ class User(UserMixin, db.Model):
     teams_as_lead = db.relationship('Team', secondary=user_team_leadership, back_populates='team_leads')
     competencies = db.relationship('Competency', back_populates='user', lazy='dynamic', foreign_keys='Competency.user_id')
     evaluated_competencies = db.relationship('Competency', back_populates='evaluator', lazy='dynamic', foreign_keys='Competency.evaluator_id')
-    training_sessions_as_tutor = db.relationship('TrainingSession', back_populates='tutor', lazy='dynamic', foreign_keys='TrainingSession.tutor_id')
     training_requests = db.relationship('TrainingRequest', back_populates='requester', lazy='dynamic')
     external_trainings = db.relationship('ExternalTraining', back_populates='user', lazy='dynamic', foreign_keys='ExternalTraining.user_id')
     validated_external_trainings = db.relationship('ExternalTraining', back_populates='validator', lazy='dynamic', foreign_keys='ExternalTraining.validator_id')
@@ -131,6 +135,7 @@ class User(UserMixin, db.Model):
     assigned_training_paths = db.relationship('TrainingPath', secondary=training_path_assigned_users, back_populates='assigned_users')
     tutored_skills = db.relationship('Skill', secondary=tutor_skill_association, back_populates='tutors')
     attended_training_sessions = db.relationship('TrainingSession', secondary=training_session_attendees, back_populates='attendees')
+    tutored_training_sessions = db.relationship('TrainingSession', secondary=training_session_tutors, back_populates='tutors')
 
 
     def set_password(self, password):
@@ -221,15 +226,16 @@ class TrainingSession(db.Model):
     location = db.Column(db.String(128))
     start_time = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     end_time = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    tutor_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    main_species_id = db.Column(db.Integer, db.ForeignKey('species.id'))
     ethical_authorization_id = db.Column(db.String(64))
     animal_count = db.Column(db.Integer)
     attachment_path = db.Column(db.String(256)) # Path to uploaded attendance sheet or other document
 
-    tutor = db.relationship('User', back_populates='training_sessions_as_tutor', foreign_keys='TrainingSession.tutor_id')
+    main_species = db.relationship('Species', backref='training_sessions')
     attendees = db.relationship('User', secondary=training_session_attendees, back_populates='attended_training_sessions')
     skills_covered = db.relationship('Skill', secondary=training_session_skills_covered, back_populates='training_sessions_covered')
     competencies = db.relationship('Competency', back_populates='training_session', lazy='dynamic')
+    tutors = db.relationship('User', secondary=training_session_tutors, back_populates='tutored_training_sessions')
 
     @property
     def associated_species(self):
@@ -315,3 +321,15 @@ class ExternalTraining(db.Model):
 
     def __repr__(self):
         return f'<ExternalTraining {self.id} by {self.user.full_name}>'
+
+class TrainingSessionTutorSkill(db.Model):
+    training_session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'), primary_key=True)
+    tutor_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    skill_id = db.Column(db.Integer, db.ForeignKey('skill.id'), primary_key=True)
+
+    training_session = db.relationship('TrainingSession', backref=db.backref('tutor_skill_mappings', cascade="all, delete-orphan"))
+    tutor = db.relationship('User', backref='training_session_skill_mappings')
+    skill = db.relationship('Skill', backref='training_session_tutor_mappings')
+
+    def __repr__(self):
+        return f'<TrainingSessionTutorSkill Session:{self.training_session_id} Tutor:{self.tutor_id} Skill:{self.skill_id}>'
