@@ -694,7 +694,7 @@ def import_export_skills():
                         
                         if skill is None:
                             validity_period_months = int(validity_period_months_str) if validity_period_months_str else None
-                            complexity = Complexity[str(complexity_str).upper()] if complexity_str else Complexity.SIMPLE
+                            complexity = Complexity(complexity_str) if complexity_str else Complexity.SIMPLE
                             
                             skill = Skill(
                                 name=name,
@@ -706,12 +706,32 @@ def import_export_skills():
                                 potential_external_tutors_text=potential_external_tutors_text
                             )
                             db.session.add(skill)
+                            # The flush is needed to get the skill.id before adding species and tutors
+                            db.session.flush()
+
+                            if species_names_str:
+                                species_names = [s.strip() for s in str(species_names_str).split(',')]
+                                for species_name in species_names:
+                                    species_obj = Species.query.filter_by(name=species_name).first()
+                                    if species_obj:
+                                        skill.species.append(species_obj)
+                                    else:
+                                        flash(f"Species '{species_name}' not found for skill '{name}'. It will be skipped.", 'warning')
+                            
+                            if tutor_emails_str:
+                                tutor_emails = [e.strip() for e in str(tutor_emails_str).split(',')]
+                                for tutor_email in tutor_emails:
+                                    tutor_obj = User.query.filter_by(email=tutor_email).first()
+                                    if tutor_obj:
+                                        skill.tutors.append(tutor_obj)
+                                    else:
+                                        flash(f"Tutor with email '{tutor_email}' not found for skill '{name}'. It will be skipped.", 'warning')
                             skills_imported += 1
                         elif form.update_existing.data:
                             # Update existing skill
                             skill.description = description
                             skill.validity_period_months = int(validity_period_months_str) if validity_period_months_str else None
-                            skill.complexity = Complexity[str(complexity_str).upper()] if complexity_str else Complexity.SIMPLE
+                            skill.complexity = Complexity(complexity_str) if complexity_str else Complexity.SIMPLE
                             skill.reference_urls_text = reference_urls_text
                             skill.training_videos_urls_text = training_videos_urls_text
                             skill.potential_external_tutors_text = potential_external_tutors_text
@@ -786,16 +806,16 @@ def download_skill_import_template():
     # Create data validation for 'species_names' (assuming comma-separated list)
     # This is a bit trickier for multi-select, so we'll provide a hint in the comment
     # For now, just a list of existing species for single selection or as a guide
-    if species_names:
-        dv_species = DataValidation(type="list", formula1='"' + ','.join(species_names) + '"', allow_blank=True)
-        dv_species.add('H2:H1048576') # Apply to column H (species_names) from row 2 onwards
-        sheet.add_data_validation(dv_species)
+    # if species_names:
+    #     dv_species = DataValidation(type="list", formula1='"' + ','.join(species_names) + '"', allow_blank=True)
+    #     dv_species.add('H2:H1048576') # Apply to column H (species_names) from row 2 onwards
+    #     sheet.add_data_validation(dv_species)
     
     # Create data validation for 'tutor_emails' (assuming comma-separated list)
-    if tutor_emails:
-        dv_tutors = DataValidation(type="list", formula1='"' + ','.join(tutor_emails) + '"', allow_blank=True)
-        dv_tutors.add('I2:I1048576') # Apply to column I (tutor_emails) from row 2 onwards
-        sheet.add_data_validation(dv_tutors)
+    # if tutor_emails:
+    #     dv_tutors = DataValidation(type="list", formula1='"' + ','.join(tutor_emails) + '"', allow_blank=True)
+    #     dv_tutors.add('I2:I1048576') # Apply to column I (tutor_emails) from row 2 onwards
+    #     sheet.add_data_validation(dv_tutors)
 
     # Add a comment to guide users for multi-select fields
     sheet['H1'].comment = openpyxl.comments.Comment("For multiple species, separate names with commas (e.g., 'Species A, Species B')", "Admin")
@@ -837,16 +857,16 @@ def export_skills_xlsx():
     sheet.add_data_validation(dv_complexity)
 
     # Create data validation for 'species_names'
-    if species_names_list:
-        dv_species = DataValidation(type="list", formula1='"' + ','.join(species_names_list) + '"', allow_blank=True)
-        dv_species.add('H2:H1048576') # Apply to column H (species_names) from row 2 onwards
-        sheet.add_data_validation(dv_species)
+    # if species_names_list:
+    #     dv_species = DataValidation(type="list", formula1='"' + ','.join(species_names_list) + '"', allow_blank=True)
+    #     dv_species.add('H2:H1048576') # Apply to column H (species_names) from row 2 onwards
+    #     sheet.add_data_validation(dv_species)
     
     # Create data validation for 'tutor_emails'
-    if tutor_emails_list:
-        dv_tutors = DataValidation(type="list", formula1='"' + ','.join(tutor_emails_list) + '"', allow_blank=True)
-        dv_tutors.add('I2:I1048576') # Apply to column I (tutor_emails) from row 2 onwards
-        sheet.add_data_validation(dv_tutors)
+    # if tutor_emails_list:
+    #     dv_tutors = DataValidation(type="list", formula1='"' + ','.join(tutor_emails_list) + '"', allow_blank=True)
+    #     dv_tutors.add('I2:I1048576') # Apply to column I (tutor_emails) from row 2 onwards
+    #     sheet.add_data_validation(dv_tutors)
 
     # Add comments to guide users for multi-select fields
     sheet['H1'].comment = Comment("For multiple species, separate names with commas (e.g., 'Species A, Species B')", "Admin")

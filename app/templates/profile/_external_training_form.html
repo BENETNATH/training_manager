@@ -35,7 +35,7 @@
                 </div>
                 <div class="card-body p-2">
                     <div class="row g-2">
-                        <div class="col-md-7">
+                        <div class="col-12">
                             {{ skill_claim_entry.skill.label(class="form-label visually-hidden") }}
                             {{ skill_claim_entry.skill(class="form-control form-control-sm", placeholder="Select Skill") }}
                             {% if skill_claim_entry.skill.errors %}
@@ -46,18 +46,7 @@
                                 </div>
                             {% endif %}
                         </div>
-                        <div class="col-md-5">
-                            {{ skill_claim_entry.level.label(class="form-label visually-hidden") }}
-                            {{ skill_claim_entry.level(class="form-control form-control-sm level-select", placeholder="Level") }}
-                            {% if skill_claim_entry.level.errors %}
-                                <div class="alert alert-danger mt-1">
-                                    {% for error in skill_claim_entry.level.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="col-12 mt-2">
+                        <div class="col-md-5 mt-2">
                             {{ skill_claim_entry.species_claimed.label(class="form-label visually-hidden") }}
                             {{ skill_claim_entry.species_claimed(class="form-control form-control-sm species-select", multiple="multiple", placeholder="Select Species") }}
                             {% if skill_claim_entry.species_claimed.errors %}
@@ -68,7 +57,18 @@
                                 </div>
                             {% endif %}
                         </div>
-                        <div class="col-12 mt-2">
+                        <div class="col-md-3 mt-2">
+                            {{ skill_claim_entry.level.label(class="form-label visually-hidden") }}
+                            {{ skill_claim_entry.level(class="form-control form-control-sm level-select", placeholder="Level") }}
+                            {% if skill_claim_entry.level.errors %}
+                                <div class="alert alert-danger mt-1">
+                                    {% for error in skill_claim_entry.level.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 mt-2 d-flex align-items-center">
                             <div class="form-check form-switch">
                                 {{ skill_claim_entry.wants_to_be_tutor(class="form-check-input tutor-checkbox") }}
                                 {{ skill_claim_entry.wants_to_be_tutor.label(class="form-check-label") }}
@@ -182,23 +182,23 @@
             </div>
             <div class="card-body p-2">
                 <div class="row g-2">
-                    <div class="col-md-7">
+                    <div class="col-12">
                         <label class="form-label visually-hidden" for="skill_claims-${skillClaimCount}-skill">Skill</label>
                         <select class="form-control form-control-sm" id="skill_claims-${skillClaimCount}-skill" name="skill_claims-${skillClaimCount}-skill" required placeholder="Select Skill">
                             ${generateOptions(allSkills.map(s => ({value: s.id, label: s.name})))}</select>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-5 mt-2">
+                        <label class="form-label visually-hidden" for="skill_claims-${skillClaimCount}-species_claimed">Species Claimed</label>
+                        <select class="form-control form-control-sm species-select" id="skill_claims-${skillClaimCount}-species_claimed" name="skill_claims-${skillClaimCount}-species_claimed" multiple="multiple" placeholder="Select Species">
+                            ${generateOptions(allSpecies.map(s => ({value: s.id, label: s.name})))}</select>
+                    </div>
+                    <div class="col-md-3 mt-2">
                         <label class="form-label visually-hidden" for="skill_claims-${skillClaimCount}-level">Competency Level</label>
                         <select class="form-control form-control-sm level-select" id="skill_claims-${skillClaimCount}-level" name="skill_claims-${skillClaimCount}-level" required placeholder="Level">
                             ${generateOptions(levelChoices)}
                         </select>
                     </div>
-                    <div class="col-12 mt-2">
-                        <label class="form-label visually-hidden" for="skill_claims-${skillClaimCount}-species_claimed">Species Claimed</label>
-                        <select class="form-control form-control-sm species-select" id="skill_claims-${skillClaimCount}-species_claimed" name="skill_claims-${skillClaimCount}-species_claimed" multiple="multiple" placeholder="Select Species">
-                            ${generateOptions(allSpecies.map(s => ({value: s.id, label: s.name})))}</select>
-                    </div>
-                    <div class="col-12 mt-2">
+                    <div class="col-md-4 mt-2 d-flex align-items-center">
                         <div class="form-check form-switch">
                             <input class="form-check-input tutor-checkbox" id="skill_claims-${skillClaimCount}-wants_to_be_tutor" name="skill_claims-${skillClaimCount}-wants_to_be_tutor" type="checkbox" value="y">
                             <label class="form-check-label" for="skill_claims-${skillClaimCount}-wants_to_be_tutor">Tutor</label>

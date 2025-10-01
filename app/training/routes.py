@@ -18,6 +18,105 @@ def list_training_requests():
     training_requests = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PENDING).all()
     return render_template('training/list_training_requests.html', title='Training Requests', requests=training_requests)
 
+def _populate_form_from_training_request(form, training_request):
+    """Helper function to pre-populate TrainingSessionForm from a TrainingRequest."""
+    form.skills_covered.data = training_request.skills_requested
+    # You might want to pre-populate attendees based on the request, or leave it for manual selection
+    # form.attendees.data = [training_request.requester]
+    # Add other fields if they exist in TrainingRequest and should pre-fill TrainingSessionForm
+    # For example:
+    # if training_request.training_path:
+    #     form.training_path.data = training_request.training_path
+    # if training_request.description:
+    #     form.description.data = training_request.description
+    # if training_request.requester:
+    #     form.attendees.data = [training_request.requester]
+    return form
+
+def _populate_form_from_training_request(form, training_request):
+    """Helper function to pre-populate TrainingSessionForm from a TrainingRequest."""
+    form.skills_covered.data = training_request.skills_requested
+    # You might want to pre-populate attendees based on the request, or leave it for manual selection
+    # form.attendees.data = [training_request.requester]
+    # Add other fields if they exist in TrainingRequest and should pre-fill TrainingSessionForm
+    # For example:
+    # if training_request.training_path:
+    #     form.training_path.data = training_request.training_path
+    # if training_request.description:
+    #     form.description.data = training_request.description
+    # if training_request.requester:
+    #     form.attendees.data = [training_request.requester]
+    return form
+
+def _create_session_object_from_form(form):
+    """Helper to create and populate a TrainingSession object from form data."""
+    session = TrainingSession(
+        title=form.title.data,
+        location=form.location.data,
+        start_time=form.start_time.data,
+        end_time=form.end_time.data,
+        tutor=form.tutor.data,
+        ethical_authorization_id=form.ethical_authorization_id.data,
+        animal_count=form.animal_count.data
+    )
+    session.attendees = form.attendees.data
+    session.skills_covered = form.skills_covered.data
+    return session
+
+def _handle_session_attachment(form, session):
+    """Helper to manage file uploads for a TrainingSession."""
+    if form.attachment.data:
+        filename = secure_filename(form.attachment.data.filename)
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'training_sessions')
+        os.makedirs(upload_folder, exist_ok=True)
+        file_path = os.path.join(upload_folder, filename)
+        form.attachment.data.save(file_path)
+        session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
+
+def _create_session_competencies(session):
+    """Helper to create competency records for attendees of a TrainingSession."""
+    for attendee in session.attendees:
+        for skill in session.skills_covered:
+            existing_competency = Competency.query.filter_by(user_id=attendee.id, skill_id=skill.id).first()
+            if not existing_competency:
+                competency = Competency(
+                    user=attendee,
+                    skill=skill,
+                    level='Novice',
+                    evaluation_date=session.end_time,
+                    evaluator=session.tutor,
+                    training_session=session
+                )
+                db.session.add(competency)
+
+def _send_session_reminders(session):
+    """Helper to send email reminders and ICS files for a TrainingSession."""
+    c = Calendar()
+    e = Event()
+    e.name = session.title
+    e.begin = session.start_time
+    e.end = session.end_time
+    e.location = session.location
+    e.description = f"Training Session for {', '.join([s.name for s in session.skills_covered])}"
+    c.add_event(e)
+
+    ics_filename = secure_filename(f"{session.title}_{session.start_time.strftime('%Y%m%d%H%M')}.ics")
+    ics_path = os.path.join(current_app.root_path, 'static', 'ics', ics_filename)
+    os.makedirs(os.path.dirname(ics_path), exist_ok=True)
+    with open(ics_path, 'w') as f:
+        f.writelines(c)
+
+    for attendee in session.attendees:
+        msg = Message(f"Training Session Reminder: {session.title}",
+                      sender=current_app.config['ADMINS'][0],
+                      recipients=[attendee.email])
+        msg.body = render_template('email/training_session_reminder.txt', user=attendee, session=session)
+        msg.html = render_template('email/training_session_reminder.html', user=attendee, session=session)
+        with current_app.open_resource(ics_path) as fp:
+            msg.attach(ics_filename, "text/calendar", fp.read())
+        mail.send(msg)
+    flash('Email reminders sent!', 'info')
+
 @bp.route('/requests/<int:request_id>/create_session', methods=['GET', 'POST'])
 @login_required
 @admin_required # Or a custom decorator for tutors/admins
@@ -26,80 +125,21 @@ def create_training_session_from_request(request_id):
     form = TrainingSessionForm()
 
     if form.validate_on_submit():
-        session = TrainingSession(
-            title=form.title.data,
-            location=form.location.data,
-            start_time=form.start_time.data,
-            end_time=form.end_time.data,
-            tutor=form.tutor.data,
-            ethical_authorization_id=form.ethical_authorization_id.data,
-            animal_count=form.animal_count.data
-        )
+        session = _create_session_object_from_form(form)
+        _handle_session_attachment(form, session)
 
-        # Handle attachment upload
-        if form.attachment.data:
-            filename = secure_filename(form.attachment.data.filename)
-            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'training_sessions')
-            os.makedirs(upload_folder, exist_ok=True)
-            file_path = os.path.join(upload_folder, filename)
-            form.attachment.data.save(file_path)
-            session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
-
-        session.attendees = form.attendees.data
-        session.skills_covered = form.skills_covered.data
-        
         db.session.add(session)
-        
+
         # Update training request status
         training_request.status = TrainingRequestStatus.APPROVED
         db.session.add(training_request)
-        db.session.commit()
+        db.session.commit() # Commit here to get session.id for competencies
 
-        # Create competencies for attendees for skills covered in this session
-        for attendee in session.attendees:
-            for skill in session.skills_covered:
-                # Check if competency already exists for this user and skill
-                existing_competency = Competency.query.filter_by(user_id=attendee.id, skill_id=skill.id).first()
-                if not existing_competency:
-                    competency = Competency(
-                        user=attendee,
-                        skill=skill,
-                        level='Novice', # Default level, can be updated later
-                        evaluation_date=session.end_time,
-                        evaluator=session.tutor,
-                        training_session=session
-                    )
-                    db.session.add(competency)
-        db.session.commit()
+        _create_session_competencies(session)
+        db.session.commit() # Commit competencies
 
-        # Send email reminders and ICS (Placeholder for now)
         if form.send_email_reminders.data:
-            # Create ICS event
-            c = Calendar()
-            e = Event()
-            e.name = session.title
-            e.begin = session.start_time
-            e.end = session.end_time
-            e.location = session.location
-            e.description = f"Training Session for {', '.join([s.name for s in session.skills_covered])}"
-            c.add_event(e)
-
-            ics_filename = secure_filename(f"{session.title}_{session.start_time.strftime('%Y%m%d%H%M')}.ics")
-            ics_path = os.path.join(current_app.root_path, 'static', 'ics', ics_filename)
-            os.makedirs(os.path.dirname(ics_path), exist_ok=True)
-            with open(ics_path, 'w') as f:
-                f.writelines(c)
-            
-            for attendee in session.attendees:
-                msg = Message(f"Training Session Reminder: {session.title}",
-                              sender=current_app.config['ADMINS'][0],
-                              recipients=[attendee.email])
-                msg.body = render_template('email/training_session_reminder.txt', user=attendee, session=session)
-                msg.html = render_template('email/training_session_reminder.html', user=attendee, session=session)
-                with current_app.open_resource(ics_path) as fp:
-                    msg.attach(ics_filename, "text/calendar", fp.read())
-                mail.send(msg)
-            flash('Email reminders sent!', 'info')
+            _send_session_reminders(session)
 
         flash('Training session created successfully!', 'success')
         return redirect(url_for('training.list_training_requests'))
@@ -111,7 +151,6 @@ def create_training_session_from_request(request_id):
         # form.attendees.data = [training_request.requester]
 
     return render_template('training/training_session_form.html', title='Create Training Session', form=form, training_request=training_request, action_url=url_for('training.create_training_session_from_request', request_id=training_request.id))
-
 @bp.route('/create_session_from_requests', methods=['GET', 'POST'])
 @login_required
 @admin_required

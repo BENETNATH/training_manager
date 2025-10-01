@@ -22,6 +22,12 @@ mail = Mail()
 from app.api import api # Import the api object from app.api
 from app.models import User # Import User model
 
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+
+# ... (rest of the imports and initializations)
+
 def get_locale():
     return request.accept_languages.best_match(current_app.config['LANGUAGES'])
 
@@ -29,6 +35,17 @@ def create_app(config_class=Config):
     load_dotenv() # Load environment variables
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_object(config_class)
+    app.logger.setLevel(logging.DEBUG) # Set logging level to DEBUG
+
+    # Configure file logging
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    file_handler = RotatingFileHandler('logs/training_manager.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
+    file_handler.setLevel(logging.DEBUG)
+    app.logger.addHandler(file_handler)
+    app.logger.info('Training Manager startup')
 
     # ensure the instance folder exists
     try:
