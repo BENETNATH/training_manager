@@ -146,7 +146,9 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
     def generate_api_key(self):
-        self.api_key = secrets.token_hex(32)
+        new_key = secrets.token_hex(32)
+        self.api_key = new_key
+        return new_key
 
     @classmethod
     def check_for_admin_user(cls):
@@ -266,12 +268,14 @@ class Competency(db.Model):
     evaluator_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     external_evaluator_name = db.Column(db.String(128), nullable=True) # New field for external evaluator name
     training_session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'))
+    external_training_id = db.Column(db.Integer, db.ForeignKey('external_training.id', name='fk_competency_external_training_id'), nullable=True) # New field
     certificate_path = db.Column(db.String(256)) # Path to generated certificate
 
     user = db.relationship('User', back_populates='competencies', foreign_keys='Competency.user_id')
     skill = db.relationship('Skill', back_populates='competencies')
     evaluator = db.relationship('User', back_populates='evaluated_competencies', foreign_keys='Competency.evaluator_id')
     training_session = db.relationship('TrainingSession', back_populates='competencies')
+    external_training = db.relationship('ExternalTraining', backref='competencies') # New relationship
     species = db.relationship('Species', secondary=competency_species_association, backref='competencies')
 
     @property

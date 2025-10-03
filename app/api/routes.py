@@ -126,25 +126,21 @@ def token_required(f):
     @api.doc(security='apikey')
     @wraps(f)
     def decorated(*args, **kwargs):
-        # Temporarily bypass API key check for debugging
-        print("[DEBUG] API Key check bypassed for debugging.")
-        return f(*args, **kwargs)
-        # Original API key check logic (commented out):
-        # api_key = request.headers.get('X-API-Key')
-        # if not api_key:
-        #     api.abort(401, "API Key is missing")
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            api.abort(401, "API Key is missing")
         
-        # users_with_keys = User.query.filter(User.api_key.isnot(None)).all()
-        # found_user = None
-        # for user in users_with_keys:
-        #     if secrets.compare_digest(user.api_key, api_key):
-        #         found_user = user
-        #         break
+        users_with_keys = User.query.filter(User.api_key.isnot(None)).all()
+        found_user = None
+        for user in users_with_keys:
+            if secrets.compare_digest(user.api_key, api_key):
+                found_user = user
+                break
 
-        # if not found_user:
-        #     api.abort(401, "Invalid API Key")
+        if not found_user:
+            api.abort(401, "Invalid API Key")
         
-        # return f(*args, **kwargs)
+        return f(*args, **kwargs)
     return decorated
 
 # Namespaces
@@ -325,6 +321,18 @@ class SpeciesList(Resource):
 @api.response(404, 'Species not found')
 @api.param('id', 'The species identifier')
 class SpeciesSkills(Resource):
+    @api.marshal_list_with(skill_model)
+    @api.doc(security='apikey')
+    @token_required
+    def get(self, id):
+        """Retrieve skills for a species by ID"""
+        species = Species.query.get_or_404(id)
+        return species.skills
+
+@ns_species.route('/<int:id>/filtered_skills')
+@api.response(404, 'Species not found')
+@api.param('id', 'The species identifier')
+class SpeciesFilteredSkills(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
     @token_required

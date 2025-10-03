@@ -116,7 +116,11 @@ $(document).ready(function() {
     }
 
     // Fetch species
-    fetch("{{ url_for('api.species_species_list') }}")
+    fetch("{{ url_for('api.species_species_list') }}", {
+        headers: {
+            'X-API-Key': '{{ api_key }}'
+        }
+    })
         .then(response => response.json())
         .then(data => {
             data.forEach(species => {
@@ -144,10 +148,19 @@ $(document).ready(function() {
         const speciesId = $(this).val();
         $('#skill-tutor-rows').empty(); // Clear rows
         if (speciesId) {
-            fetch(`/api/species/${speciesId}/skills`)
+            fetch(`/api/species/${speciesId}/skills`, {
+                headers: {
+                    'X-API-Key': '{{ api_key }}'
+                }
+            })
                 .then(response => response.json())
                 .then(data => {
-                    skillsForSpecies = data;
+                    if (Array.isArray(data)) {
+                        skillsForSpecies = data;
+                    } else {
+                        console.error("API response for skills is not an array:", data);
+                        skillsForSpecies = [];
+                    }
                     // If editing, add existing skills
                     {% if session and session.tutor_skill_mappings %}
                         let mappings = [
@@ -244,7 +257,11 @@ $(document).ready(function() {
                 }
 
                 // Fetch tutors for this skill with validity
-                fetch(`/api/skills/${selectedSkillId}/tutors_with_validity?training_date=${trainingDate}`)
+                fetch(`/api/skills/${selectedSkillId}/tutors_with_validity?training_date=${trainingDate}`, {
+                    headers: {
+                        'X-API-Key': '{{ api_key }}'
+                    }
+                })
                     .then(response => {
                         if (!response.ok) {
                             // Handle HTTP errors

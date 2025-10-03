@@ -16,8 +16,7 @@ def get_users():
 
 class TrainingRequestForm(FlaskForm):
     species = QuerySelectField('Species', query_factory=get_species, get_label='name', validators=[DataRequired()])
-    skills_requested = QuerySelectMultipleField('Skills Requested', query_factory=get_skills,
-                                                get_label='name', validators=[DataRequired()])
+    skills_requested = QuerySelectMultipleField('Skills Requested', query_factory=get_skills, get_label='name', validators=[DataRequired()])
     submit = SubmitField('Submit Training Request')
 
 class ExternalTrainingSkillClaimForm(FlaskForm):

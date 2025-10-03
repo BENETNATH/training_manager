@@ -7,6 +7,20 @@
         <div class="col-md-8">
             <h2>{{ user.full_name }}</h2>
             <p class="text-muted"><a href="mailto:{{ user.email }}">{{ user.email }}</a></p>
+            {% if user.id == current_user.id %} {# Only show API key to the owner of the profile #}
+                <div class="mb-3">
+                    <label for="api-key-display" class="form-label">Clé API:</label>
+                    <div class="input-group">
+                        <input type="text" id="api-key-display" class="form-control" value="{{ user.api_key or 'Non générée' }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" id="copy-api-key-btn" title="Copier la clé API">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button class="btn btn-warning" type="button" id="generate-api-key-btn" title="Générer une nouvelle Clé API">
+                            <i class="fas fa-sync-alt"></i> Régénérer
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
             {% if user.team %}
                 <p>Équipe : <strong>{{ user.team.name }}</strong></p>
             {% endif %}
@@ -27,7 +41,6 @@
                         <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('profile.submit_external_training') }}" data-modal-title="Soumettre une Formation Externe" id="submit-external-training-btn"><i class="fas fa-external-link-alt"></i> Soumettre Formation Externe</button></li>
                         <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('profile.propose_skill') }}" data-modal-title="Proposer une Nouvelle Compétence" id="propose-skill-btn"><i class="fas fa-lightbulb"></i> Proposer une Compétence</button></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('profile.generate_api_key') }}" data-modal-title="Générer Clé API" id="generate-api-key-btn"><i class="fas fa-key"></i> Générer Clé API</button></li>
                     </ul>
                 </div>
             </div>
@@ -169,6 +182,11 @@
                                     </td>
                                     <td>
                                         <a href="{{ url_for('profile.generate_certificate', competency_id=comp.id) }}" target="_blank" class="btn btn-sm btn-primary" title="Télécharger l'attestation"><i class="fas fa-download"></i></a>
+                                        {% if comp.external_training_id %}
+                                            <a href="{{ url_for('profile.view_external_training', training_id=comp.external_training_id) }}" target="_blank" class="btn btn-sm btn-info ms-1" title="Voir Formation Externe"><i class="fas fa-external-link-alt"></i></a>
+                                        {% elif comp.training_session_id %}
+                                            <a href="{{ url_for('admin.view_training_session_details', session_id=comp.training_session_id) }}" target="_blank" class="btn btn-sm btn-success ms-1" title="Voir Session de Formation"><i class="fas fa-chalkboard-teacher"></i></a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -309,33 +327,7 @@ $(document).ready(function() {
             window.open(actionUrl, '_blank');
             return;
         }
-        if (button.attr('id') === 'generate-api-key-btn') {
-            if (confirm('Voulez-vous vraiment générer une nouvelle clé API ? L\'ancienne sera invalidée et la nouvelle ne sera affichée qu\'une seule fois.')) {
-                fetch(actionUrl, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': $('meta[name=csrf-token]').attr('content')
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Nouvelle clé API générée avec succès ! Veuillez la noter : ' + data.api_key);
-                        // Optionally, refresh the page or update a UI element
-                        location.reload(); // Reload to show new key flash message
-                    } else {
-                        alert('Erreur lors de la génération de la clé API.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Une erreur réseau est survenue.');
-                });
-            }
-            return;
-        }
-
+        
         // For forms that need to be loaded into the modal
         currentFormActionUrl = actionUrl; // Store for form submission
         $('#action-modal-label').text(modalTitle);
@@ -610,6 +602,47 @@ $(document).ready(function() {
             console.error('Error:', error);
             alert('Une erreur réseau est survenue.');
         });
+    });
+
+    // Copy API Key to clipboard
+    $('#copy-api-key-btn').on('click', function() {
+        var apiKeyField = document.getElementById('api-key-display');
+        apiKeyField.select();
+        apiKeyField.setSelectionRange(0, 99999); // For mobile devices
+        document.execCommand("copy");
+        alert("Clé API copiée dans le presse-papiers !");
+    });
+
+    // Event listener for the new Generate API Key button
+    $('#generate-api-key-btn').on('click', function() {
+        var button = $(this);
+        var actionUrl = "{{ url_for('profile.generate_api_key') }}"; // Directly use the URL
+
+        if (confirm('Voulez-vous vraiment générer une nouvelle clé API ? L\'ancienne sera invalidée et la nouvelle ne sera affichée qu\'une seule fois.')) {
+            fetch(actionUrl, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': $('meta[name=csrf-token]').attr('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Nouvelle clé API générée avec succès ! Veuillez la noter : ' + data.api_key);
+                    // Update the displayed API key
+                    $('#api-key-display').val(data.api_key);
+                    // Optionally, refresh the page or update a UI element
+                    // location.reload(); // Reload to show new key flash message
+                } else {
+                    alert('Erreur lors de la génération de la clé API.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur réseau est survenue.');
+            });
+        }
     });
 });
 </script>

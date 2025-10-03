@@ -101,18 +101,27 @@ def user_profile(user_id=None):
 @login_required
 def submit_training_request():
     form = TrainingRequestForm()
+
+    def get_skills_for_species(species_id):
+        if species_id:
+            return Skill.query.join(Skill.species).filter(Species.id == species_id).order_by(Skill.name).all()
+        return Skill.query.filter(False).all() # Return an empty query if no species selected
+
     if request.method == 'POST':
         species_id = request.form.get('species')
-        if species_id:
-            form.skills_requested.query = Skill.query.join(Skill.species).filter(Species.id == species_id)
-        else:
-            form.skills_requested.query = Skill.query.filter(False)
+        form.skills_requested.query_factory = lambda: get_skills_for_species(species_id)
     else:
-        form.skills_requested.query = []
+        # For GET requests or initial form rendering, if a species is pre-selected
+        initial_species_id = form.species.data.id if form.species.data else None
+        form.skills_requested.query_factory = lambda: get_skills_for_species(initial_species_id)
 
     if form.validate_on_submit():
         req = TrainingRequest(requester=current_user, status=TrainingRequestStatus.PENDING)
-        req.skills_requested = form.skills_requested.data
+        
+        # Fetch Skill objects based on the submitted IDs
+        selected_skills = form.skills_requested.data
+        req.skills_requested = selected_skills
+        
         req.species_requested = [form.species.data]
         db.session.add(req)
         db.session.commit()
@@ -122,11 +131,11 @@ def submit_training_request():
         return redirect(url_for('profile.user_profile'))
     elif request.method == 'POST': # Validation failed
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            form_html = render_template('profile/_training_request_form.html', form=form)
+            form_html = render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
             return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'})
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return render_template('profile/_training_request_form.html', form=form)
+        return render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
 
     return render_template('profile/submit_training_request.html', title='Submit Training Request', form=form)
 
@@ -519,4 +528,22 @@ def generate_user_booklet_pdf(user_id):
     return send_file(io.BytesIO(pdf_output), as_attachment=True,
                      download_name=f"booklet_{user.full_name.replace(' ', '_')}.pdf",
                      mimetype='application/pdf')
+
+@bp.route('/external_training/<int:training_id>')
+@login_required
+def view_external_training(training_id):
+    external_training = ExternalTraining.query.options(
+        db.joinedload(ExternalTraining.user),
+        db.joinedload(ExternalTraining.validator),
+        db.joinedload(ExternalTraining.skill_claims).joinedload(ExternalTrainingSkillClaim.skill),
+        db.joinedload(ExternalTraining.skill_claims).joinedload(ExternalTrainingSkillClaim.species_claimed)
+    ).get_or_404(training_id)
+
+    # Ensure the current user is either the owner of the external training or an admin
+    if external_training.user_id != current_user.id and not current_user.is_admin:
+        abort(403)
+
+    return render_template('profile/view_external_training.html',
+                           title='External Training Details',
+                           external_training=external_training)
 

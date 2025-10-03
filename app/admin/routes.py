@@ -100,6 +100,9 @@ def add_user():
                     is_admin=form.is_admin.data)
         user.set_password(form.password.data)
         
+        # Generate API key for new user
+        user.generate_api_key() # Add this line
+        
         # Handle many-to-many relationships
         user.teams = form.teams.data
         user.teams_as_lead = form.teams_as_lead.data
@@ -142,6 +145,10 @@ def edit_user(id):
             user.set_password(form.password.data)
         user.is_admin = form.is_admin.data
         
+        # Generate API key if missing
+        if user.api_key is None: # Add this check
+            user.generate_api_key() # Add this line
+            
         # Handle many-to-many relationships
         user.teams = form.teams.data
         user.teams_as_lead = form.teams_as_lead.data
@@ -875,43 +882,63 @@ def create_training_session():
 
     # Pre-population from training requests (single or multiple)
     request_ids_str = request.args.get('request_ids')
+    species_id_param = request.args.get('species_id')
+    user_ids_param = request.args.get('user_ids')
+    skill_ids_param = request.args.get('skill_ids')
+
     prefill_users = []
     prefill_skills = []
     prefill_species = None
 
-    if request_ids_str:
-        request_ids = [int(rid) for rid in request_ids_str.split(',') if rid.isdigit()]
-        training_requests = TrainingRequest.query.filter(TrainingRequest.id.in_(request_ids)).all()
+    if request.method == 'GET':
+        if request_ids_str:
+            request_ids = [int(rid) for rid in request_ids_str.split(',') if rid.isdigit()]
+            training_requests = TrainingRequest.query.filter(TrainingRequest.id.in_(request_ids)).all()
 
-        unique_users = set()
-        unique_skills = set()
-        unique_species = set()
+            unique_users = set()
+            unique_skills = set()
+            unique_species = set()
 
-        for req in training_requests:
-            unique_users.add(req.requester)
-            for skill in req.skills_requested:
-                unique_skills.add(skill)
-            for species in req.species_requested:
-                unique_species.add(species)
-            
-            # Optionally, mark requests as processed or link them to the session
-            # For now, we just use their data for pre-filling
+            for req in training_requests:
+                unique_users.add(req.requester)
+                for skill in req.skills_requested:
+                    unique_skills.add(skill)
+                for species in req.species_requested:
+                    unique_species.add(species)
 
-        prefill_users = list(unique_users)
-        prefill_skills = list(unique_skills)
-        
-        # If all requests are for the same species, pre-select it
-        if len(unique_species) == 1:
-            prefill_species = unique_species.pop()
-        elif len(unique_species) > 1:
-            flash('Multiple species requested across selected training requests. Please select the main species manually.', 'warning')
-        
-        # Pre-fill form fields if it's a GET request
-        if request.method == 'GET':
+            prefill_users = list(unique_users)
+            prefill_skills = list(unique_skills)
+
+            if len(unique_species) == 1:
+                prefill_species = unique_species.pop()
+            elif len(unique_species) > 1:
+                flash('Multiple species requested across selected training requests. Please select the main species manually.', 'warning')
+
             form.attendees.data = prefill_users
             form.skills_covered.data = prefill_skills
             if prefill_species:
                 form.main_species.data = prefill_species
+
+        elif species_id_param or user_ids_param or skill_ids_param:
+            if species_id_param:
+                species_obj = Species.query.get(int(species_id_param))
+                if species_obj:
+                    prefill_species = species_obj
+                    form.main_species.data = species_obj
+            
+            if user_ids_param:
+                user_ids_list = [int(uid) for uid in user_ids_param.split(',') if uid.isdigit()]
+                users_obj = User.query.filter(User.id.in_(user_ids_list)).all()
+                if users_obj:
+                    prefill_users = users_obj
+                    form.attendees.data = users_obj
+            
+            if skill_ids_param:
+                skill_ids_list = [int(sid) for sid in skill_ids_param.split(',') if sid.isdigit()]
+                skills_obj = Skill.query.filter(Skill.id.in_(skill_ids_list)).all()
+                if skills_obj:
+                    prefill_skills = skills_obj
+                    form.skills_covered.data = skills_obj
 
     if form.validate_on_submit():
         session = TrainingSession(
@@ -972,17 +999,16 @@ def create_training_session():
         flash('Session de formation créée avec succès !', 'success')
         return redirect(url_for('admin.manage_training_sessions'))
     
-    # Original pre-population from training requests (single species_id, user_ids, skill_ids)
-    # This part is now largely superseded by the request_ids logic, but kept for compatibility
-    species_id = request.args.get('species_id')
-    user_ids = request.args.get('user_ids')
-    skill_ids = request.args.get('skill_ids')
+    # Update JSON prefill variables for the template
+    prefill_users_json = json.dumps([u.id for u in prefill_users])
+    prefill_skills_json = json.dumps([s.id for s in prefill_skills])
+    prefill_species_id = prefill_species.id if prefill_species else "null"
 
     return render_template('admin/create_training_session.html', title='Create Training Session', form=form, session=None,
-                           species_id=species_id, user_ids=user_ids, skill_ids=skill_ids, 
-                           prefill_users_json=json.dumps([u.id for u in prefill_users]), 
-                           prefill_skills_json=json.dumps([s.id for s in prefill_skills]), 
-                           prefill_species_id=prefill_species.id if prefill_species else None)
+                           prefill_users_json=prefill_users_json,
+                           prefill_skills_json=prefill_skills_json,
+                           prefill_species_id=prefill_species_id,
+                           api_key=current_user.api_key)
 
 
 
@@ -1127,17 +1153,33 @@ def validate_training_session(session_id):
                     level_field_name = f'level-{attendee.id}-{skill.id}'
                     level = request.form.get(level_field_name)
 
-                    competency = Competency.query.filter_by(
-                        user_id=attendee.id,
-                        skill_id=skill.id,
-                        training_session_id=session.id
-                    ).first()
+                    # Get species associated with the skill from the training session
+                    # Assuming skill.species gives the species for this skill
+                    skill_species = skill.species # This is a list of Species objects
+                    skill_species_ids = sorted([s.id for s in skill_species])
 
-                    if competency:
+                    # Try to find an existing competency for this user and skill
+                    existing_competencies = Competency.query.filter(
+                        Competency.user_id == attendee.id,
+                        Competency.skill_id == skill.id
+                    ).all()
+
+                    competency_to_update = None
+                    for comp in existing_competencies:
+                        comp_species_ids = sorted([s.id for s in comp.species])
+                        if comp_species_ids == skill_species_ids:
+                            competency_to_update = comp
+                            break
+
+                    if competency_to_update:
                         # Update existing competency
-                        competency.level = level
-                        competency.evaluation_date = datetime.utcnow()
-                        competency.evaluator = current_user
+                        competency_to_update.level = level
+                        competency_to_update.evaluation_date = datetime.utcnow()
+                        competency_to_update.evaluator = current_user
+                        competency_to_update.training_session = session
+                        competency_to_update.external_evaluator_name = None # Ensure this is cleared if an internal evaluator is used
+                        competency_to_update.external_training_id = None # Ensure this is cleared for training sessions
+                        db.session.add(competency_to_update)
                     else:
                         # Create new competency
                         competency = Competency(
@@ -1146,9 +1188,12 @@ def validate_training_session(session_id):
                             level=level,
                             evaluation_date=datetime.utcnow(),
                             evaluator=current_user,
-                            training_session=session
+                            training_session=session,
+                            external_training_id=None # Ensure this is None for training sessions
                         )
                         db.session.add(competency)
+                        db.session.flush() # Flush to assign an ID to the new competency before modifying its relationships
+                        competency.species = skill_species # Associate species with the new competency
 
         db.session.commit()
 
@@ -1231,29 +1276,64 @@ def approve_external_training(training_id):
     external_training.validator = current_user
     db.session.add(external_training)
 
-    # Create competencies for each skill claim
+    # Create or update competencies for each skill claim
     for skill_claim in external_training.skill_claims:
-        competency = Competency(
-            user=external_training.user,
-            skill=skill_claim.skill,
-            level=skill_claim.level,
-            evaluation_date=external_training.date,
-            evaluator=None, # Initialize to None, will be set below
-            external_evaluator_name=None # Initialize to None, will be set below
-        )
-        
-        # Set evaluator based on whether an external trainer name is provided
-        if external_training.external_trainer_name:
-            competency.external_evaluator_name = external_training.external_trainer_name
-            competency.evaluator = None # Ensure internal evaluator is None if external is used
-        else:
-            competency.evaluator = current_user # Use current user if no external trainer
+        # Check for existing competency for this user, skill, and species combination
+        existing_competency = Competency.query.filter(
+            Competency.user_id == external_training.user.id,
+            Competency.skill_id == skill_claim.skill.id
+        ).first()
 
-        db.session.add(competency)
-        db.session.flush() # Flush to assign an ID to the new competency before modifying its relationships
+        # Filter by species. This is a bit complex due to many-to-many relationship.
+        # We need to check if the existing competency has the exact same set of species as the skill_claim.
+        # For simplicity, we'll first check if a competency exists for the user and skill.
+        # If it does, we'll update it. If the species are different, we'll treat it as a new competency.
+        # This approach might lead to multiple competencies for the same skill if species differ, which aligns with the user's request.
 
-        # Transfer species_claimed from ExternalTrainingSkillClaim to Competency
-        competency.species = skill_claim.species_claimed
+        competency_found = False
+        if existing_competency:
+            # Check if the species associated with the existing competency are the same as the skill claim
+            existing_species_ids = sorted([s.id for s in existing_competency.species])
+            claim_species_ids = sorted([s.id for s in skill_claim.species_claimed])
+
+            if existing_species_ids == claim_species_ids:
+                # Update existing competency
+                existing_competency.level = skill_claim.level
+                existing_competency.evaluation_date = external_training.date
+                if external_training.external_trainer_name:
+                    existing_competency.external_evaluator_name = external_training.external_trainer_name
+                    existing_competency.evaluator = None
+                else:
+                    existing_competency.evaluator = current_user
+                    existing_competency.external_evaluator_name = None
+                db.session.add(existing_competency)
+                competency_found = True
+
+        if not competency_found:
+            # Create new competency
+            competency = Competency(
+                user=external_training.user,
+                skill=skill_claim.skill,
+                level=skill_claim.level,
+                evaluation_date=external_training.date,
+                evaluator=None,
+                external_evaluator_name=None
+            )
+
+            if external_training.external_trainer_name:
+                competency.external_evaluator_name = external_training.external_trainer_name
+                competency.evaluator = None
+            else:
+                competency.evaluator = current_user
+                competency.external_evaluator_name = None
+
+            db.session.add(competency)
+            db.session.flush()
+
+            competency.external_training_id = external_training.id # Set external_training_id
+
+            # Transfer species_claimed from ExternalTrainingSkillClaim to Competency
+            competency.species = skill_claim.species_claimed
 
         # If user wants to be a tutor, add them to the skill's tutors
         if skill_claim.wants_to_be_tutor and external_training.user not in skill_claim.skill.tutors:
