@@ -1237,8 +1237,18 @@ def approve_external_training(training_id):
             user=external_training.user,
             skill=skill_claim.skill,
             level=skill_claim.level,
-            evaluation_date=external_training.date
+            evaluation_date=external_training.date,
+            evaluator=None, # Initialize to None, will be set below
+            external_evaluator_name=None # Initialize to None, will be set below
         )
+        
+        # Set evaluator based on whether an external trainer name is provided
+        if external_training.external_trainer_name:
+            competency.external_evaluator_name = external_training.external_trainer_name
+            competency.evaluator = None # Ensure internal evaluator is None if external is used
+        else:
+            competency.evaluator = current_user # Use current user if no external trainer
+
         db.session.add(competency)
         db.session.flush() # Flush to assign an ID to the new competency before modifying its relationships
 

@@ -264,6 +264,7 @@ class Competency(db.Model):
     level = db.Column(db.String(64)) # e.g., 'Novice', 'Intermediate', 'Expert'
     evaluation_date = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     evaluator_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    external_evaluator_name = db.Column(db.String(128), nullable=True) # New field for external evaluator name
     training_session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'))
     certificate_path = db.Column(db.String(256)) # Path to generated certificate
 

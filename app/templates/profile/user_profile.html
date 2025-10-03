@@ -128,7 +128,15 @@
                                     <td>{{ comp.skill.name }}</td>
                                     <td>{{ comp.level }}</td>
                                     <td>{{ comp.evaluation_date.strftime('%Y-%m-%d') }}</td>
-                                    <td>{{ comp.evaluator.full_name if comp.evaluator else 'N/A' }}</td>
+                                    <td>
+                                        {% if comp.external_evaluator_name %}
+                                            {{ comp.external_evaluator_name }}
+                                        {% elif comp.evaluator %}
+                                            {{ comp.evaluator.full_name }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
                                     <td>{{ comp.latest_practice_date.strftime('%Y-%m-%d') if comp.latest_practice_date else 'N/A' }}</td>
                                     <td>
                                         {% if comp.skill.validity_period_months %}
