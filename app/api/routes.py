@@ -6,7 +6,7 @@ from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession
 from werkzeug.security import generate_password_hash
 from functools import wraps # Import wraps
 import secrets # Import secrets
-from datetime import datetime # Import datetime
+from datetime import datetime, timedelta # Import datetime
 
 # API Models for marshalling
 
@@ -1002,6 +1002,59 @@ class SkillResource(Resource):
         db.session.delete(skill)
         db.session.commit()
         return '', 204
+
+@ns_skills.route('/<int:id>/tutors_with_validity')
+@api.response(404, 'Skill not found')
+@api.param('id', 'The skill identifier')
+class SkillTutorsWithValidity(Resource):
+    @api.doc(security='apikey', params={'training_date': 'The training date in YYYY-MM-DD format'})
+    @token_required
+    def get(self, id):
+        """Retrieve tutors for a skill with their validity status"""
+        skill = Skill.query.get_or_404(id)
+        training_date_str = request.args.get('training_date')
+        if not training_date_str:
+            api.abort(400, "Training date is required")
+        
+        try:
+            training_date = datetime.strptime(training_date_str, '%Y-%m-%d')
+        except ValueError:
+            api.abort(400, "Invalid date format. Use YYYY-MM-DD.")
+
+        tutors_data = []
+        for tutor in skill.tutors:
+            is_valid = True
+            message = "Tutor is valid."
+
+            if skill.validity_period_months:
+                # Find the latest competency or practice event for this tutor and skill
+                latest_competency = Competency.query.filter_by(user_id=tutor.id, skill_id=skill.id).order_by(Competency.evaluation_date.desc()).first()
+                latest_practice = SkillPracticeEvent.query.join(SkillPracticeEvent.skills).filter(SkillPracticeEvent.user_id == tutor.id, Skill.id == skill.id).order_by(SkillPracticeEvent.practice_date.desc()).first()
+
+                latest_validation_date = None
+                if latest_competency:
+                    latest_validation_date = latest_competency.evaluation_date
+                if latest_practice and (latest_validation_date is None or latest_practice.practice_date > latest_validation_date):
+                    latest_validation_date = latest_practice.practice_date
+
+                if latest_validation_date:
+                    recycling_due_date = latest_validation_date + timedelta(days=skill.validity_period_months * 30.44)
+                    if training_date.date() > recycling_due_date.date():
+                        is_valid = False
+                        message = f"{tutor.full_name}'s competency for {skill.name} has expired."
+                else:
+                    # No competency or practice found, so they are not considered valid for tutoring
+                    is_valid = False
+                    message = f"No validation record found for {tutor.full_name} on skill {skill.name}."
+
+
+            tutors_data.append({
+                'id': tutor.id,
+                'full_name': tutor.full_name,
+                'is_valid': is_valid,
+                'message': message
+            })
+        return jsonify(tutors_data)
 
 @ns_tutors.route('/<int:id>/skills')
 @api.response(404, 'Tutor not found')

@@ -1,59 +1,83 @@
 {% extends "base.html" %}
-{% from "_formhelpers.html" import render_field %}
 
 {% block content %}
-    <h1 class="mb-4">Valider la Session de Formation</h1>
-    <h2 class="mb-4">{{ session.title }}</h2>
+    <h1 class="mb-4">Validation de la Session de Formation</h1>
 
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Détails</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ session.title }}</h6>
         </div>
         <div class="card-body">
-            <p><strong>Tuteur :</strong> {{ session.tutor.full_name }}</p>
-            <p><strong>Date :</strong> {{ session.start_time.strftime('%d/%m/%Y') }}</p>
-            <h5>Compétences Couvertes</h5>
-            <ul>
-            {% for skill in session.skills_covered %}
-                <li>{{ skill.name }}</li>
-            {% endfor %}
-            </ul>
-        </div>
-    </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Lieu :</strong> {{ session.location }}</p>
+                    <p><strong>Début :</strong> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p><strong>Fin :</strong> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Espèce Principale :</strong> {{ session.main_species.name if session.main_species else 'N/A' }}</p>
+                </div>
+            </div>
 
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Valider les Participants</h6>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('admin.validate_training_session', session_id=session.id) }}">
-                {{ form.hidden_tag() }}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Participant</th>
-                            {% for skill in session.skills_covered %}
-                                <th>{{ skill.name }}</th>
-                            {% endfor %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for attendee_form in form.attendees %}
-                            <tr>
-                                <td>{{ attendee_form.form.user_label.data }}</td>
-                                {% for competency_form in attendee_form.form.competencies %}
-                                    <td>
-                                        {{ competency_form.form.acquired() }}
-                                        {{ competency_form.form.user_id() }}
-                                        {{ competency_form.form.skill_id() }}
-                                    </td>
-                                {% endfor %}
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                <button type="submit" class="btn btn-primary">Valider les Compétences</button>
+            <hr>
+
+            {% if can_validate_session %}
+            <h5 class="mt-4">Validation des Compétences</h5>
+            <form method="POST" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                {% for attendee_data in attendees_data %}
+                    <div class="card mb-3">
+                        <div class="card-header">{{ attendee_data.attendee.full_name }}</div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Compétence</th>
+                                        <th>Acquis</th>
+                                        <th>Niveau</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for skill_data in attendee_data.skills %}
+                                        {% set skill = skill_data.skill %}
+                                        {% set competency = skill_data.competency %}
+                                        {% set is_authorized = is_admin or (skill.id in authorized_skills_for_current_user) %}
+                                        {% set is_validated = competency and competency.evaluation_date %}
+                                        <tr>
+                                            <td>{{ skill.name }}</td>
+                                            <td>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="acquired-{{ attendee_data.attendee.id }}-{{ skill.id }}" 
+                                                           {% if competency %}checked{% endif %} 
+                                                           {% if not is_authorized or is_validated %}disabled{% endif %}>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <select class="form-select form-select-sm" name="level-{{ attendee_data.attendee.id }}-{{ skill.id }}" 
+                                                        {% if not is_authorized or is_validated %}disabled{% endif %}>
+                                                    <option value="Novice" {% if competency and competency.level == 'Novice' %}selected{% endif %}>Novice</option>
+                                                    <option value="Intermediate" {% if competency and competency.level == 'Intermediate' %}selected{% endif %}>Intermediate</option>
+                                                    <option value="Expert" {% if competency and competency.level == 'Expert' %}selected{% endif %}>Expert</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="btn btn-primary mt-3" {% if not can_validate_session %}disabled{% endif %}>Valider les Compétences</button>
             </form>
+            {% else %}
+                <div class="alert alert-info mt-4" role="alert">
+                    Vous n'êtes pas autorisé à valider les compétences pour cette session.
+                </div>
+            {% endif %}
+
+            <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary mt-3">Retour à la liste des sessions</a>
         </div>
     </div>
 {% endblock %}

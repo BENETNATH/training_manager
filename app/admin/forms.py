@@ -114,12 +114,14 @@ class AddUserToTeamForm(FlaskForm):
     submit = SubmitField('Add Users to Team')
 
 class CompetencyValidationForm(FlaskForm):
-    skill_id = HiddenField() # Add skill_id as a hidden field
+    skill_id = HiddenField()
+    skill_name_display = HiddenField() # Added for displaying skill name in template
     acquired = BooleanField('Acquired')
     level = SelectField('Level', choices=[('Novice', 'Novice'), ('Intermediate', 'Intermediate'), ('Expert', 'Expert')], validators=[Optional()])
 
 class AttendeeValidationForm(FlaskForm):
     user_label = HiddenField()
+    full_name_display = HiddenField() # Added for displaying full name in template
     competencies = FieldList(FormField(CompetencyValidationForm))
 
 class TrainingValidationForm(FlaskForm):

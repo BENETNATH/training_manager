@@ -1,262 +1,115 @@
-{{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.external_trainer_name.label(class="form-label") }}
+        {{ form.external_trainer_name(class="form-control") }}
+        {% if form.external_trainer_name.errors %}
+            <div class="alert alert-danger mt-1">
+                {% for error in form.external_trainer_name.errors %}
+                    <span>{{ error }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
 
-<div class="mb-3">
-    {{ form.external_trainer_name.label(class="form-label") }}
-    {{ form.external_trainer_name(class="form-control") }}
-    {% if form.external_trainer_name.errors %}
-        <div class="alert alert-danger mt-1">
-            {% for error in form.external_trainer_name.errors %}
-                <span>{{ error }}</span>
-            {% endfor %}
-        </div>
-    {% endif %}
-</div>
 
-<div class="mb-3">
-    {{ form.date.label(class="form-label") }}
-    {{ form.date(class="form-control") }}
-    {% if form.date.errors %}
-        <div class="alert alert-danger mt-1">
-            {% for error in form.date.errors %}
-                <span>{{ error }}</span>
-            {% endfor %}
-        </div>
-    {% endif %}
-</div>
+    <div class="mb-3">
+        {{ form.date.label(class="form-label") }}
+        {{ form.date(class="form-control") }}
+        {% if form.date.errors %}
+            <div class="alert alert-danger mt-1">
+                {% for error in form.date.errors %}
+                    <span>{{ error }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
 
-<div class="mb-3">
-    <label class="form-label">Skills Claimed</label>
-    <div id="skill-claims-container">
-        {% for skill_claim_entry in form.skill_claims %}
-            <div class="card mb-2 p-2 skill-claim-entry">
-                <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
-                    <h6 class="mb-0">Skill Claim #<span class="skill-claim-number">{{ loop.index }}</span></h6>
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Remove</button>
-                </div>
-                <div class="card-body p-2">
-                    <div class="row g-2">
-                        <div class="col-12">
-                            {{ skill_claim_entry.skill.label(class="form-label visually-hidden") }}
-                            {{ skill_claim_entry.skill(class="form-control form-control-sm", placeholder="Select Skill") }}
-                            {% if skill_claim_entry.skill.errors %}
-                                <div class="alert alert-danger mt-1">
-                                    {% for error in skill_claim_entry.skill.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-5 mt-2">
-                            {{ skill_claim_entry.species_claimed.label(class="form-label visually-hidden") }}
-                            {{ skill_claim_entry.species_claimed(class="form-control form-control-sm species-select", multiple="multiple", placeholder="Select Species") }}
-                            {% if skill_claim_entry.species_claimed.errors %}
-                                <div class="alert alert-danger mt-1">
-                                    {% for error in skill_claim_entry.species_claimed.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-3 mt-2">
-                            {{ skill_claim_entry.level.label(class="form-label visually-hidden") }}
-                            {{ skill_claim_entry.level(class="form-control form-control-sm level-select", placeholder="Level") }}
-                            {% if skill_claim_entry.level.errors %}
-                                <div class="alert alert-danger mt-1">
-                                    {% for error in skill_claim_entry.level.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-4 mt-2 d-flex align-items-center">
-                            <div class="form-check form-switch">
-                                {{ skill_claim_entry.wants_to_be_tutor(class="form-check-input tutor-checkbox") }}
-                                {{ skill_claim_entry.wants_to_be_tutor.label(class="form-check-label") }}
-                                {% if skill_claim_entry.wants_to_be_tutor.errors %}
+    <div class="mb-3">
+        <label class="form-label">Skills Claimed</label>
+        <div id="skill-claims-container">
+            {% for skill_claim_entry in form.skill_claims %}
+                <div class="card mb-2 p-2 skill-claim-entry">
+                    <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
+                        <h6 class="mb-0">Skill Claim #<span class="skill-claim-number">{{ loop.index }}</span></h6>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Remove</button>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                {{ skill_claim_entry.skill.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_entry.skill(class="form-control form-control-sm", placeholder="Select Skill") }}
+                                {% if skill_claim_entry.skill.errors %}
                                     <div class="alert alert-danger mt-1">
-                                        {% for error in skill_claim_entry.wants_to_be_tutor.errors %}
+                                        {% for error in skill_claim_entry.skill.errors %}
                                             <span>{{ error }}</span>
                                         {% endfor %}
                                     </div>
                                 {% endif %}
                             </div>
-                        </div>
+                            <div class="col-md-3 mt-2">
+                                {{ skill_claim_entry.species_claimed.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_entry.species_claimed(class="form-control form-control-sm species-select", multiple="multiple",
+       placeholder="Select Species") }}
+                                {% if skill_claim_entry.species_claimed.errors %}
+                                    <div class="alert alert-danger mt-1">
+                                        {% for error in skill_claim_entry.species_claimed.errors %}
+                                            <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                {{ skill_claim_entry.level.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_entry.level(class="form-control form-control-sm level-select", placeholder="Level") }}
+                                {% if skill_claim_entry.level.errors %}
+                                    <div class="alert alert-danger mt-1">
+                                        {% for error in skill_claim_entry.level.errors %}
+                                            <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                {{ skill_claim_entry.practice_date.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_entry.practice_date(class="form-control form-control-sm", placeholder="Last Practice Date") }}
+                                {% if skill_claim_entry.practice_date.errors %}
+                                    <div class="alert alert-danger mt-1">
+                                        {% for error in skill_claim_entry.practice_date.errors %}
+                                            <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3 mt-2 d-flex align-items-end">
+                                <div class="form-check form-switch">
+                                    {{ skill_claim_entry.wants_to_be_tutor(class="form-check-input tutor-checkbox") }}
+                                    {{ skill_claim_entry.wants_to_be_tutor.label(class="form-check-label") }}
+                                    {% if skill_claim_entry.wants_to_be_tutor.errors %}
+                                        <div class="alert alert-danger mt-1">
+                                            {% for error in skill_claim_entry.wants_to_be_tutor.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>                        </div>
                     </div>
                 </div>
-            </div>
-        {% endfor %}
-    </div>
-    <button type="button" class="btn btn-primary mt-2" id="add-skill-claim">Add Another Skill</button>
-</div>
-
-<div class="mb-3">
-    {{ form.attachment.label(class="form-label") }}
-    {{ form.attachment(class="form-control") }}
-    {% if form.attachment.errors %}
-        <div class="alert alert-danger mt-1">
-            {% for error in form.attachment.errors %}
-                <span>{{ error }}</span>
             {% endfor %}
         </div>
-    {% endif %}
-</div>
+        <button type="button" class="btn btn-primary mt-2" id="add-skill-claim">Add Another Skill</button>
+    </div>
 
-<input type="hidden" id="all-skills-data" value="{{ all_skills_json | e }}">
-<input type="hidden" id="all-species-data" value="{{ all_species_json | e }}">
-
-<script>
-    const skillClaimsContainer = document.getElementById('skill-claims-container');
-    const addSkillClaimButton = document.getElementById('add-skill-claim');
-    let skillClaimCount = skillClaimsContainer.children.length;
-
-    // Embed skill and species choices from Python into JavaScript
-    const allSkillsDataElement = document.getElementById('all-skills-data');
-    const allSkills = JSON.parse(allSkillsDataElement.value);
-    const allSpeciesDataElement = document.getElementById('all-species-data');
-    const allSpecies = JSON.parse(allSpeciesDataElement.value);
-
-    const levelChoices = [
-        {value: 'Novice', label: 'Novice'},
-        {value: 'Intermediate', label: 'Intermediate'},
-        {value: 'Expert', label: 'Expert'}
-    ];
-
-    // Function to update field names and IDs
-    function updateElementNames(element, index) {
-        const nameAttr = element.getAttribute('name');
-        const idAttr = element.getAttribute('id');
-        const forAttr = element.getAttribute('for');
-
-        if (nameAttr) {
-            element.setAttribute('name', nameAttr.replace(/skill_claims-\d+/, `skill_claims-${index}`));
-        }
-        if (idAttr) {
-            element.setAttribute('id', idAttr.replace(/skill_claims-\d+/, `skill_claims-${index}`));
-        }
-        if (forAttr) {
-            element.setAttribute('for', forAttr.replace(/skill_claims-\d+/, `skill_claims-${index}`));
-        }
-    }
-
-    // Function to generate options for a select element
-    function generateOptions(choices, selectedValue = null) {
-        let optionsHtml = '';
-        choices.forEach(choice => {
-            const selected = (selectedValue && selectedValue == choice.value) ? 'selected' : '';
-            optionsHtml += `<option value="${choice.value}" ${selected}>${choice.label}</option>`;
-        });
-        return optionsHtml;
-    }
-
-    // Function to initialize Select2 on skill and species select elements
-    function initializeSelect2ForSelects(element = null) {
-        const parent = element || document;
-        $(parent).find('select[name$="-skill"]').select2({
-            dropdownParent: $('#action-modal .modal-body')
-        });
-        $(parent).find('select[name$="-species_claimed"]').select2({
-            dropdownParent: $('#action-modal .modal-body')
-        });
-    }
-
-    // Function to toggle tutor checkbox based on level
-    function toggleTutorCheckbox(levelSelect) {
-        const skillClaimEntry = levelSelect.closest('.skill-claim-entry');
-        const tutorCheckbox = skillClaimEntry.querySelector('.tutor-checkbox');
-        if (levelSelect.value === 'Novice') {
-            tutorCheckbox.checked = false;
-            tutorCheckbox.disabled = true;
-        } else {
-            tutorCheckbox.disabled = false;
-        }
-    }
-
-    // Function to add a new skill claim entry
-    addSkillClaimButton.addEventListener('click', function() {
-        const newEntry = document.createElement('div');
-        newEntry.className = 'card mb-2 p-2 skill-claim-entry';
-        newEntry.innerHTML = `
-            <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
-                <h6 class="mb-0">Skill Claim #${skillClaimCount + 1}</h6>
-                <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Remove</button>
+    <div class="mb-3">
+        {{ form.attachment.label(class="form-label") }}
+        {{ form.attachment(class="form-control") }}
+        {% if form.attachment.errors %}
+            <div class="alert alert-danger mt-1">
+                {% for error in form.attachment.errors %}
+                    <span>{{ error }}</span>
+                {% endfor %}
             </div>
-            <div class="card-body p-2">
-                <div class="row g-2">
-                    <div class="col-12">
-                        <label class="form-label visually-hidden" for="skill_claims-${skillClaimCount}-skill">Skill</label>
-                        <select class="form-control form-control-sm" id="skill_claims-${skillClaimCount}-skill" name="skill_claims-${skillClaimCount}-skill" required placeholder="Select Skill">
-                            ${generateOptions(allSkills.map(s => ({value: s.id, label: s.name})))}</select>
-                    </div>
-                    <div class="col-md-5 mt-2">
-                        <label class="form-label visually-hidden" for="skill_claims-${skillClaimCount}-species_claimed">Species Claimed</label>
-                        <select class="form-control form-control-sm species-select" id="skill_claims-${skillClaimCount}-species_claimed" name="skill_claims-${skillClaimCount}-species_claimed" multiple="multiple" placeholder="Select Species">
-                            ${generateOptions(allSpecies.map(s => ({value: s.id, label: s.name})))}</select>
-                    </div>
-                    <div class="col-md-3 mt-2">
-                        <label class="form-label visually-hidden" for="skill_claims-${skillClaimCount}-level">Competency Level</label>
-                        <select class="form-control form-control-sm level-select" id="skill_claims-${skillClaimCount}-level" name="skill_claims-${skillClaimCount}-level" required placeholder="Level">
-                            ${generateOptions(levelChoices)}
-                        </select>
-                    </div>
-                    <div class="col-md-4 mt-2 d-flex align-items-center">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input tutor-checkbox" id="skill_claims-${skillClaimCount}-wants_to_be_tutor" name="skill_claims-${skillClaimCount}-wants_to_be_tutor" type="checkbox" value="y">
-                            <label class="form-check-label" for="skill_claims-${skillClaimCount}-wants_to_be_tutor">Tutor</label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        skillClaimsContainer.appendChild(newEntry);
-        skillClaimCount++;
-        updateRemoveButtons();
-        initializeSelect2ForSelects(newEntry); // Initialize Select2 for the new entry
-        const newLevelSelect = newEntry.querySelector('.level-select');
-        newLevelSelect.addEventListener('change', () => toggleTutorCheckbox(newLevelSelect));
-        toggleTutorCheckbox(newLevelSelect); // Set initial state for new entry
-    });
+        {% endif %}
+    </div>
 
-    // Function to remove a skill claim entry
-    skillClaimsContainer.addEventListener('click', function(event) {
-        if (event.target.classList.contains('remove-skill-claim')) {
-            if (skillClaimsContainer.children.length > {{ form.skill_claims.min_entries }}) {
-                event.target.closest('.skill-claim-entry').remove();
-                skillClaimCount--;
-                reindexSkillClaims();
-                updateRemoveButtons();
-            } else {
-                alert('You must claim at least one skill.');
-            }
-        }
-    });
-
-    // Function to reindex skill claims after removal
-    function reindexSkillClaims() {
-        Array.from(skillClaimsContainer.children).forEach((entry, index) => {
-            entry.querySelector('.skill-claim-number').textContent = index + 1;
-            entry.querySelectorAll('[name^="skill_claims-"], [id^="skill_claims-"], [for^="skill_claims-"]').forEach(element => {
-                updateElementNames(element, index);
-            });
-        });
-    }
-
-    // Function to update the state of remove buttons (disable if min_entries reached)
-    function updateRemoveButtons() {
-        const removeButtons = skillClaimsContainer.querySelectorAll('.remove-skill-claim');
-        if (skillClaimsContainer.children.length <= {{ form.skill_claims.min_entries }}) {
-            removeButtons.forEach(button => button.disabled = true);
-        } else {
-            removeButtons.forEach(button => button.disabled = false);
-        }
-    }
-
-    // Initial calls
-    updateRemoveButtons();
-    initializeSelect2ForSelects(); // Initialize Select2 for existing elements
-
-    // Attach event listeners and set initial state for existing level selects
-    document.querySelectorAll('.level-select').forEach(levelSelect => {
-        levelSelect.addEventListener('change', () => toggleTutorCheckbox(levelSelect));
-        toggleTutorCheckbox(levelSelect); // Set initial state
-    });
-</script>
+    <input type="hidden" id="all-skills-data" value="{{ all_skills_json | e }}">
+    <input type="hidden" id="all-species-data" value="{{ all_species_json | e }}">

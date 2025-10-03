@@ -246,7 +246,7 @@
 
     <!-- Modals for actions -->
     <div class="modal fade" id="action-modal" tabindex="-1" aria-labelledby="action-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="action-modal-label"></h5>
@@ -267,9 +267,26 @@
 
 {% block scripts %}
 {{ super() }}
+<style>
+    /* Ensure Select2 dropdowns appear above Bootstrap modals */
+    .select2-container--open {
+        z-index: 1060; /* Bootstrap modal has z-index 1050 */
+    }
+</style>
 <script>
 $(document).ready(function() {
-    var actionModal = new bootstrap.Modal(document.getElementById('action-modal'));
+    window.actionModal = new bootstrap.Modal(document.getElementById('action-modal'));
+
+
+
+    // Destroy Select2 instances when the modal is hidden to prevent conflicts
+    $('#action-modal').on('hidden.bs.modal', function () {
+        $('.select2-hidden-accessible').each(function() {
+            if ($(this).data('select2')) {
+                $(this).select2('destroy');
+            }
+        });
+    });
     var currentFormActionUrl = '';
 
     $('.action-btn').on('click', function() {
@@ -323,6 +340,218 @@ $(document).ready(function() {
             $('#action-modal .modal-body').html(
                 `<form id="modal-action-form" action="${actionUrl}" method="post" novalidate enctype="multipart/form-data">${html}</form>`
             );
+
+            // --- START of logic for training request form ---
+            if (actionUrl === "{{ url_for('profile.submit_training_request') }}") {
+                // Initialize select2
+                $('#species').select2({
+                    placeholder: "Select a species",
+                    allowClear: true,
+                    dropdownParent: $('#action-modal'),
+                    width: '100%'
+                });
+                $('#skills_requested').select2({
+                    placeholder: "Select skills",
+                    allowClear: true,
+                    dropdownParent: $('#action-modal'),
+                    width: '100%'
+                });
+
+                // Handle species selection change
+                $('#species').on('change', function() {
+                    var speciesId = $(this).val();
+                    var skillsSelect = $('#skills_requested');
+                    skillsSelect.empty();
+
+                    if (speciesId) {
+                        fetch(`/api/species/${speciesId}/skills`)
+                            .then(response => response.json())
+                            .then(data => {
+                                data.forEach(skill => {
+                                    var option = new Option(skill.name, skill.id, false, false);
+                                    skillsSelect.append(option);
+                                });
+                                skillsSelect.trigger('change');
+                            });
+                    } else {
+                        skillsSelect.trigger('change');
+                    }
+                });
+
+                // Trigger change on page load if a species is already selected
+                if ($('#species').val()) {
+                    $('#species').trigger('change');
+                }
+            }
+            // --- END of logic for training request form ---
+
+            // --- START of logic for submit external training form ---
+            if (actionUrl === "{{ url_for('profile.submit_external_training') }}") {
+                const skillClaimsContainer = document.getElementById('skill-claims-container');
+                const addSkillClaimButton = document.getElementById('add-skill-claim');
+                let skillClaimCount = skillClaimsContainer.children.length;
+
+                // Parse initial data
+                const allSkills = JSON.parse(document.getElementById('all-skills-data').value);
+                const allSpecies = JSON.parse(document.getElementById('all-species-data').value);
+                const levelChoices = [
+                    { value: 'Novice', label: 'Novice' },
+                    { value: 'Intermediate', label: 'Intermediate' },
+                    { value: 'Expert', label: 'Expert' }
+                ];
+
+                function generateOptions(data) {
+                    return data.map(item => `<option value="${item.value}">${item.label}</option>`).join('');
+                }
+
+                function initializeSelect2ForEntry(entry) {
+                    $(entry).find('select').each(function() {
+                        const selectElement = $(this);
+                        const placeholder = selectElement.attr('placeholder');
+                        const isMultiple = selectElement.attr('multiple') === 'multiple';
+
+                        const select2Options = {
+                            placeholder: placeholder,
+                            allowClear: true,
+                            width: '100%'
+                        };
+
+                        // Apply minimumResultsForSearch only to level-select elements
+                        if (selectElement.hasClass('level-select')) {
+                            select2Options.minimumResultsForSearch = Infinity;
+                        }
+
+                        selectElement.select2(select2Options);
+
+                        // If it's a level-select, attach the change listener and trigger it
+                        if (selectElement.hasClass('level-select')) {
+                            selectElement.on('change', function() {
+                                toggleTutorCheckbox(this);
+                            });
+                            // Trigger change immediately to set initial state
+                            toggleTutorCheckbox(selectElement[0]);
+                        }
+                    });
+                }
+
+                function toggleTutorCheckbox(levelSelectElement) {
+                    const level = levelSelectElement.value;
+                    const skillClaimEntry = levelSelectElement.closest('.skill-claim-entry');
+                    const tutorCheckbox = skillClaimEntry.querySelector('.tutor-checkbox');
+                    const tutorLabel = skillClaimEntry.querySelector('label[for^="skill_claims-"][for$="-wants_to_be_tutor"]');
+
+                    if (level === 'Intermediate' || level === 'Expert') {
+                        tutorCheckbox.disabled = false;
+                        tutorLabel.classList.remove('text-muted');
+                    } else {
+                        tutorCheckbox.checked = false;
+                        tutorCheckbox.disabled = true;
+                        tutorLabel.classList.add('text-muted');
+                    }
+                }
+
+                function reindexSkillClaims() {
+                    Array.from(skillClaimsContainer.children).forEach((entry, index) => {
+                        entry.querySelector('.skill-claim-number').textContent = index + 1;
+                        entry.querySelectorAll('[name^="skill_claims-"], [id^="skill_claims-"], [for^="skill_claims-"]').forEach(element => {
+                            const nameAttr = element.getAttribute('name');
+                            const idAttr = element.getAttribute('id');
+                            const forAttr = element.getAttribute('for');
+                            if (nameAttr) element.setAttribute('name', nameAttr.replace(/skill_claims-\d+/, `skill_claims-${index}`));
+                            if (idAttr) element.setAttribute('id', idAttr.replace(/skill_claims-\d+/, `skill_claims-${index}`));
+                            if (forAttr) element.setAttribute('for', forAttr.replace(/skill_claims-\d+/, `skill_claims-${index}`));
+                        });
+                    });
+                }
+
+                function updateRemoveButtons() {
+                    const removeButtons = skillClaimsContainer.querySelectorAll('.remove-skill-claim');
+                    const minEntries = 1; // Default to 1, as form object is not available here
+                    const disable = skillClaimsContainer.children.length <= minEntries;
+                    removeButtons.forEach(button => button.disabled = disable);
+                }
+
+                // Event listener for adding a new skill claim entry
+                addSkillClaimButton.addEventListener('click', function() {
+                    const index = skillClaimCount;
+                    const newEntry = document.createElement('div');
+                    newEntry.className = 'card mb-2 p-2 skill-claim-entry';
+                    newEntry.innerHTML = `
+                        <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
+                            <h6 class="mb-0">Skill Claim #${index + 1}</h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Remove</button>
+                        </div>
+                        <div class="card-body p-2">
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <select class="form-control form-control-sm" id="skill_claims-${index}-skill" name="skill_claims-${index}-skill" required
+       placeholder="Select Skill">
+                                        ${generateOptions(allSkills.map(s => ({value: s.id, label: s.name})))}
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mt-2">
+                                    <select class="form-control form-control-sm species-select" id="skill_claims-${index}-species_claimed" name=
+       "skill_claims-${index}-species_claimed" multiple="multiple" placeholder="Select Species">
+                                        ${generateOptions(allSpecies.map(s => ({value: s.id, label: s.name})))}</select>
+                                </div>
+                                <div class="col-md-3 mt-2">
+                                    <select class="form-control form-control-sm level-select" id="skill_claims-${index}-level" name="skill_claims-${index}-level"
+       required placeholder="Level">
+                                        ${generateOptions(levelChoices)}</select>
+                                </div>
+                                <div class="col-md-3 mt-2">
+                                    <label class="form-label visually-hidden" for="skill_claims-${index}-practice_date">Date of Latest Practice</label>
+                                    <input type="datetime-local" class="form-control form-control-sm" id="skill_claims-${index}-practice_date" name=
+       "skill_claims-${index}-practice_date" placeholder="Last Practice Date">
+                                </div>
+                                <div class="col-md-3 mt-2 d-flex align-items-end">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input tutor-checkbox" id="skill_claims-${index}-wants_to_be_tutor" name=
+       "skill_claims-${index}-wants_to_be_tutor" type="checkbox" value="y">
+                                        <label class="form-check-label" for="skill_claims-${index}-wants_to_be_tutor">Tutor</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    skillClaimsContainer.appendChild(newEntry);
+                    skillClaimCount++;
+                    updateRemoveButtons();
+                    initializeSelect2ForEntry(newEntry);
+                    const newLevelSelect = newEntry.querySelector('.level-select');
+                    newLevelSelect.addEventListener('change', () => toggleTutorCheckbox(newLevelSelect));
+                    toggleTutorCheckbox(newLevelSelect);
+                });
+
+                // Event listener for removing a skill claim entry (using event delegation)
+                skillClaimsContainer.addEventListener('click', function(event) {
+                    if (event.target.classList.contains('remove-skill-claim')) {
+                        const minEntries = 1;
+                        if (skillClaimsContainer.children.length > minEntries) {
+                            event.target.closest('.skill-claim-entry').remove();
+                            skillClaimCount--;
+                            reindexSkillClaims();
+                            updateRemoveButtons();
+                        } else {
+                            alert('You must claim at least one skill.');
+                        }
+                    }
+                });
+
+                // Initial setup for existing form entries
+                document.querySelectorAll('.skill-claim-entry').forEach(entry => {
+                    initializeSelect2ForEntry(entry);
+                    const levelSelect = entry.querySelector('.level-select');
+                    if (levelSelect) { // Check if levelSelect exists
+                        levelSelect.addEventListener('change', () => toggleTutorCheckbox(levelSelect));
+                        toggleTutorCheckbox(levelSelect);
+                    }
+                });
+
+                updateRemoveButtons();
+            }
+            // --- END of logic for submit external training form ---
+
             actionModal.show();
         })
         .catch(error => {
@@ -331,7 +560,8 @@ $(document).ready(function() {
         });
     });
 
-    // Handle form submission from the action modal
+        // Override the default form submission for this modal
+
     $('#submit-action-form-btn').on('click', function() {
         $('#modal-action-form').submit();
     });

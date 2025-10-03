@@ -28,7 +28,7 @@
                     </thead>
                     <tbody>
                         {% for session in training_sessions %}
-                        <tr id="session-row-{{ session.id }}" class="{% if session.skills_covered and not session.tutors %}table-warning{% endif %}">
+                        <tr id="session-row-{{ session.id }}" class="{% if session.status == 'Realized' %}table-success{% elif session.skills_covered and not session.tutors %}table-warning{% endif %}">
                             <td>{{ session.title }}</td>
                             <td>{{ session.location }}</td>
                             <td>{{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</td>

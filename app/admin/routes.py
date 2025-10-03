@@ -1,5 +1,4 @@
 import os
-
 import io
 from flask import render_template, redirect, url_for, flash, request, current_app, send_file, jsonify
 from flask_login import login_required, current_user
@@ -15,6 +14,8 @@ import openpyxl # Import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.comments import Comment
 from datetime import datetime, timedelta # Import datetime, timedelta
+from collections import defaultdict
+import json # Import json
 
 @bp.route('/')
 @bp.route('/index')
@@ -27,28 +28,14 @@ def index():
     skills_without_tutors_count = Skill.query.filter(~Skill.tutors.any()).count()
     
     # Placeholder for more complex metrics
-    users_needing_recycling_set = set()
-    for user_obj in User.query.all(): # Renamed 'user' to 'user_obj' to avoid conflict with 'user' in edit_user
-        for comp in user_obj.competencies.all():
-            latest_practice_date = comp.evaluation_date
-            practice_event = SkillPracticeEvent.query.filter_by(
-                user_id=user_obj.id
-            ).join(SkillPracticeEvent.skills).filter_by(
-                id=comp.skill_id
-            ).order_by(SkillPracticeEvent.practice_date.desc()).first()
-
-            if practice_event and practice_event.practice_date > latest_practice_date:
-                latest_practice_date = practice_event.practice_date
-            
-            if comp.skill.validity_period_months:
-                # Using 30.44 days as average for a month
-                recycling_due_date = latest_practice_date + timedelta(days=comp.skill.validity_period_months * 30.44)
-                if datetime.utcnow() > recycling_due_date:
-                    users_needing_recycling_set.add(user_obj)
-
-    recycling_needed_count = len(users_needing_recycling_set)
-    users_needing_recycling = list(users_needing_recycling_set)
-    
+    recycling_needed_count = 0
+    users_needing_recycling_set = set() # Keep this to pass to the template if needed
+    for user_obj in User.query.all():
+        for comp in user_obj.competencies:
+            if comp.needs_recycling:
+                recycling_needed_count += 1
+                users_needing_recycling_set.add(user_obj) # Still add user to the set if you want to display them
+    users_needing_recycling = list(users_needing_recycling_set)    
     # Logic for sessions this month (now next session)
     now = datetime.utcnow()
     next_session = TrainingSession.query.filter(TrainingSession.start_time > now).order_by(TrainingSession.start_time.asc()).first()
@@ -438,6 +425,7 @@ def edit_skill(id):
                     'id': skill.id,
                     'name': skill.name,
                     'description': skill.description,
+                    'species': [s.name for s in skill.species],
                     'tutors': [t.full_name for t in skill.tutors]
                 }
             })
@@ -901,6 +889,47 @@ def export_skills_xlsx():
 @admin_required
 def create_training_session():
     form = TrainingSessionForm()
+
+    # Pre-population from training requests (single or multiple)
+    request_ids_str = request.args.get('request_ids')
+    prefill_users = []
+    prefill_skills = []
+    prefill_species = None
+
+    if request_ids_str:
+        request_ids = [int(rid) for rid in request_ids_str.split(',') if rid.isdigit()]
+        training_requests = TrainingRequest.query.filter(TrainingRequest.id.in_(request_ids)).all()
+
+        unique_users = set()
+        unique_skills = set()
+        unique_species = set()
+
+        for req in training_requests:
+            unique_users.add(req.requester)
+            for skill in req.skills_requested:
+                unique_skills.add(skill)
+            for species in req.species_requested:
+                unique_species.add(species)
+            
+            # Optionally, mark requests as processed or link them to the session
+            # For now, we just use their data for pre-filling
+
+        prefill_users = list(unique_users)
+        prefill_skills = list(unique_skills)
+        
+        # If all requests are for the same species, pre-select it
+        if len(unique_species) == 1:
+            prefill_species = unique_species.pop()
+        elif len(unique_species) > 1:
+            flash('Multiple species requested across selected training requests. Please select the main species manually.', 'warning')
+        
+        # Pre-fill form fields if it's a GET request
+        if request.method == 'GET':
+            form.attendees.data = prefill_users
+            form.skills_covered.data = prefill_skills
+            if prefill_species:
+                form.main_species.data = prefill_species
+
     if form.validate_on_submit():
         session = TrainingSession(
             title=form.title.data,
@@ -912,25 +941,36 @@ def create_training_session():
             animal_count=form.animal_count.data
         )
         
-        skill_ids = request.form.getlist('skill')
-        tutor_ids = request.form.getlist('tutors')
-        tutor_skill_mapping = request.form.getlist('tutor_skill_mapping')
+        # Process dynamic skill-tutor rows
+        skill_ids = set()
+        tutor_ids = set()
+        tutor_skill_pairs = []
+
+        for key in request.form:
+            if key.startswith('program-') and key.endswith('-skill'):
+                row_index = key.split('-')[1]
+                skill_id = request.form.get(key)
+                tutor_id = request.form.get(f'program-{row_index}-tutor')
+                if skill_id and tutor_id:
+                    skill_ids.add(int(skill_id))
+                    tutor_ids.add(int(tutor_id))
+                    tutor_skill_pairs.append({'skill_id': int(skill_id), 'tutor_id': int(tutor_id)})
 
         if skill_ids:
-            skills = Skill.query.filter(Skill.id.in_(skill_ids)).all()
-            session.skills_covered = skills
+            session.skills_covered = Skill.query.filter(Skill.id.in_(skill_ids)).all()
         
         if tutor_ids:
-            tutors = User.query.filter(User.id.in_(tutor_ids)).all()
-            session.tutors = tutors
+            session.tutors = User.query.filter(User.id.in_(tutor_ids)).all()
+
+        db.session.add(session)
+        db.session.flush() # Flush to get session.id
 
         # Handle tutor-skill mapping
-        for mapping in tutor_skill_mapping:
-            tutor_id, skill_id = map(int, mapping.split('-'))
+        for pair in tutor_skill_pairs:
             tutor_skill = TrainingSessionTutorSkill(
-                training_session=session,
-                tutor_id=tutor_id,
-                skill_id=skill_id
+                training_session_id=session.id,
+                tutor_id=pair['tutor_id'],
+                skill_id=pair['skill_id']
             )
             db.session.add(tutor_skill)
 
@@ -944,13 +984,22 @@ def create_training_session():
 
         session.attendees = form.attendees.data
         
-        db.session.add(session)
         db.session.commit()
 
         flash('Session de formation créée avec succès !', 'success')
         return redirect(url_for('admin.manage_training_sessions'))
     
-    return render_template('admin/create_training_session.html', title='Create Training Session', form=form, session=None)
+    # Original pre-population from training requests (single species_id, user_ids, skill_ids)
+    # This part is now largely superseded by the request_ids logic, but kept for compatibility
+    species_id = request.args.get('species_id')
+    user_ids = request.args.get('user_ids')
+    skill_ids = request.args.get('skill_ids')
+
+    return render_template('admin/create_training_session.html', title='Create Training Session', form=form, session=None,
+                           species_id=species_id, user_ids=user_ids, skill_ids=skill_ids, 
+                           prefill_users_json=json.dumps([u.id for u in prefill_users]), 
+                           prefill_skills_json=json.dumps([s.id for s in prefill_skills]), 
+                           prefill_species_id=prefill_species.id if prefill_species else None)
 
 
 
@@ -986,34 +1035,32 @@ def edit_training_session(session_id):
 
         session.attendees = form.attendees.data
         
-        # Handle skills covered
-        skill_ids = request.form.getlist('skill')
-        if skill_ids:
-            skills = Skill.query.filter(Skill.id.in_(skill_ids)).all()
-            session.skills_covered = skills
-        else:
-            session.skills_covered = []
+        # Process dynamic skill-tutor rows
+        skill_ids = set()
+        tutor_ids = set()
+        tutor_skill_pairs = []
 
-        # Handle tutors
-        tutor_ids = request.form.getlist('tutors')
-        if tutor_ids:
-            tutors = User.query.filter(User.id.in_(tutor_ids)).all()
-            session.tutors = tutors
-        else:
-            session.tutors = []
+        for key in request.form:
+            if key.startswith('program-') and key.endswith('-skill'):
+                row_index = key.split('-')[1]
+                skill_id = request.form.get(key)
+                tutor_id = request.form.get(f'program-{row_index}-tutor')
+                if skill_id and tutor_id:
+                    skill_ids.add(int(skill_id))
+                    tutor_ids.add(int(tutor_id))
+                    tutor_skill_pairs.append({'skill_id': int(skill_id), 'tutor_id': int(tutor_id)})
 
-        # Handle tutor-skill mapping
-        # Clear existing mappings
+        session.skills_covered = Skill.query.filter(Skill.id.in_(skill_ids)).all() if skill_ids else []
+        session.tutors = User.query.filter(User.id.in_(tutor_ids)).all() if tutor_ids else []
+
+        # Clear existing mappings and add new ones
         TrainingSessionTutorSkill.query.filter_by(training_session_id=session.id).delete()
-        db.session.commit() # Commit the deletion before adding new ones
-
-        tutor_skill_mappings = request.form.getlist('tutor_skill_mapping')
-        for mapping in tutor_skill_mappings:
-            tutor_id, skill_id = map(int, mapping.split('-'))
+        
+        for pair in tutor_skill_pairs:
             tutor_skill = TrainingSessionTutorSkill(
                 training_session_id=session.id,
-                tutor_id=tutor_id,
-                skill_id=skill_id
+                tutor_id=pair['tutor_id'],
+                skill_id=pair['skill_id']
             )
             db.session.add(tutor_skill)
 
@@ -1033,47 +1080,63 @@ def delete_training_session(session_id):
     db.session.commit()
     return jsonify({'success': True, 'message': 'Session de formation supprimée avec succès.'})
 
-@bp.route('/training_sessions/<int:session_id>', methods=['GET', 'POST'])
+@bp.route('/training_sessions/<int:session_id>', methods=['GET'])
 @login_required
 @admin_required
 def view_training_session_details(session_id):
-    session = TrainingSession.query.get_or_404(session_id)
-    form = TrainingValidationForm()
+    session = TrainingSession.query.options(
+        db.joinedload(TrainingSession.attendees),
+        db.joinedload(TrainingSession.skills_covered),
+        db.joinedload(TrainingSession.main_species),
+        db.joinedload(TrainingSession.tutors),
+        db.joinedload(TrainingSession.tutor_skill_mappings)
+    ).get_or_404(session_id)
 
-    if form.validate_on_submit():
-        # Authorization check: Only the tutor of the session or an admin can validate
-        if current_user != session.tutor and not current_user.is_admin:
+    return render_template('admin/view_training_session_details.html', 
+                           title='Session Details', 
+                           session=session)
+
+@bp.route('/training_sessions/<int:session_id>/validate', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def validate_training_session(session_id):
+    session = TrainingSession.query.options(
+        db.joinedload(TrainingSession.attendees),
+        db.joinedload(TrainingSession.skills_covered)
+    ).get_or_404(session_id)
+
+    is_admin = current_user.is_admin
+    is_session_tutor = current_user in session.tutors
+    can_validate_session = is_admin or is_session_tutor
+
+    authorized_skills_for_current_user = set()
+    if is_admin:
+        authorized_skills_for_current_user.update([skill.id for skill in session.skills_covered])
+    elif is_session_tutor:
+        for mapping in session.tutor_skill_mappings:
+            if mapping.tutor_id == current_user.id:
+                authorized_skills_for_current_user.add(mapping.skill_id)
+
+    if request.method == 'POST':
+        if not can_validate_session:
             flash('You are not authorized to validate competencies for this session.', 'danger')
-            return redirect(url_for('admin.view_training_session_details', session_id=session.id))
+            return redirect(url_for('admin.validate_training_session', session_id=session.id))
 
-        for attendee_form_data in form.attendees.data:
-            user_label = attendee_form_data.get('user_label')
-            if not user_label:
-                flash('Invalid attendee data: user label is missing.', 'warning')
-                continue # Skip this attendee if user_label is missing or empty
+        # Manually parse form data
+        for attendee in session.attendees:
+            for skill in session.skills_covered:
+                # Check if the current user is authorized to validate this skill
+                if not is_admin and skill.id not in authorized_skills_for_current_user:
+                    continue
 
-            try:
-                user_id = int(user_label.split('-')[0]) # Extract user_id from 'id-fullname'
-            except (ValueError, IndexError):
-                flash(f'Invalid user label format: {user_label}', 'warning')
-                continue # Skip if user_label is not in expected format
+                # Check if this competency was submitted
+                acquired_field_name = f'acquired-{attendee.id}-{skill.id}'
+                if acquired_field_name in request.form:
+                    level_field_name = f'level-{attendee.id}-{skill.id}'
+                    level = request.form.get(level_field_name)
 
-            user = User.query.get(user_id)
-            if not user:
-                flash(f'User with ID {user_id} not found.', 'warning')
-                continue # Skip if user does not exist
-
-            for competency_form_data in attendee_form_data['competencies']:
-                skill_id = competency_form_data['skill_id']
-                acquired = competency_form_data['acquired']
-                level = competency_form_data['level']
-
-                skill = Skill.query.get(skill_id)
-
-                if acquired:
-                    # Check if competency already exists
                     competency = Competency.query.filter_by(
-                        user_id=user.id,
+                        user_id=attendee.id,
                         skill_id=skill.id,
                         training_session_id=session.id
                     ).first()
@@ -1086,7 +1149,7 @@ def view_training_session_details(session_id):
                     else:
                         # Create new competency
                         competency = Competency(
-                            user=user,
+                            user=attendee,
                             skill=skill,
                             level=level,
                             evaluation_date=datetime.utcnow(),
@@ -1094,50 +1157,61 @@ def view_training_session_details(session_id):
                             training_session=session
                         )
                         db.session.add(competency)
-                else:
-                    # If not acquired, and a competency exists, delete it
-                    competency = Competency.query.filter_by(
-                        user_id=user.id,
-                        skill_id=skill.id,
-                        training_session_id=session.id
-                    ).first()
-                    if competency:
-                        db.session.delete(competency)
-        
+
         db.session.commit()
-        flash('Competencies validated successfully!', 'success')
-        return redirect(url_for('admin.view_training_session_details', session_id=session.id))
 
-    elif request.method == 'GET':
-        # Populate the form for GET requests
+        # Check if session is fully validated
+        all_skills_validated = True
         for attendee in session.attendees:
-            attendee_form = AttendeeValidationForm()
-            attendee_form.user_label = f'{attendee.id}-{attendee.full_name}' # Store user_id and full_name
-
             for skill in session.skills_covered:
-                competency_form = CompetencyValidationForm()
-                # competency_form.user_id.data = attendee.id # Removed as user_id is no longer a form field
-                # competency_form.skill_id.data = skill.id # Removed as skill_id is no longer a form field
-                # competency_form.skill_name_display.data = skill.name # Removed as skill_name_display is no longer a form field
-
-                # Check if competency already exists for pre-population
                 competency = Competency.query.filter_by(
                     user_id=attendee.id,
                     skill_id=skill.id,
                     training_session_id=session.id
                 ).first()
+                if not competency or not competency.evaluation_date:
+                    all_skills_validated = False
+                    break
+            if not all_skills_validated:
+                break
 
-                if competency:
-                    competency_form.acquired = True
-                    competency_form.level = competency.level
-                else:
-                    competency_form.acquired = False
-                    competency_form.level = 'Novice' # Default level
+        if all_skills_validated:
+            session.status = 'Realized'
+            db.session.add(session)
+            db.session.commit()
+            flash('Session de formation entièrement validée et réalisée !', 'success')
+        else:
+            flash('Compétences validées avec succès (session non entièrement réalisée).', 'success')
 
-                attendee_form.competencies.append_entry(competency_form)
-            form.attendees.append_entry(attendee_form)
+        return redirect(url_for('admin.validate_training_session', session_id=session.id))
 
-    return render_template('admin/view_training_session_details.html', title='Session Details', session=session, form=form)
+    # GET request
+    # Prepare data for the template
+    attendees_data = []
+    for attendee in session.attendees:
+        skills_data = []
+        for skill in session.skills_covered:
+            competency = Competency.query.filter_by(
+                user_id=attendee.id,
+                skill_id=skill.id,
+                training_session_id=session.id
+            ).first()
+            skills_data.append({
+                'skill': skill,
+                'competency': competency
+            })
+        attendees_data.append({
+            'attendee': attendee,
+            'skills': skills_data
+        })
+
+    return render_template('admin/validate_training_session.html',
+                           title='Validate Training Session',
+                           session=session,
+                           attendees_data=attendees_data,
+                           can_validate_session=can_validate_session,
+                           authorized_skills_for_current_user=authorized_skills_for_current_user,
+                           is_admin=is_admin)
 
 @bp.route('/training_requests/reject/<int:request_id>', methods=['POST'])
 @login_required
@@ -1182,6 +1256,16 @@ def approve_external_training(training_id):
         # If user wants to be a tutor, add them to the skill's tutors
         if skill_claim.wants_to_be_tutor and external_training.user not in skill_claim.skill.tutors:
             skill_claim.skill.tutors.append(external_training.user)
+        
+        # If a practice date is provided, create a skill practice event
+        if skill_claim.practice_date:
+            practice_event = SkillPracticeEvent(
+                user=external_training.user,
+                practice_date=skill_claim.practice_date,
+                notes="Practice declared from external training validation."
+            )
+            practice_event.skills.append(skill_claim.skill)
+            db.session.add(practice_event)
     
     db.session.commit()
     flash('External training approved and competencies created!', 'success')
@@ -1199,18 +1283,40 @@ def reject_external_training(training_id):
     flash('External training rejected.', 'info')
     return redirect(url_for('admin.validate_external_trainings'))
 
+from collections import defaultdict
+
 @bp.route('/training_requests')
 @login_required
 @admin_required
 def list_training_requests():
     pending_training_requests = TrainingRequest.query.options(
         db.joinedload(TrainingRequest.requester),
-        db.joinedload(TrainingRequest.skills_requested),
+        db.joinedload(TrainingRequest.skills_requested).joinedload(Skill.species),
         db.joinedload(TrainingRequest.species_requested)
     ).filter_by(status=TrainingRequestStatus.PENDING).all()
+
+    requests_by_species = defaultdict(list)
+    for req in pending_training_requests:
+        # A request can be associated with multiple species through its skills.
+        # We add the request to each associated species group.
+        associated_species = req.associated_species
+        if not associated_species:
+            # If no species is associated (e.g. skill has no species), group it under a special key
+            if None not in requests_by_species:
+                class MockSpecies:
+                    id = 0
+                    name = "Sans Espèce Spécifiée"
+                requests_by_species[MockSpecies()] = []
+            requests_by_species[next(s for s in requests_by_species if s.id == 0)].append(req)
+        else:
+            for species in associated_species:
+                # To avoid using the species object itself as a key, which can be tricky,
+                # we can use species.id and pass a dictionary of species objects separately.
+                requests_by_species[species].append(req)
+
     return render_template('admin/list_training_requests.html',
                            title='Pending Training Requests',
-                           pending_training_requests=pending_training_requests)
+                           requests_by_species=requests_by_species)
 
 # Reports (Placeholder)
 @bp.route('/tutor_less_skills_report')
@@ -1220,3 +1326,44 @@ def tutor_less_skills_report():
     # This will require a more complex query to find skills with no associated tutors
     skills_without_tutors = Skill.query.filter(~Skill.tutors.any()).all()
     return render_template('admin/tutor_less_skills_report.html', title='Skills Without Tutors Report', skills=skills_without_tutors)
+
+
+@bp.route('/recycling_report')
+@login_required
+@admin_required
+def recycling_report():
+    report_data = defaultdict(lambda: defaultdict(list))
+    all_users = User.query.options(db.joinedload(User.competencies).joinedload(Competency.skill).joinedload(Skill.species)).all()
+
+    for user in all_users:
+        for comp in user.competencies:
+            if comp.needs_recycling:
+                # This competency is expired.
+                # A competency can be for multiple species.
+                if comp.species:
+                    for species in comp.species:
+                        if user not in report_data[species][comp.skill]:
+                            report_data[species][comp.skill].append(user)
+                else:
+                    # If competency has no species, check the skill's species
+                    if comp.skill.species:
+                        for species in comp.skill.species:
+                            if user not in report_data[species][comp.skill]:
+                                report_data[species][comp.skill].append(user)
+                    else:
+                        if None not in report_data:
+                            class MockSpecies:
+                                id = 0
+                                name = "Sans Espèce Spécifiée"
+                            report_data[None] = defaultdict(list)
+                        if user not in report_data[None][comp.skill]:
+                            report_data[None][comp.skill].append(user)
+
+    # Create a mock species for the 'None' key if it exists
+    if None in report_data:
+        class MockSpecies:
+            id = 0
+            name = "Sans Espèce Spécifiée"
+        report_data[MockSpecies()] = report_data.pop(None)
+
+    return render_template('admin/recycling_report.html', title='Rapport de Recyclage', report_data=report_data)

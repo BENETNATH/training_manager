@@ -45,8 +45,7 @@ def create_app(config_class=Config):
         '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
     file_handler.setLevel(logging.DEBUG)
     app.logger.addHandler(file_handler)
-    app.logger.info('Training Manager startup')
-
+    
     # ensure the instance folder exists
     try:
         os.makedirs(app.instance_path)

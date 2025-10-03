@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from app import db, login
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
@@ -59,6 +59,7 @@ class ExternalTrainingSkillClaim(db.Model):
     skill_id = db.Column(db.Integer, db.ForeignKey('skill.id'), primary_key=True)
     level = db.Column(db.String(64), nullable=False, default='Novice') # e.g., 'Novice', 'Intermediate', 'Expert'
     wants_to_be_tutor = db.Column(db.Boolean, default=False)
+    practice_date = db.Column(db.DateTime, nullable=True)
 
     external_training = db.relationship('ExternalTraining', back_populates='skill_claims')
     skill = db.relationship('Skill', back_populates='external_training_claims')
@@ -126,7 +127,7 @@ class User(UserMixin, db.Model):
         if self.api_key is None:
             self.generate_api_key()
     teams_as_lead = db.relationship('Team', secondary=user_team_leadership, back_populates='team_leads')
-    competencies = db.relationship('Competency', back_populates='user', lazy='dynamic', foreign_keys='Competency.user_id')
+    competencies = db.relationship('Competency', back_populates='user', lazy='selectin', foreign_keys='[Competency.user_id]')
     evaluated_competencies = db.relationship('Competency', back_populates='evaluator', lazy='dynamic', foreign_keys='Competency.evaluator_id')
     training_requests = db.relationship('TrainingRequest', back_populates='requester', lazy='dynamic')
     external_trainings = db.relationship('ExternalTraining', back_populates='user', lazy='dynamic', foreign_keys='ExternalTraining.user_id')
@@ -220,6 +221,9 @@ class TrainingPath(db.Model):
     def __repr__(self):
         return f'<TrainingPath {self.name}>'
 
+
+# ... (other code) ...
+
 class TrainingSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(128), nullable=False)
@@ -230,6 +234,7 @@ class TrainingSession(db.Model):
     ethical_authorization_id = db.Column(db.String(64))
     animal_count = db.Column(db.Integer)
     attachment_path = db.Column(db.String(256)) # Path to uploaded attendance sheet or other document
+    status = db.Column(db.String(64), default='Pending') # New status field
 
     main_species = db.relationship('Species', backref='training_sessions')
     attendees = db.relationship('User', secondary=training_session_attendees, back_populates='attended_training_sessions')
@@ -268,6 +273,39 @@ class Competency(db.Model):
     training_session = db.relationship('TrainingSession', back_populates='competencies')
     species = db.relationship('Species', secondary=competency_species_association, backref='competencies')
 
+    @property
+    def latest_practice_date(self):
+        # Find the most recent practice event for this skill and user
+        practice_event = SkillPracticeEvent.query.filter(
+            SkillPracticeEvent.user_id == self.user_id,
+            SkillPracticeEvent.skills.any(id=self.skill_id)
+        ).order_by(SkillPracticeEvent.practice_date.desc()).first()
+
+        # Compare with evaluation_date
+        if practice_event and practice_event.practice_date > self.evaluation_date:
+            return practice_event.practice_date
+        return self.evaluation_date
+
+    @property
+    def recycling_due_date(self):
+        if self.skill.validity_period_months:
+            # Using 30.44 days as average for a month
+            return self.latest_practice_date + timedelta(days=self.skill.validity_period_months * 30.44)
+        return None
+
+    @property
+    def needs_recycling(self):
+        if self.recycling_due_date:
+            return datetime.utcnow() > self.recycling_due_date
+        return False
+
+    @property
+    def warning_date(self):
+        if self.recycling_due_date and self.skill.validity_period_months:
+            # Warning period is typically 1/4 of the validity period
+            return self.recycling_due_date - timedelta(days=self.skill.validity_period_months * 30.44 / 4)
+        return None
+
     def __repr__(self):
         return f'<Competency {self.user.full_name} - {self.skill.name}>'
 
@@ -296,11 +334,14 @@ class TrainingRequest(db.Model):
 
     @property
     def associated_species(self):
+        # If species were explicitly requested, prioritize them.
+        if self.species_requested:
+            return self.species_requested
+        
+        # Fallback for older requests: infer from skills.
         species_set = set()
         for skill in self.skills_requested:
             species_set.update(skill.species)
-        # Also include species directly requested
-        species_set.update(self.species_requested)
         return list(species_set)
 
     def __repr__(self):

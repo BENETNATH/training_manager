@@ -12,7 +12,7 @@ import json
 from app import db, mail
 from app.profile import bp
 from app.models import User, Competency, Skill, SkillPracticeEvent, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus, TrainingSession, ExternalTrainingSkillClaim, Species # Added ExternalTrainingSkillClaim and Species
-from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, SkillPracticeEventForm, ProposeSkillForm
+from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm
 
 class MyFPDF(FPDF, HTMLMixin):
     pass
@@ -34,29 +34,19 @@ def user_profile(user_id=None):
         for skill in path.skills:
             all_required_skills.add(skill)
     
-    user_competencies = user.competencies.all()
+    user_competencies = user.competencies
     acquired_skills = {comp.skill for comp in user_competencies}
     required_skills_todo = list(all_required_skills - acquired_skills)
     
     # --- Logique de Recyclage et Dernière Pratique ---
+    # The properties on the Competency model now handle these calculations.
+    # We just need to ensure they are accessed to trigger the logic if needed.
     for comp in user_competencies:
-        practice_event = SkillPracticeEvent.query.filter_by(
-            user_id=user.id
-        ).join(SkillPracticeEvent.skills).filter_by(
-            id=comp.skill_id
-        ).order_by(SkillPracticeEvent.practice_date.desc()).first()
-        
-        comp.latest_practice_date = comp.evaluation_date
-        validity_months = comp.skill.validity_period_months if comp.skill.validity_period_months is not None else 12
-        if validity_months:
-            recycling_due_date = comp.latest_practice_date + timedelta(days=validity_months * 30.44)
-            comp.needs_recycling = datetime.utcnow() > recycling_due_date
-            comp.recycling_due_date = recycling_due_date
-            comp.warning_date = recycling_due_date - timedelta(days=validity_months * 30.44 / 4)
-        else:
-            comp.needs_recycling = False
-            comp.recycling_due_date = None
-            comp.warning_date = None
+        # Accessing the properties will trigger their calculation
+        _ = comp.latest_practice_date
+        _ = comp.recycling_due_date
+        _ = comp.needs_recycling
+        _ = comp.warning_date
 
     # --- Demandes de formation en cours ---
     pending_training_requests_by_user = TrainingRequest.query.filter(
@@ -90,10 +80,19 @@ def user_profile(user_id=None):
 @login_required
 def submit_training_request():
     form = TrainingRequestForm()
+    if request.method == 'POST':
+        species_id = request.form.get('species')
+        if species_id:
+            form.skills_requested.query = Skill.query.join(Skill.species).filter(Species.id == species_id)
+        else:
+            form.skills_requested.query = Skill.query.filter(False)
+    else:
+        form.skills_requested.query = []
+
     if form.validate_on_submit():
         req = TrainingRequest(requester=current_user, status=TrainingRequestStatus.PENDING)
         req.skills_requested = form.skills_requested.data
-        req.species_requested = form.species_requested.data
+        req.species_requested = [form.species.data]
         db.session.add(req)
         db.session.commit()
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -162,7 +161,8 @@ def submit_external_training():
                 skill=skill_claim_data['skill'],
                 level=skill_claim_data['level'],
                 species_claimed=skill_claim_data['species_claimed'],
-                wants_to_be_tutor=skill_claim_data['wants_to_be_tutor']
+                wants_to_be_tutor=skill_claim_data['wants_to_be_tutor'],
+                practice_date=skill_claim_data['practice_date']
             )
             ext_training.skill_claims.append(skill_claim)
 
@@ -188,30 +188,84 @@ def submit_external_training():
 @bp.route('/declare-practice', methods=['GET', 'POST'])
 @login_required
 def declare_skill_practice():
-    form = SkillPracticeEventForm()
-    if form.validate_on_submit():
-        event = SkillPracticeEvent(
-            user=current_user,
-            practice_date=form.practice_date.data,
-            notes=form.notes.data
-        )
-        event.skills = form.skills.data # Assign multiple skills
-        db.session.add(event)
-        db.session.commit()
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            skill_names = ', '.join([s.name for s in form.skills.data])
-            return jsonify({'success': True, 'message': f'Pratique pour les compétences "{skill_names}" déclarée avec succès !', 'redirect_url': url_for('profile.user_profile')})
-        flash(f'Practice for skills "{form.skills.data}" has been declared.', 'success')
-        return redirect(url_for('profile.user_profile'))
-    elif request.method == 'POST': # Validation failed
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            form_html = render_template('profile/_declare_skill_practice_form.html', form=form)
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'})
+    if request.method == 'POST':
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided.'}), 400
+
+        try:
+            for item in data:
+                competency_id = item.get('competency_id')
+                practice_date_str = item.get('practice_date')
+                new_level = item.get('level')
+
+                competency = Competency.query.get(competency_id)
+                if not competency or competency.user_id != current_user.id:
+                    return jsonify({'success': False, 'message': f'Competency {competency_id} not found or not owned by user.'}), 403
+
+                # Update competency level if provided and different
+                if new_level and new_level != competency.level:
+                    competency.level = new_level
+
+                # Create SkillPracticeEvent if practice_date is provided
+                if practice_date_str:
+                    practice_date = datetime.fromisoformat(practice_date_str.replace('Z', '+00:00')) # Handle 'Z' for UTC
+                    
+                    # Check if a practice event already exists for this skill and date
+                    # This prevents duplicate entries if the user submits multiple times
+                    existing_event = SkillPracticeEvent.query.filter_by(
+                        user_id=current_user.id,
+                        practice_date=practice_date
+                    ).filter(SkillPracticeEvent.skills.any(id=competency.skill_id)).first()
+
+                    if not existing_event:
+                        event = SkillPracticeEvent(
+                            user=current_user,
+                            practice_date=practice_date,
+                            notes=f"Practice declared via batch update for skill: {competency.skill.name}"
+                        )
+                        event.skills.append(competency.skill)
+                        db.session.add(event)
+                    else:
+                        # Optionally update notes or just skip if event exists
+                        pass
+
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Pratiques et niveaux mis à jour avec succès !', 'redirect_url': url_for('profile.user_profile')})
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating practices: {e}")
+            return jsonify({'success': False, 'message': f'Erreur lors de la mise à jour des pratiques: {str(e)}'}), 500
+
+    # GET Request handling
+    user_competencies = current_user.competencies.all()
+    competencies_data = []
+    for comp in user_competencies:
+        # Ensure latest_practice_date is calculated as in user_profile
+        practice_event = SkillPracticeEvent.query.filter(
+            SkillPracticeEvent.user_id == current_user.id,
+            SkillPracticeEvent.skills.any(id=comp.skill_id)
+        ).order_by(SkillPracticeEvent.practice_date.desc()).first()
+        
+        comp_latest_practice_date = comp.evaluation_date 
+        if practice_event and practice_event.practice_date > comp_latest_practice_date:
+            comp_latest_practice_date = practice_event.practice_date
+        elif comp.latest_practice_date: # If already calculated in user_profile context
+             comp_latest_practice_date = comp.latest_practice_date
+
+        competencies_data.append({
+            'competency_id': comp.id,
+            'skill_name': comp.skill.name,
+            'skill_id': comp.skill.id,
+            'species': [{'id': s.id, 'name': s.name} for s in comp.species],
+            'current_level': comp.level,
+            'latest_practice_date': comp_latest_practice_date.isoformat() if comp_latest_practice_date else None
+        })
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return render_template('profile/_declare_skill_practice_form.html', form=form)
+        return render_template('profile/_declare_skill_practice_form.html', competencies=competencies_data)
 
-    return render_template('profile/declare_skill_practice.html', title='Declare Skill Practice', form=form)
+    return render_template('profile/declare_skill_practice.html', title='Declare Skill Practice', competencies=competencies_data)
 
 @bp.route('/generate-api-key', methods=['POST'])
 @login_required
@@ -333,10 +387,9 @@ def generate_user_booklet_pdf(user_id):
     # Re-calculate competencies data as in user_profile
     competencies = user.competencies.all()
     for comp in competencies:
-        practice_event = SkillPracticeEvent.query.filter_by(
-            user_id=user.id
-        ).join(SkillPracticeEvent.skills).filter_by(
-            id=comp.skill_id
+        practice_event = SkillPracticeEvent.query.filter(
+            SkillPracticeEvent.user_id == user.id,
+            SkillPracticeEvent.skills.any(id=comp.skill_id)
         ).order_by(SkillPracticeEvent.practice_date.desc()).first()
         comp.latest_practice_date = comp.evaluation_date
         if practice_event and practice_event.practice_date > comp.evaluation_date:

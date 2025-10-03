@@ -8,18 +8,38 @@
             <h6 class="m-0 font-weight-bold text-primary">{{ session.title }}</h6>
         </div>
         <div class="card-body">
-            <p><strong>Lieu :</strong> {{ session.location }}</p>
-            <p><strong>Début :</strong> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
-            <p><strong>Fin :</strong> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</p>
-            <p><strong>Tuteur :</strong> {{ session.tutor.full_name if session.tutor else 'N/A' }}</p>
-            <p><strong>ID Autorisation Éthique :</strong> {{ session.ethical_authorization_id if session.ethical_authorization_id else 'N/A' }}</p>
-            <p><strong>Nombre d'animaux :</strong> {{ session.animal_count if session.animal_count else 'N/A' }}</p>
-            
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Lieu :</strong> {{ session.location }}</p>
+                    <p><strong>Début :</strong> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p><strong>Fin :</strong> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p><strong>Tuteur(s) :</strong>
+                        {% if session.tutors %}
+                            {% for tutor in session.tutors %}
+                                <span class="badge bg-info text-dark">{{ tutor.full_name }}</span>{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Espèce Principale :</strong> {{ session.main_species.name if session.main_species else 'N/A' }}</p>
+                    <p><strong>ID Autorisation Éthique :</strong> {{ session.ethical_authorization_id if session.ethical_authorization_id else 'N/A' }}</p>
+                    <p><strong>Nombre d'animaux :</strong> {{ session.animal_count if session.animal_count else 'N/A' }}</p>
+                    {% if session.attachment_path %}
+                        <p><strong>Pièce jointe :</strong> <a href="{{ url_for('static', filename=session.attachment_path) }}" target="_blank">Voir la pièce jointe</a></p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <hr>
+
             <h5>Participants :</h5>
             {% if session.attendees %}
-                <ul>
+                <ul class="list-group mb-3">
                     {% for attendee in session.attendees %}
-                        <li>{{ attendee.full_name }} ({{ attendee.email }})</li>
+                        <li class="list-group-item">{{ attendee.full_name }} ({{ attendee.email }})</li>
                     {% endfor %}
                 </ul>
             {% else %}
@@ -28,66 +48,18 @@
 
             <h5>Compétences Couvertes :</h5>
             {% if session.skills_covered %}
-                <ul>
+                <ul class="list-group mb-3">
                     {% for skill in session.skills_covered %}
-                        <li>{{ skill.name }}</li>
+                        <li class="list-group-item">{{ skill.name }}</li>
                     {% endfor %}
                 </ul>
             {% else %}
                 <p>Aucune compétence couverte.</p>
             {% endif %}
 
-            <h5>Espèce(s) Associée(s) :</h5>
-            {% if session.associated_species %}
-                <p>
-                    {% for species in session.associated_species %}
-                        <span class="badge bg-secondary me-1">{{ species.name }}</span>
-                    {% endfor %}
-                </p>
-            {% else %}
-                <p>Aucune espèce associée.</p>
-            {% endif %}
-
-            {% if session.attachment_path %}
-                <p><strong>Pièce jointe :</strong> <a href="{{ url_for('static', filename=session.attachment_path) }}" target="_blank">Voir la pièce jointe</a></p>
-            {% endif %}
-
-            {% if current_user == session.tutor or current_user.is_admin %}
-            <h5 class="mt-4">Validation des Compétences</h5>
-            <form method="POST" action="">
-                {{ form.hidden_tag() }}
-                {% for attendee_form in form.attendees %}
-                    {% set attendee_idx = loop.index0 %}
-                    <div class="card mb-3">
-                        <div class="card-header">
-                            <h6>{{ session.attendees[attendee_idx].full_name }}</h6> {# Display full name directly #}
-                            {{ attendee_form.user_label() }} {# Render the hidden field #}
-                        </div>
-                        <div class="card-body">
-                            {% for competency_form in attendee_form.competencies %}
-                                {% set competency_idx = loop.index0 %}
-                                <div class="row mb-2 align-items-center">
-                                    <div class="col-md-4">
-                                        <p class="form-control-plaintext">{{ session.skills_covered[competency_idx].name }}</p>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="form-check">
-                                            {{ competency_form.acquired(class="form-check-input") }}
-                                            <label class="form-check-label" for="{{ competency_form.acquired.id }}">{{ competency_form.acquired.label }}</label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        {{ competency_form.level(class="form-select") }}
-                                    </div>
-                                    {{ competency_form.skill_id(value=session.skills_covered[competency_idx].id) }} {# Render skill_id hidden field #}
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                {% endfor %}
-                {{ form.submit(class="btn btn-primary mt-3") }}
-            </form>
-            {% endif %}
+            <div class="mt-4">
+                <a href="{{ url_for('admin.validate_training_session', session_id=session.id) }}" class="btn btn-primary">Valider la Session</a>
+            </div>
 
             <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary mt-3">Retour à la liste des sessions</a>
         </div>

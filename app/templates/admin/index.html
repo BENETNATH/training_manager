@@ -38,19 +38,19 @@
         </div>
 
         <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card border-left-danger shadow h-100 py-2 clickable-card" data-target="#recycling-needed-section">
+            <a href="{% if recycling_needed_count > 0 %}{{ url_for('admin.recycling_report') }}{% else %}#__{% endif %}" class="card border-left-danger shadow h-100 py-2 text-decoration-none">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Recyclages Requis</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ recycling_needed_count }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ users_needing_recycling|length }} utilisateurs / {{ recycling_needed_count }} compétences</div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-sync-alt fa-2x text-gray-300"></i>
                         </div>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
 
         <div class="col-lg-3 col-md-6 mb-4">
@@ -95,38 +95,7 @@
     <!-- Section: Demandes de Formation en Attente -->
     <!-- This section is now moved to its own page: /admin/training_requests -->
 
-    <!-- Section: Utilisateurs nécessitant un recyclage -->
-    <div class="card shadow mb-4 d-none" id="recycling-needed-section">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Utilisateurs nécessitant un recyclage</h6>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered" id="recycling-needed-table" width="100%" cellspacing="0">
-                    <thead>
-                        <tr>
-                            <th>Nom complet</th>
-                            <th>Email</th>
-                            <th>Équipe</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for user in users_needing_recycling %}
-                        <tr>
-                            <td>{{ user.full_name }}</td>
-                            <td>{{ user.email }}</td>
-                            <td>{{ user.team.name if user.team else '' }}</td>
-                            <td>
-                                <a href="{{ url_for('profile.user_profile', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-info" title="Voir le profil"><i class="fa fa-eye"></i></a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+
 
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
@@ -784,7 +753,7 @@ $(document).ready(function() {
                     // Update existing row
                     table.row(editingSkillRow).data([
                         skill.name,
-                        skill.description,
+                        (skill.description || '').substring(0, 120) + (skill.description.length > 120 ? '...' : ''),
                         speciesHtml,
                         tutorsHtml,
                         actionsHtml
@@ -793,11 +762,12 @@ $(document).ready(function() {
                     // Add new row
                     table.row.add([
                         skill.name,
-                        skill.description,
+                        (skill.description || '').substring(0, 120) + (skill.description.length > 120 ? '...' : ''),
                         speciesHtml,
                         tutorsHtml,
                         actionsHtml
-                    ]).draw();
+                    ]).node().id = 'skill-row-' + skill.id; // Add id to the new row
+                    table.draw();
                 }
 
                 skillEditModal.hide();

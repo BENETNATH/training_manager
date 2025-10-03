@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Rapport de Recyclage</h1>
+
+    {% if report_data %}
+        <form id="recycling-form">
+            {% for species, skills_data in report_data.items() %}
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">Espèce : {{ species.name }}</h6>
+                        <button type="button" class="btn btn-primary btn-sm create-session-btn" data-species-id="{{ species.id }}">
+                            Créer une session pour {{ species.name }}
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" class="select-all-skills" data-species-id="{{ species.id }}"></th>
+                                        <th>Compétence</th>
+                                        <th>Personnes à Recycler</th>
+                                        <th>Liste des Personnes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for skill, users in skills_data.items() %}
+                                    <tr>
+                                        <td><input type="checkbox" class="skill-checkbox" name="skill_{{ species.id }}" value="{{ skill.id }}" data-user-ids="{{ users|map(attribute='id')|join(',') }}"></td>
+                                        <td>{{ skill.name }}</td>
+                                        <td>{{ users|length }}</td>
+                                        <td>
+                                            {% for user in users %}
+                                                <span class="badge bg-secondary">{{ user.full_name }}</span>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </form>
+    {% else %}
+        <div class="alert alert-info">Aucun besoin de recyclage pour le moment.</div>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    $('.select-all-skills').on('change', function() {
+        var speciesId = $(this).data('species-id');
+        $(`input[name='skill_${speciesId}']`).prop('checked', $(this).prop('checked'));
+    });
+
+    $('.create-session-btn').on('click', function() {
+        var speciesId = $(this).data('species-id');
+        var selectedSkills = $(`input[name='skill_${speciesId}']:checked`);
+        
+        if (selectedSkills.length === 0) {
+            alert('Veuillez sélectionner au moins une compétence.');
+            return;
+        }
+
+        var skillIds = [];
+        var userIds = new Set();
+
+        selectedSkills.each(function() {
+            skillIds.push($(this).val());
+            var users = $(this).data('user-ids').toString().split(',').map(Number);
+            users.forEach(userId => userIds.add(userId));
+        });
+
+        var url = new URL("{{ url_for('admin.create_training_session', _external=True) }}");
+        url.searchParams.append('species_id', speciesId);
+        url.searchParams.append('skill_ids', skillIds.join(','));
+        url.searchParams.append('user_ids', Array.from(userIds).join(','));
+
+        window.location.href = url.toString();
+    });
+});
+</script>
+{% endblock %}
