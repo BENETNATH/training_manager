@@ -90,13 +90,25 @@
                 </div>
             </a>
         </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
+            <a href="{{ url_for('admin.manage_training_sessions', filter='to_be_finalized') }}" class="card border-left-warning shadow h-100 py-2 text-decoration-none">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Sessions à finaliser</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ sessions_to_be_finalized_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
 
-    <!-- Section: Demandes de Formation en Attente -->
-    <!-- This section is now moved to its own page: /admin/training_requests -->
-
-
-
+    <!-- Section: Gestion des Équipes -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
             <h6 class="m-0 font-weight-bold text-primary">Gestion des Équipes</h6>
@@ -130,7 +142,7 @@
                                 <button class="btn btn-sm btn-info add-user-to-team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" title="Add User to Team"><i class="fas fa-user-plus"></i></button>
                                 <form action="{{ url_for('admin.delete_team', id=team.id) }}" method="post" style="display:inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this team?');" title="Supprimer"><i class="fa fa-trash"></i></button>
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Supprimer"><i class="fa fa-trash"></i></button>
                                 </form>
                             </td>
                         </tr>
@@ -152,7 +164,6 @@
                         Exporter
                     </button>
                     <ul class="dropdown-menu">
-
                         <li><a class="dropdown-item" href="{{ url_for('admin.export_users_xlsx') }}">Export Excel</a></li>
                     </ul>
                 </div>
@@ -216,7 +227,6 @@
                         Exporter
                     </button>
                     <ul class="dropdown-menu">
-
                         <li><a class="dropdown-item" href="{{ url_for('admin.export_skills_xlsx') }}">Export Excel</a></li>
                     </ul>
                 </div>
@@ -249,7 +259,11 @@
                             </td>
                             <td>
                                 {% for tutor in skill.tutors %}
-                                    <span class="badge bg-dark">{{ tutor.full_name }}</span>
+                                    {% if recycling_map and skill.id in recycling_map.get(tutor.id, []) %}
+                                        <span class="badge bg-danger">{{ tutor.full_name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-dark">{{ tutor.full_name }}</span>
+                                    {% endif %}
                                 {% else %}
                                     <span class="badge bg-warning">Aucun</span>
                                 {% endfor %}
@@ -265,7 +279,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
+
+{% block modals %}
     <!-- Modal Placeholder for User Edit -->
     <div class="modal fade" id="user-edit-modal" tabindex="-1" aria-labelledby="user-edit-modal-label" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -390,13 +407,14 @@
             </div>
         </div>
     </div>
-
 {% endblock %}
+
 
 {% block scripts %}
 {{ super() }}
-    <script>
+<script>
 $(document).ready(function() {
+    // --- Setup for DataTables ---
     var frenchLanguage = {
         "sEmptyTable":     "Aucune donnée disponible dans le tableau",
         "sInfo":           "Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments",
@@ -409,26 +427,98 @@ $(document).ready(function() {
         "sProcessing":     "Traitement...",
         "sSearch":         "Rechercher :",
         "sZeroRecords":    "Aucun élément correspondant trouvé",
-        "oPaginate": {
-            "sFirst":    "Premier",
-            "sLast":     "Dernier",
-            "sNext":     "Suivant",
-            "sPrevious": "Précédent"
-        },
-        "oAria": {
-            "sSortAscending":  ": activer pour trier la colonne par ordre croissant",
-            "sSortDescending": ": activer pour trier la colonne par ordre décroissant"
-        }
+        "oPaginate": { "sFirst": "Premier", "sLast": "Dernier", "sNext": "Suivant", "sPrevious": "Précédent" },
+        "oAria": { "sSortAscending": ": activer pour trier la colonne par ordre croissant", "sSortDescending": ": activer pour trier la colonne par ordre décroissant" }
     };
 
-    $('#users-table').DataTable({
-        language: frenchLanguage
+    $('#users-table').DataTable({ language: frenchLanguage });
+    $('#skills-table').DataTable({ language: frenchLanguage });
+    $('#teams-table').DataTable({ language: frenchLanguage });
+
+    // --- MODAL INITIALIZATION ---
+    // Create the Bootstrap Modal objects ONCE when the page loads.
+    var userModal = new bootstrap.Modal(document.getElementById('user-edit-modal'));
+    var skillModal = new bootstrap.Modal(document.getElementById('skill-edit-modal'));
+    var teamAddModal = new bootstrap.Modal(document.getElementById('team-add-modal'));
+    var teamEditModal = new bootstrap.Modal(document.getElementById('team-edit-modal'));
+    var addUsersToTeamModal = new bootstrap.Modal(document.getElementById('add-users-to-team-modal'));
+
+    // --- User Management ---
+    var editingUserRow = null;
+
+    // Handle modal opening for ADDING a user
+    $('#add-user-btn').on('click', function() {
+        var addUrl = "{{ url_for('admin.add_user') }}";
+        editingUserRow = null;
+
+        fetch(addUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(response => response.text())
+        .then(html => {
+            $('#user-edit-modal-label').text('Créer un Utilisateur');
+            $('#user-edit-modal .modal-body').html(`<form id="modal-user-form" action="${addUrl}" method="post" novalidate>${html}</form>`);
+            userModal.show();
+        })
+        .catch(error => { console.error('Error loading user form:', error); alert('Erreur lors du chargement du formulaire.'); });
     });
-    $('#skills-table').DataTable({
-        language: frenchLanguage
+
+    // Handle modal opening for EDITING a user
+    $('#users-table').on('click', '.edit-user-btn', function() {
+        var button = $(this);
+        var editUrl = button.data('edit-url');
+        editingUserRow = button.closest('tr');
+        
+        fetch(editUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(response => response.text())
+        .then(html => {
+            $('#user-edit-modal-label').text('Éditer l\'Utilisateur');
+            $('#user-edit-modal .modal-body').html(`<form id="modal-user-form" action="${editUrl}" method="post" novalidate>${html}</form>`);
+            userModal.show();
+        })
+        .catch(error => { console.error('Error loading user form:', error); alert('Erreur lors du chargement du formulaire.'); });
     });
-    $('#teams-table').DataTable({
-        language: frenchLanguage
+
+    // Handle SAVE button click in the user modal
+    $('#save-user-changes-btn').on('click', () => $('#modal-user-form').submit());
+
+    // Handle the user form SUBMISSION via AJAX
+    $('#user-edit-modal').on('submit', '#modal-user-form', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var url = form.attr('action');
+        var formData = new FormData(this);
+        var csrfToken = $('meta[name=csrf-token]').attr('content');
+
+        fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken } })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                var user = data.user;
+                var table = $('#users-table').DataTable();
+                var teamsHtml = user.teams && user.teams.length > 0 ? user.teams.map(name => `<span class="badge bg-secondary">${name}</span>`).join(' ') : 'Aucune';
+                var rolesHtml = (user.is_admin ? '<span class="badge bg-primary">Admin</span> ' : '') + 
+                                (user.teams_as_lead && user.teams_as_lead.length > 0 ? user.teams_as_lead.map(name => `<span class="badge bg-info">Lead: ${name}</span>`).join(' ') : '');
+                var actionsHtml = `<a href="/profile/${user.id}" target="_blank" class="btn btn-sm btn-info" title="Voir le livret"><i class="fa fa-eye"></i></a> ` +
+                                  `<button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="/admin/users/edit/${user.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
+                                  `<button class="btn btn-sm btn-danger delete-user-btn" data-user-id="${user.id}" data-delete-url="/admin/users/delete/${user.id}" title="Supprimer"><i class="fa fa-trash"></i></button> ` +
+                                  `<a href="/profile/${user.id}/booklet.pdf" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>`;
+                
+                var rowData = [user.full_name, user.email, teamsHtml, rolesHtml, actionsHtml];
+
+                if (editingUserRow) {
+                    table.row(editingUserRow).data(rowData).draw();
+                } else {
+                    var newNode = table.row.add(rowData).draw().node();
+                    $(newNode).attr('id', 'user-row-' + user.id);
+                }
+                
+                userModal.hide();
+
+            } else {
+                if (data.form_html) { form.html(data.form_html); } 
+                else { alert(data.message || 'Erreur lors de la sauvegarde.'); }
+            }
+        })
+        .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
     });
 
     // Handle AJAX deletion for users
@@ -438,239 +528,92 @@ $(document).ready(function() {
         var deleteUrl = button.data('delete-url');
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.')) {
-            fetch(deleteUrl, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken
-                }
-            })
+        if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
+            fetch(deleteUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken } })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     $('#users-table').DataTable().row('#user-row-' + userId).remove().draw();
-                } else {
-                    alert('Erreur lors de la suppression : ' + (data.message || 'Erreur inconnue.'));
-                }
+                } else { alert('Erreur: ' + (data.message || 'Inconnue.')); }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
-            });
+            .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
         }
     });
 
-    // Handle modal opening for user edit
-    var userEditModal = new bootstrap.Modal(document.getElementById('user-edit-modal'));
-    var editingUserRow = null;
 
-    $('#users-table').on('click', '.edit-user-btn', function() {
+    // --- Skill Management ---
+    var editingSkillRow = null;
+
+    // Handle modal opening for ADDING a skill
+    $('#add-skill-btn').on('click', function() {
+        var addUrl = "{{ url_for('admin.add_skill') }}";
+        editingSkillRow = null;
+
+        fetch(addUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(response => response.text())
+        .then(html => {
+            $('#skill-edit-modal-label').text('Créer une Compétence');
+            $('#skill-edit-modal .modal-body').html(`<form id="modal-skill-form" action="${addUrl}" method="post" novalidate>${html}</form>`);
+            skillModal.show();
+        })
+        .catch(error => { console.error('Error loading skill form:', error); alert('Erreur lors du chargement du formulaire.'); });
+    });
+    
+    // Handle modal opening for EDITING a skill
+    $('#skills-table').on('click', '.edit-skill-btn', function() {
         var button = $(this);
         var editUrl = button.data('edit-url');
-        editingUserRow = button.closest('tr'); // Save the row being edited
-        
-        $('#user-edit-modal-label').text('Éditer l\'Utilisateur');
+        editingSkillRow = button.closest('tr');
 
-        fetch(editUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
+        fetch(editUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
-            $('#user-edit-modal .modal-body').html(
-                `<form id="modal-user-form" action="${editUrl}" method="post" novalidate>${html}</form>`
-            );
-            userEditModal.show();
+            $('#skill-edit-modal-label').text('Éditer la Compétence');
+            $('#skill-edit-modal .modal-body').html(`<form id="modal-skill-form" action="${editUrl}" method="post" novalidate>${html}</form>`);
+            skillModal.show();
         })
-        .catch(error => {
-            console.error('Error loading user form:', error);
-            alert('Erreur lors du chargement du formulaire.');
-        });
+        .catch(error => { console.error('Error loading skill form:', error); alert('Erreur lors du chargement du formulaire.'); });
     });
 
-    // Handle modal opening for user add
-    $('#add-user-btn').on('click', function() {
-        var addUrl = "{{ url_for('admin.add_user') }}";
-        editingUserRow = null; // Ensure we are in 'add' mode
+    // Handle SAVE button click in the skill modal
+    $('#save-skill-changes-btn').on('click', () => $('#modal-skill-form').submit());
 
-        $('#user-edit-modal-label').text('Créer un Utilisateur');
-
-        fetch(addUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.text())
-        .then(html => {
-            $('#user-edit-modal .modal-body').html(
-                `<form id="modal-user-form" action="${addUrl}" method="post" novalidate>${html}</form>`
-            );
-            userEditModal.show();
-        })
-        .catch(error => {
-            console.error('Error loading user form:', error);
-            alert('Erreur lors du chargement du formulaire.');
-        });
-    });
-
-    // Handle form submission from the user modal (for both add and edit)
-    $('#save-user-changes-btn').on('click', function() {
-        $('#modal-user-form').submit();
-    });
-
-    var skillEditModal = new bootstrap.Modal(document.getElementById('skill-edit-modal'));
-    var editingSkillRow = null; // Variable to hold the row being edited
-
-    $('#user-edit-modal').on('submit', '#modal-user-form', function(e) {
+    // Handle the skill form SUBMISSION via AJAX
+    $('#skill-edit-modal').on('submit', '#modal-skill-form', function(e) {
         e.preventDefault();
         var form = $(this);
         var url = form.attr('action');
         var formData = new FormData(this);
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
-            }
-        })
+        fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken } })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                var user = data.user;
-                var rolesHtml = '';
-                if (user.is_admin) rolesHtml += '<span class="badge bg-primary">Admin</span> ';
-                if (user.is_team_lead) rolesHtml += '<span class="badge bg-secondary">Team Lead</span>';
+                var skill = data.skill;
+                var table = $('#skills-table').DataTable();
+                var speciesHtml = skill.species && skill.species.length > 0 ? skill.species.map(name => `<span class="badge bg-secondary">${name}</span>`).join(' ') : 'Aucune';
+                var tutorsHtml = skill.tutors && skill.tutors.length > 0 ? skill.tutors.map(name => `<span class="badge bg-dark">${name}</span>`).join(' ') : '<span class="badge bg-warning">Aucun</span>';
+                var actionsHtml = `<button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="/admin/skills/edit/${skill.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
+                                  `<button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="${skill.id}" data-delete-url="/admin/skills/delete/${skill.id}" title="Supprimer"><i class="fa fa-trash"></i></button>`;
                 
-                // Create the action buttons HTML
-                var actionsHtml = 
-                    `<a href="/profile/${user.id}" target="_blank" class="btn btn-sm btn-info" title="Voir le livret"><i class="fa fa-eye"></i></a> ` +
-                    `<button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="/admin/users/edit/${user.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
-                    `<button class="btn btn-sm btn-danger delete-user-btn" data-user-id="${user.id}" data-delete-url="/admin/users/delete/${user.id}" title="Supprimer"><i class="fa fa-trash"></i></button> ` +
-                    `<a href="/profile/${user.id}/booklet.pdf" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>`;
+                var truncatedDescription = (skill.description || '').substring(0, 120) + ((skill.description || '').length > 120 ? '...' : '');
+                var rowData = [skill.name, truncatedDescription, speciesHtml, tutorsHtml, actionsHtml];
 
-                var table = $('#users-table').DataTable();
-
-                // Reconstruct teamsHtml
-                var teamsHtml = '';
-                if (user.teams && user.teams.length > 0) {
-                    user.teams.forEach(function(teamName) {
-                        teamsHtml += `<span class="badge bg-secondary">${teamName}</span> `;
-                    });
+                if (editingSkillRow) {
+                    table.row(editingSkillRow).data(rowData).draw();
                 } else {
-                    teamsHtml = 'Aucune';
+                    var newNode = table.row.add(rowData).draw().node();
+                    $(newNode).attr('id', 'skill-row-' + skill.id);
                 }
 
-                // Reconstruct rolesHtml
-                var rolesHtml = '';
-                if (user.is_admin) rolesHtml += '<span class="badge bg-primary">Admin</span> ';
-                if (user.teams_as_lead && user.teams_as_lead.length > 0) {
-                    user.teams_as_lead.forEach(function(teamName) {
-                        rolesHtml += `<span class="badge bg-info">Lead: ${teamName}</span> `;
-                    });
-                }
-                
-                // Create the action buttons HTML
-                var actionsHtml = 
-                    `<a href="/profile/${user.id}" target="_blank" class="btn btn-sm btn-info" title="Voir le livret"><i class="fa fa-eye"></i></a> ` +
-                    `<button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="/admin/users/edit/${user.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
-                    `<button class="btn btn-sm btn-danger delete-user-btn" data-user-id="${user.id}" data-delete-url="/admin/users/delete/${user.id}" title="Supprimer"><i class="fa fa-trash"></i></button> ` +
-                    `<a href="/profile/${user.id}/booklet.pdf" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>`;
-
-                if (editingUserRow) {
-                    // Update existing row
-                    table.row(editingUserRow).data([
-                        user.full_name,
-                        user.email,
-                        teamsHtml,
-                        rolesHtml,
-                        actionsHtml
-                    ]).draw();
-                } else {
-                    // Add new row
-                    table.row.add([
-                        user.full_name,
-                        user.email,
-                        teamsHtml,
-                        rolesHtml,
-                        actionsHtml
-                    ]).draw();
-                }
-
-                userEditModal.hide();
+                skillModal.hide();
             } else {
-                // Handle form errors (e.g., re-render form with errors)
-                if (data.form_html) {
-                    form.html(data.form_html); // Re-render form with errors
-                } else {
-                    alert(data.message || 'Erreur lors de la sauvegarde de l\'utilisateur.');
-                }
+                if (data.form_html) { form.html(data.form_html); } 
+                else { alert(data.message || 'Erreur lors de la sauvegarde.'); }
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Une erreur réseau est survenue.');
-        });
-    });
-
-    // Handle modal opening for skill edit
-    $('#skills-table').on('click', '.edit-skill-btn', function() {
-        var button = $(this);
-        var editUrl = button.data('edit-url');
-        editingSkillRow = button.closest('tr'); // Save the row being edited
-        
-        $('#skill-edit-modal-label').text('Éditer la Compétence');
-
-        fetch(editUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.text())
-        .then(html => {
-            $('#skill-edit-modal .modal-body').html(
-                `<form id="modal-skill-form" action="${editUrl}" method="post" novalidate>${html}</form>`
-            );
-            skillEditModal.show();
-        })
-        .catch(error => {
-            console.error('Error loading skill form:', error);
-            alert('Erreur lors du chargement du formulaire.');
-        });
-    });
-
-    // Handle modal opening for skill add
-    $('#add-skill-btn').on('click', function() {
-        var addUrl = "{{ url_for('admin.add_skill') }}";
-        editingSkillRow = null; // Ensure we are in 'add' mode
-
-        $('#skill-edit-modal-label').text('Créer une Compétence');
-
-        fetch(addUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.text())
-        .then(html => {
-            $('#skill-edit-modal .modal-body').html(
-                `<form id="modal-skill-form" action="${addUrl}" method="post" novalidate>${html}</form>`
-            );
-            skillEditModal.show();
-        })
-        .catch(error => {
-            console.error('Error loading skill form:', error);
-            alert('Erreur lors du chargement du formulaire.');
-        });
-    });
-
-    // Handle form submission from the skill modal (for both add and edit)
-    $('#save-skill-changes-btn').on('click', function() {
-        $('#modal-skill-form').submit();
+        .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
     });
 
     // Handle AJAX deletion for skills
@@ -680,379 +623,155 @@ $(document).ready(function() {
         var deleteUrl = button.data('delete-url');
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette compétence ? Cette action est irréversible.')) {
-            fetch(deleteUrl, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken
-                }
-            })
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette compétence ?')) {
+            fetch(deleteUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken } })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     $('#skills-table').DataTable().row('#skill-row-' + skillId).remove().draw();
-                } else {
-                    alert('Erreur lors de la suppression : ' + (data.message || 'Erreur inconnue.'));
-                }
+                } else { alert('Erreur: ' + (data.message || 'Inconnue.')); }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
-            });
+            .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
         }
     });
 
-    $('#skill-edit-modal').on('submit', '#modal-skill-form', function(e) {
-        e.preventDefault();
-        var form = $(this);
-        var url = form.attr('action');
-        var formData = new FormData(this);
-        var csrfToken = $('meta[name=csrf-token]').attr('content');
-
-        fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                var skill = data.skill;
-                var table = $('#skills-table').DataTable();
-
-                // Reconstruct speciesHtml
-                var speciesHtml = '';
-                if (skill.species && skill.species.length > 0) {
-                    skill.species.forEach(function(speciesName) {
-                        speciesHtml += `<span class="badge bg-secondary">${speciesName}</span> `;
-                    });
-                } else {
-                    speciesHtml = 'Aucune';
-                }
-
-                // Reconstruct tutorsHtml
-                var tutorsHtml = '';
-                if (skill.tutors && skill.tutors.length > 0) {
-                    skill.tutors.forEach(function(tutorName) {
-                        tutorsHtml += `<span class="badge bg-dark">${tutorName}</span> `;
-                    });
-                } else {
-                    tutorsHtml = '<span class="badge bg-warning">Aucun</span>';
-                }
-
-                // Create the action buttons HTML
-                var actionsHtml =
-                    `<button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="/admin/skills/edit/${skill.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
-                    `<button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="${skill.id}" data-delete-url="/admin/skills/delete/${skill.id}" title="Supprimer"><i class="fa fa-trash"></i></button>`;
-
-                if (editingSkillRow) {
-                    // Update existing row
-                    table.row(editingSkillRow).data([
-                        skill.name,
-                        (skill.description || '').substring(0, 120) + (skill.description.length > 120 ? '...' : ''),
-                        speciesHtml,
-                        tutorsHtml,
-                        actionsHtml
-                    ]).draw();
-                } else {
-                    // Add new row
-                    table.row.add([
-                        skill.name,
-                        (skill.description || '').substring(0, 120) + (skill.description.length > 120 ? '...' : ''),
-                        speciesHtml,
-                        tutorsHtml,
-                        actionsHtml
-                    ]).node().id = 'skill-row-' + skill.id; // Add id to the new row
-                    table.draw();
-                }
-
-                skillEditModal.hide();
-            } else {
-                // Handle form errors (e.g., re-render form with errors)
-                if (data.form_html) {
-                    form.html(data.form_html); // Re-render form with errors
-                } else {
-                    alert(data.message || 'Erreur lors de la sauvegarde de la compétence.');
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Une erreur réseau est survenue.');
-        });
-    });
-
-    // Handle modal opening for user import
-    $('#import-users-modal').on('show.bs.modal', function (event) {
-        var modal = $(this);
-        var importUrl = "{{ url_for('admin.import_export_users') }}";
-
-        fetch(importUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
+    // --- Import Modals ---
+    $('#import-users-modal').on('show.bs.modal', function () {
+        fetch("{{ url_for('admin.import_export_users') }}", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
-        .then(html => {
-            modal.find('.modal-body').html(html);
-        })
-        .catch(error => {
-            console.error('Error loading import form:', error);
-            alert('Erreur lors du chargement du formulaire d\'importation.');
-        });
+        .then(html => { $(this).find('.modal-body').html(html); })
+        .catch(error => { console.error('Error loading import form:', error); });
     });
 
-    // Handle modal opening for skill import
-    $('#import-skills-modal').on('show.bs.modal', function (event) {
-        var modal = $(this);
-        var importUrl = "{{ url_for('admin.import_export_skills') }}";
-
-        fetch(importUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
+    $('#import-skills-modal').on('show.bs.modal', function () {
+        fetch("{{ url_for('admin.import_export_skills') }}", { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
-        .then(html => {
-            modal.find('.modal-body').html(html);
-        })
-        .catch(error => {
-            console.error('Error loading import form:', error);
-            alert('Erreur lors du chargement du formulaire d\'importation de compétences.');
-        });
+        .then(html => { $(this).find('.modal-body').html(html); })
+        .catch(error => { console.error('Error loading skill import form:', error); });
     });
 
-    // Handle modal opening for team add
-    var teamAddModal = new bootstrap.Modal(document.getElementById('team-add-modal'));
+    // --- Team Management ---
+
+    // Handle modal opening for ADDING a team
     $('#add-team-btn').on('click', function() {
         var addUrl = "{{ url_for('admin.add_team') }}";
-
-        $('#team-add-modal-label').text('Créer une Équipe');
-
-        fetch(addUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
+        fetch(addUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
-            $('#team-add-modal .modal-body').html(
-                `<form id="modal-team-form" action="${addUrl}" method="post" novalidate>${html}</form>`
-            );
+            $('#team-add-modal-label').text('Créer une Équipe');
+            $('#team-add-modal .modal-body').html(`<form id="modal-team-form" action="${addUrl}" method="post" novalidate>${html}</form>`);
             teamAddModal.show();
         })
-        .catch(error => {
-            console.error('Error loading team form:', error);
-            alert('Erreur lors du chargement du formulaire d\'équipe.');
-        });
+        .catch(error => { console.error('Error loading team form:', error); alert('Erreur de chargement du formulaire.'); });
     });
 
     // Handle form submission from the team add modal
-    $('#submit-team-form-btn').on('click', function() {
-        $('#modal-team-form').submit();
-    });
-
     $('#team-add-modal').on('submit', '#modal-team-form', function(e) {
         e.preventDefault();
         var form = $(this);
         var url = form.attr('action');
         var formData = new FormData(this);
-        var csrfToken = $('meta[name=csrf-token]').attr('content');
-
-        fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
-            }
-        })
+        fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': form.find('input[name=csrf_token]').val() } })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                alert(data.message || 'Équipe créée avec succès !');
-                teamAddModal.hide();
-                location.reload(); // Reload page to reflect changes
-            } else {
-                if (data.form_html) {
-                    form.html(data.form_html); // Re-render form with errors
-                } else {
-                    alert(data.message || 'Erreur lors de la création de l\'équipe.');
-                }
+            if (data.success) { location.reload(); } 
+            else {
+                if (data.form_html) { form.html(data.form_html); }
+                else { alert(data.message || 'Erreur lors de la création.'); }
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Une erreur réseau est survenue.');
-        });
+        .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
     });
+    $('#submit-team-form-btn').on('click', () => $('#modal-team-form').submit());
 
-    // Handle modal opening for team edit
-    var teamEditModal = new bootstrap.Modal(document.getElementById('team-edit-modal'));
-    $('#teams-table').on('click', '.edit-team-btn', function() {
-        var button = $(this);
-        var editUrl = button.attr('href'); // Get the URL from the href attribute
+    // Handle modal opening for EDITING a team
+    $('#teams-table').on('click', '.btn-warning[title="Éditer"]', function(e) {
+        e.preventDefault();
+        var editUrl = $(this).attr('href');
 
-        $('#team-edit-modal-label').text('Éditer l\'Équipe');
-
-        fetch(editUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
+        fetch(editUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
-            $('#team-edit-modal .modal-body').html(
-                `<form id="modal-team-edit-form" action="${editUrl}" method="post" novalidate>${html}</form>`
-            );
+            $('#team-edit-modal-label').text('Éditer l\'Équipe');
+            $('#team-edit-modal .modal-body').html(`<form id="modal-team-edit-form" action="${editUrl}" method="post" novalidate>${html}</form>`);
             teamEditModal.show();
         })
-        .catch(error => {
-            console.error('Error loading team edit form:', error);
-            alert('Erreur lors du chargement du formulaire d\'édition d\'équipe.');
-        });
+        .catch(error => { console.error('Error loading team edit form:', error); alert('Erreur de chargement du formulaire.'); });
     });
 
     // Handle form submission from the team edit modal
-    $('#submit-team-edit-form-btn').on('click', function() {
-        $('#modal-team-edit-form').submit();
-    });
-
     $('#team-edit-modal').on('submit', '#modal-team-edit-form', function(e) {
         e.preventDefault();
         var form = $(this);
         var url = form.attr('action');
         var formData = new FormData(this);
-        var csrfToken = $('meta[name=csrf-token]').attr('content');
-
-        fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
-            }
-        })
+        fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': form.find('input[name=csrf_token]').val() } })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                alert(data.message || 'Équipe mise à jour avec succès !');
-                teamEditModal.hide();
-                location.reload(); // Reload page to reflect changes
-            } else {
-                if (data.form_html) {
-                    form.html(data.form_html); // Re-render form with errors
-                } else {
-                    alert(data.message || 'Erreur lors de la mise à jour de l\'équipe.');
-                }
+            if (data.success) { location.reload(); }
+            else {
+                if (data.form_html) { form.html(data.form_html); }
+                else { alert(data.message || 'Erreur lors de la mise à jour.'); }
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Une erreur réseau est survenue.');
-        });
+        .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
     });
+    $('#submit-team-edit-form-btn').on('click', () => $('#modal-team-edit-form').submit());
 
     // Handle AJAX deletion for teams
-    $('#teams-table').on('submit', 'form', function(e) {
+    $('#teams-table').on('submit', 'form[action*="delete_team"]', function(e) {
         e.preventDefault();
         var form = $(this);
-        var deleteUrl = form.attr('action');
-        var csrfToken = form.find('input[name=csrf_token]').val();
-
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette équipe ? Cette action est irréversible.')) {
-            fetch(deleteUrl, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken
-                }
-            })
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) {
+            fetch(form.attr('action'), { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': form.find('input[name=csrf_token]').val() } })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    alert(data.message || 'Équipe supprimée avec succès !');
-                    location.reload(); // Reload page to reflect changes
-                } else {
-                    alert('Erreur lors de la suppression : ' + (data.message || 'Erreur inconnue.'));
-                }
+                if (data.success) { location.reload(); }
+                else { alert('Erreur: ' + (data.message || 'Inconnue.')); }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
-            });
+            .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
         }
     });
+    // This makes the button trigger the form submission, which is then caught by the handler above.
+    $('#teams-table').on('click', '.btn-danger[title="Supprimer"]', function(e) {
+        e.preventDefault();
+        $(this).closest('form').submit();
+    });
 
-    // Handle modal opening for adding users to team
-    var addUsersToTeamModal = new bootstrap.Modal(document.getElementById('add-users-to-team-modal'));
+    // Handle modal opening for ADDING USERS to a team
     $('#teams-table').on('click', '.add-user-to-team-btn', function() {
-        var button = $(this);
-        var teamId = button.data('team-id');
-        var teamName = button.data('team-name');
-        var addUsersUrl = "/admin/team/" + teamId + "/add_users";
+        var teamId = $(this).data('team-id');
+        var teamName = $(this).data('team-name');
+        var addUsersUrl = `/admin/team/${teamId}/add_users`;
 
-        $('#add-users-to-team-modal-label').text('Add Users to ' + teamName);
-
-        fetch(addUsersUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
+        fetch(addUsersUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
+            $('#add-users-to-team-modal-label').text(`Ajouter des utilisateurs à ${teamName}`);
             $('#add-users-to-team-modal .modal-body').html(html);
             addUsersToTeamModal.show();
         })
-        .catch(error => {
-            console.error('Error loading add users to team form:', error);
-            alert('Erreur lors du chargement du formulaire d\'ajout d\'utilisateurs à l\'équipe.');
-        });
+        .catch(error => { console.error('Error loading add users form:', error); alert('Erreur de chargement du formulaire.'); });
     });
 
-    // Handle form submission from the add users to team modal
-    $('#submit-add-users-to-team-form-btn').on('click', function() {
-        $('#add-users-to-team-form').submit();
-    });
-
+    // Handle form submission for adding users to a team
     $('#add-users-to-team-modal').on('submit', '#add-users-to-team-form', function(e) {
         e.preventDefault();
         var form = $(this);
         var url = form.attr('action');
         var formData = new FormData(this);
-        var csrfToken = $('meta[name=csrf-token]').attr('content');
-
-        fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': csrfToken
-            }
-        })
+        fetch(url, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': form.find('input[name=csrf_token]').val() } })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                alert(data.message || 'Utilisateurs ajoutés à l\'équipe avec succès !');
-                addUsersToTeamModal.hide();
-                location.reload(); // Reload page to reflect changes
-            } else {
-                if (data.form_html) {
-                    form.html(data.form_html); // Re-render form with errors
-                } else {
-                    alert(data.message || 'Erreur lors de l\'ajout d\'utilisateurs à l\'équipe.');
-                }
+            if (data.success) { location.reload(); }
+            else {
+                if (data.form_html) { form.html(data.form_html); }
+                else { alert(data.message || 'Erreur lors de l\'ajout.'); }
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Une erreur réseau est survenue.');
-        });
+        .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
     });
+    $('#submit-add-users-to-team-form-btn').on('click', () => $('#add-users-to-team-form').submit());
 });
 </script>
 {% endblock %}

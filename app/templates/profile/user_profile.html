@@ -275,18 +275,20 @@
 </style>
 <script>
 $(document).ready(function() {
-    window.actionModal = new bootstrap.Modal(document.getElementById('action-modal'));
+    // Check if the modal element exists before initializing
+    var actionModalElement = document.getElementById('action-modal');
+    if (actionModalElement) {
+        window.actionModal = new bootstrap.Modal(actionModalElement);
 
-
-
-    // Destroy Select2 instances when the modal is hidden to prevent conflicts
-    $('#action-modal').on('hidden.bs.modal', function () {
-        $('.select2-hidden-accessible').each(function() {
-            if ($(this).data('select2')) {
-                $(this).select2('destroy');
-            }
+        // Destroy Select2 instances when the modal is hidden to prevent conflicts
+        $('#action-modal').on('hidden.bs.modal', function () {
+            $('.select2-hidden-accessible').each(function() {
+                if ($(this).data('select2')) {
+                    $(this).select2('destroy');
+                }
+            });
         });
-    });
+    }
     var currentFormActionUrl = '';
 
     $('.action-btn').on('click', function() {

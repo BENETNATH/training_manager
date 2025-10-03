@@ -30,12 +30,21 @@ def index():
     # Placeholder for more complex metrics
     recycling_needed_count = 0
     users_needing_recycling_set = set() # Keep this to pass to the template if needed
-    for user_obj in User.query.all():
-        for comp in user_obj.competencies:
-            if comp.needs_recycling:
-                recycling_needed_count += 1
-                users_needing_recycling_set.add(user_obj) # Still add user to the set if you want to display them
-    users_needing_recycling = list(users_needing_recycling_set)    
+    
+    recycling_map = defaultdict(set)
+    for comp in Competency.query.options(db.joinedload(Competency.skill)).all():
+        if comp.needs_recycling:
+            recycling_map[comp.user_id].add(comp.skill_id)
+            recycling_needed_count += 1
+            users_needing_recycling_set.add(comp.user)
+
+    users_needing_recycling = list(users_needing_recycling_set)
+    
+    sessions_to_be_finalized_count = TrainingSession.query.filter(
+        TrainingSession.start_time < datetime.utcnow(),
+        TrainingSession.status != 'Realized'
+    ).count()
+
     # Logic for sessions this month (now next session)
     now = datetime.utcnow()
     next_session = TrainingSession.query.filter(TrainingSession.start_time > now).order_by(TrainingSession.start_time.asc()).first()
@@ -56,12 +65,14 @@ def index():
                            pending_external_trainings_count=pending_external_trainings_count,
                            skills_without_tutors_count=skills_without_tutors_count,
                            recycling_needed_count=recycling_needed_count,
+                           sessions_to_be_finalized_count=sessions_to_be_finalized_count,
                            next_session=next_session,
                            users=users,
                            skills=skills,
                            pending_training_requests=pending_training_requests,
                            users_needing_recycling=users_needing_recycling,
-                           teams=teams)
+                           teams=teams,
+                           recycling_map=recycling_map)
 
 # User Management
 @bp.route('/users')
@@ -396,6 +407,9 @@ def add_skill():
 def edit_skill(id):
     skill = Skill.query.get_or_404(id)
     form = SkillForm(original_name=skill.name)
+    
+
+
     if form.validate_on_submit():
         skill.name = form.name.data
         skill.description = form.description.data
@@ -414,7 +428,6 @@ def edit_skill(id):
             skill.protocol_attachment_path = os.path.join('uploads', 'protocols', filename)
         
         skill.species = form.species.data
-        skill.tutors = form.tutors.data
         db.session.commit()
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -442,7 +455,7 @@ def edit_skill(id):
         form.training_videos_urls_text.data = skill.training_videos_urls_text
         form.potential_external_tutors_text.data = skill.potential_external_tutors_text
         form.species.data = skill.species
-        form.tutors.data = skill.tutors
+        
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         if form.errors:
@@ -675,9 +688,8 @@ def import_export_skills():
                 skills_updated = 0
                 for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True)): # Skip header
                     try:
-                        # Assuming Excel columns: name, description, validity_period_months, complexity, reference_urls_text, training_videos_urls_text, potential_external_tutors_text, species_names, tutor_emails
-                        name, description, validity_period_months_str, complexity_str, reference_urls_text, training_videos_urls_text, potential_external_tutors_text, species_names_str, tutor_emails_str = row
-                        
+                                # Assuming Excel columns: name, description, validity_period_months, complexity, reference_urls_text, training_videos_urls_text, potential_external_tutors_text, species_names
+                        name, description, validity_period_months_str, complexity_str, reference_urls_text, training_videos_urls_text, potential_external_tutors_text, species_names_str = row                        
                         skill = Skill.query.filter_by(name=name).first()
                         
                         if skill is None:
@@ -705,15 +717,6 @@ def import_export_skills():
                                         skill.species.append(species_obj)
                                     else:
                                         flash(f"Species '{species_name}' not found for skill '{name}'. It will be skipped.", 'warning')
-                            
-                            if tutor_emails_str:
-                                tutor_emails = [e.strip() for e in str(tutor_emails_str).split(',')]
-                                for tutor_email in tutor_emails:
-                                    tutor_obj = User.query.filter_by(email=tutor_email).first()
-                                    if tutor_obj:
-                                        skill.tutors.append(tutor_obj)
-                                    else:
-                                        flash(f"Tutor with email '{tutor_email}' not found for skill '{name}'. It will be skipped.", 'warning')
                             skills_imported += 1
                         elif form.update_existing.data:
                             # Update existing skill
@@ -735,16 +738,7 @@ def import_export_skills():
                                     else:
                                         flash(f"Species '{species_name}' not found for skill '{name}'. It will be skipped.", 'warning')
                             
-                            # Handle tutors (clear and re-add for updates)
-                            skill.tutors.clear()
-                            if tutor_emails_str:
-                                tutor_emails = [e.strip() for e in str(tutor_emails_str).split(',')]
-                                for tutor_email in tutor_emails:
-                                    tutor_obj = User.query.filter_by(email=tutor_email).first()
-                                    if tutor_obj:
-                                        skill.tutors.append(tutor_obj)
-                                    else:
-                                        flash(f"Tutor with email '{tutor_email}' not found for skill '{name}'. It will be skipped.", 'warning')
+
                             skills_updated += 1
                         else:
                             flash(f"Skill '{name}' already exists and 'Update existing' was not checked. Skipping.", 'info')
@@ -773,16 +767,14 @@ def download_skill_import_template():
     # Get data for dropdowns
     complexity_values = [c.name for c in Complexity]
     species_names = [s.name for s in Species.query.all()]
-    tutor_emails = [u.email for u in User.query.all()]
+
 
     workbook = openpyxl.Workbook()
     sheet = workbook.active
-    sheet.title = "Skill Import Template"
-
     headers = [
         'name', 'description', 'validity_period_months', 'complexity',
         'reference_urls_text', 'training_videos_urls_text',
-        'potential_external_tutors_text', 'species_names', 'tutor_emails'
+        'potential_external_tutors_text', 'species_names'
     ]
     sheet.append(headers)
 
@@ -799,15 +791,11 @@ def download_skill_import_template():
     #     dv_species.add('H2:H1048576') # Apply to column H (species_names) from row 2 onwards
     #     sheet.add_data_validation(dv_species)
     
-    # Create data validation for 'tutor_emails' (assuming comma-separated list)
-    # if tutor_emails:
-    #     dv_tutors = DataValidation(type="list", formula1='"' + ','.join(tutor_emails) + '"', allow_blank=True)
-    #     dv_tutors.add('I2:I1048576') # Apply to column I (tutor_emails) from row 2 onwards
-    #     sheet.add_data_validation(dv_tutors)
+
 
     # Add a comment to guide users for multi-select fields
     sheet['H1'].comment = openpyxl.comments.Comment("For multiple species, separate names with commas (e.g., 'Species A, Species B')", "Admin")
-    sheet['I1'].comment = openpyxl.comments.Comment("For multiple tutors, separate emails with commas (e.g., 'tutor1@example.com, tutor2@example.com')", "Admin")
+
 
 
     output = io.BytesIO()
@@ -830,14 +818,14 @@ def export_skills_xlsx():
     headers = [
         'name', 'description', 'validity_period_months', 'complexity',
         'reference_urls_text', 'training_videos_urls_text',
-        'potential_external_tutors_text', 'species_names', 'tutor_emails'
+        'potential_external_tutors_text', 'species_names'
     ]
     sheet.append(headers)
 
     # Get data for dropdowns (same as import template)
     complexity_values = [c.name for c in Complexity]
     species_names_list = [s.name for s in Species.query.all()]
-    tutor_emails_list = [u.email for u in User.query.all()]
+
 
     # Create data validation for 'complexity'
     dv_complexity = DataValidation(type="list", formula1='"' + ','.join(complexity_values) + '"', allow_blank=True)
@@ -850,20 +838,16 @@ def export_skills_xlsx():
     #     dv_species.add('H2:H1048576') # Apply to column H (species_names) from row 2 onwards
     #     sheet.add_data_validation(dv_species)
     
-    # Create data validation for 'tutor_emails'
-    # if tutor_emails_list:
-    #     dv_tutors = DataValidation(type="list", formula1='"' + ','.join(tutor_emails_list) + '"', allow_blank=True)
-    #     dv_tutors.add('I2:I1048576') # Apply to column I (tutor_emails) from row 2 onwards
-    #     sheet.add_data_validation(dv_tutors)
+
 
     # Add comments to guide users for multi-select fields
     sheet['H1'].comment = Comment("For multiple species, separate names with commas (e.g., 'Species A, Species B')", "Admin")
-    sheet['I1'].comment = Comment("For multiple tutors, separate emails with commas (e.g., 'tutor1@example.com, tutor2@example.com')", "Admin")
+
 
     # Write data
     for skill in skills:
         species_names = ', '.join([s.name for s in skill.species])
-        tutor_emails = ', '.join([t.email for t in skill.tutors])
+
         sheet.append([
             skill.name,
             skill.description,
@@ -872,8 +856,7 @@ def export_skills_xlsx():
             skill.reference_urls_text,
             skill.training_videos_urls_text,
             skill.potential_external_tutors_text,
-            species_names,
-            tutor_emails
+            species_names
         ])
     
     output = io.BytesIO()
@@ -1007,7 +990,16 @@ def create_training_session():
 @login_required
 @admin_required
 def manage_training_sessions():
-    training_sessions = TrainingSession.query.order_by(TrainingSession.start_time.desc()).all()
+    filter_param = request.args.get('filter')
+    query = TrainingSession.query
+
+    if filter_param == 'to_be_finalized':
+        query = query.filter(
+            TrainingSession.start_time < datetime.utcnow(),
+            TrainingSession.status != 'Realized'
+        )
+
+    training_sessions = query.order_by(TrainingSession.start_time.desc()).all()
     return render_template('admin/manage_training_sessions.html', title='Manage Training Sessions', training_sessions=training_sessions)
 
 @bp.route('/training_sessions/edit/<int:session_id>', methods=['GET', 'POST'])

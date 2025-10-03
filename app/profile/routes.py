@@ -6,6 +6,8 @@ from werkzeug.utils import secure_filename
 import re
 from fpdf import FPDF
 from fpdf.html import HTMLMixin
+from fpdf.enums import TableBordersLayout
+from fpdf.fonts import FontFace
 from datetime import datetime, timedelta
 import json
 
@@ -16,6 +18,25 @@ from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, Propose
 
 class MyFPDF(FPDF, HTMLMixin):
     pass
+
+class PDFWithFooter(FPDF):
+    def __init__(self, *args, user_name, generation_date, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user_name = user_name
+        self.generation_date = generation_date
+
+    def footer(self):
+        # Go to 1.5 cm from bottom
+        self.set_y(-15)
+        # Select Times italic 8
+        self.set_font("Times", "I", 8)
+        # Set text color to gray
+        self.set_text_color(128)
+        # Create the footer text
+        footer_text = f"{self.user_name} - Booklet extract date : {self.generation_date} - Page {self.page_no()}/{{nb}}"
+        # Print centered page number
+        self.cell(0, 10, footer_text, 0, 0, "C")
+
 
 @bp.route('/<int:user_id>')
 @bp.route('/')
@@ -198,6 +219,7 @@ def declare_skill_practice():
                 competency_id = item.get('competency_id')
                 practice_date_str = item.get('practice_date')
                 new_level = item.get('level')
+                wants_to_be_tutor = item.get('wants_to_be_tutor', False) # Get the new flag
 
                 competency = Competency.query.get(competency_id)
                 if not competency or competency.user_id != current_user.id:
@@ -211,8 +233,6 @@ def declare_skill_practice():
                 if practice_date_str:
                     practice_date = datetime.fromisoformat(practice_date_str.replace('Z', '+00:00')) # Handle 'Z' for UTC
                     
-                    # Check if a practice event already exists for this skill and date
-                    # This prevents duplicate entries if the user submits multiple times
                     existing_event = SkillPracticeEvent.query.filter_by(
                         user_id=current_user.id,
                         practice_date=practice_date
@@ -227,8 +247,11 @@ def declare_skill_practice():
                         event.skills.append(competency.skill)
                         db.session.add(event)
                     else:
-                        # Optionally update notes or just skip if event exists
-                        pass
+                        pass # Optionally update notes or just skip if event exists
+                
+                # Add user as tutor if wants_to_be_tutor is true
+                if wants_to_be_tutor and current_user not in competency.skill.tutors:
+                    competency.skill.tutors.append(current_user)
 
             db.session.commit()
             return jsonify({'success': True, 'message': 'Pratiques et niveaux mis à jour avec succès !', 'redirect_url': url_for('profile.user_profile')})
@@ -238,7 +261,7 @@ def declare_skill_practice():
             return jsonify({'success': False, 'message': f'Erreur lors de la mise à jour des pratiques: {str(e)}'}), 500
 
     # GET Request handling
-    user_competencies = current_user.competencies.all()
+    user_competencies = current_user.competencies
     competencies_data = []
     for comp in user_competencies:
         # Ensure latest_practice_date is calculated as in user_profile
@@ -259,7 +282,8 @@ def declare_skill_practice():
             'skill_id': comp.skill.id,
             'species': [{'id': s.id, 'name': s.name} for s in comp.species],
             'current_level': comp.level,
-            'latest_practice_date': comp_latest_practice_date.isoformat() if comp_latest_practice_date else None
+            'latest_practice_date': comp_latest_practice_date.isoformat() if comp_latest_practice_date else None,
+            'is_tutor': current_user in comp.skill.tutors # NEW: Add tutor status
         })
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -377,6 +401,7 @@ def generate_certificate(competency_id):
                      download_name=f"certificate_{comp.user.full_name.replace(' ', '_')}_{comp.skill.name.replace(' ', '_')}.pdf",
                      mimetype='application/pdf')
 
+
 @bp.route('/<int:user_id>/booklet.pdf')
 @login_required
 def generate_user_booklet_pdf(user_id):
@@ -384,28 +409,21 @@ def generate_user_booklet_pdf(user_id):
         abort(403)
     user = User.query.get_or_404(user_id)
     
-    # Re-calculate competencies data as in user_profile
-    competencies = user.competencies.all()
-    for comp in competencies:
-        practice_event = SkillPracticeEvent.query.filter(
-            SkillPracticeEvent.user_id == user.id,
-            SkillPracticeEvent.skills.any(id=comp.skill_id)
-        ).order_by(SkillPracticeEvent.practice_date.desc()).first()
-        comp.latest_practice_date = comp.evaluation_date
-        if practice_event and practice_event.practice_date > comp.evaluation_date:
-            comp.latest_practice_date = practice_event.practice_date
-        validity_months = comp.skill.validity_period_months if comp.skill.validity_period_months is not None else 12
-        if validity_months:
-            recycling_due_date = comp.latest_practice_date + timedelta(days=validity_months * 30.44)
-            comp.needs_recycling = datetime.utcnow() > recycling_due_date
-            comp.recycling_due_date = recycling_due_date
-            comp.warning_date = recycling_due_date - timedelta(days=validity_months * 30.44 / 4)
-        else:
-            comp.needs_recycling = False
-            comp.recycling_due_date = None
-            comp.warning_date = None
+    competencies = user.competencies
 
-    pdf = FPDF(orientation='L', unit='mm', format='A4') # Landscape A4
+    # 2. INSTANTIATE YOUR NEW CUSTOM CLASS
+    generation_date_str = datetime.utcnow().strftime("%Y-%m-%d")
+    pdf = PDFWithFooter(
+        orientation='L', 
+        unit='mm', 
+        format='A4',
+        user_name=user.full_name,
+        generation_date=generation_date_str
+    )
+    
+    # 3. ENABLE TOTAL PAGE COUNT ALIAS
+    pdf.alias_nb_pages()
+    
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
@@ -415,7 +433,6 @@ def generate_user_booklet_pdf(user_id):
     green = (40, 167, 69)
     red = (220, 53, 69)
     orange = (253, 126, 20)
-    light_gray = (108, 117, 125)
 
     # Title Page
     pdf.set_font('Times', 'B', 24)
@@ -427,7 +444,7 @@ def generate_user_booklet_pdf(user_id):
     pdf.cell(0, 10, f'for {user.full_name}', 0, 1, 'C')
     pdf.ln(5)
     pdf.set_font('Times', '', 12)
-    pdf.cell(0, 10, f'Generated on: {datetime.utcnow().strftime("%Y-%m-%d %H:%M")}', 0, 1, 'C')
+    pdf.cell(0, 10, f'Generated on: {generation_date_str}', 0, 1, 'C')
     
     pdf.set_font('Times', 'B', 16)
     pdf.set_text_color(*dark_gray)
@@ -438,124 +455,68 @@ def generate_user_booklet_pdf(user_id):
         pdf.set_font('Times', '', 12)
         pdf.cell(0, 10, 'No competencies recorded.', 0, 1, 'L')
     else:
-        # Table Headers
-        col_widths = [60, 25, 25, 40, 25, 25, 25, 42] # Total 267mm, A4 landscape usable width is 297 - 2*15 = 267mm
-        headers = ["Skill", "Level", "Evaluated", "Evaluator", "Last Practice", "Recycling Due", "Status", "Species"]
+        # Prepare table data
+        headings = ("Skill", "Level", "Evaluated", "Evaluator", "Last Practice", "Recycling Due", "Status", "Species")
         
-        pdf.set_font('Times', 'B', 10)
-        pdf.set_fill_color(200, 220, 255) # Light blue background for headers
-        pdf.set_text_color(0, 0, 0) # Black text for headers
-        
-        # Draw header row
-        for i, header in enumerate(headers):
-            pdf.cell(col_widths[i], 7, header, 1, 0, 'C', 1)
-        pdf.ln()
-
-        pdf.set_font('Times', '', 8) # Smaller font for table content
-        pdf.set_text_color(*dark_gray)
-        pdf.set_fill_color(240, 240, 240) # Lighter background for rows
-        
-        row_height = 6 # Base row height
-
+        data = []
         for comp in competencies:
-            # Check if new page is needed
-            if pdf.get_y() + row_height > pdf.h - pdf.b_margin:
-                pdf.add_page()
-                pdf.set_font('Times', 'B', 10)
-                pdf.set_fill_color(200, 220, 255)
-                pdf.set_text_color(0, 0, 0)
-                for i, header in enumerate(headers):
-                    pdf.cell(col_widths[i], 7, header, 1, 0, 'C', 1)
-                pdf.ln()
-                pdf.set_font('Times', '', 8)
-                pdf.set_text_color(*dark_gray)
-                pdf.set_fill_color(240, 240, 240)
-
-            fill = False # Alternate row background
-            
-            # Data for the current row
-            skill_name = comp.skill.name
-            level = comp.level
-            evaluated_date = comp.evaluation_date.strftime("%Y-%m-%d")
-            evaluator = comp.evaluator.full_name if comp.evaluator else "N/A"
-            last_practice = comp.latest_practice_date.strftime("%Y-%m-%d") if comp.latest_practice_date else "N/A"
-            
             recycling_due = "N/A"
             status_text = "Unlimited"
-            status_color = green
+            
             if comp.skill.validity_period_months:
                 recycling_due = comp.recycling_due_date.strftime("%Y-%m-%d")
                 if comp.needs_recycling:
                     status_text = "Expired"
-                    status_color = red
                 elif comp.warning_date and datetime.utcnow() > comp.warning_date:
                     status_text = "Recycling Soon"
-                    status_color = orange
                 else:
                     status_text = "Valid"
-                    status_color = green
             
-            species_names = ", ".join([s.name for s in comp.species]) if comp.species else "N/A"
+            data.append((
+                comp.skill.name,
+                comp.level or "N/A",
+                comp.evaluation_date.strftime("%Y-%m-%d"),
+                comp.evaluator.full_name if comp.evaluator else "N/A",
+                comp.latest_practice_date.strftime("%Y-%m-%d") if comp.latest_practice_date else "N/A",
+                recycling_due,
+                status_text,
+                ", ".join([s.name for s in comp.species]) if comp.species else "N/A"
+            ))
 
-            # Store current Y position to draw multi_cell content
-            x_start = pdf.get_x()
-            y_start = pdf.get_y()
+        # Create the table using the pdf.table() API
+        pdf.set_font("Times", size=8)
+        pdf.set_draw_color(0, 0, 0)
+        
+        with pdf.table(
+            col_widths=(60, 25, 25, 40, 25, 25, 25, 42),
+            text_align=("LEFT", "CENTER", "CENTER", "LEFT", "CENTER", "CENTER", "CENTER", "LEFT"),
+            headings_style=FontFace(emphasis="B", color=dark_gray, fill_color=(200, 220, 255))
+        ) as table:
+            # Render header row
+            header_row = table.row()
+            for heading in headings:
+                header_row.cell(heading)
             
-            # Determine max height needed for this row
-            max_cell_height = row_height
-            
-            # Skill Name (multi_cell to handle wrapping)
-            pdf.set_xy(x_start + sum(col_widths[:0]), y_start)
-            pdf.multi_cell(col_widths[0], row_height, skill_name, 0, 'L')
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
-            
-            # Level
-            pdf.set_xy(x_start + sum(col_widths[:1]), y_start)
-            pdf.multi_cell(col_widths[1], row_height, level, 0, 'C')
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
+            # Render data rows
+            for data_row in data:
+                row = table.row()
+                for i, datum in enumerate(data_row):
+                    if i == 6: # Special handling for the Status cell
+                        if datum == "Valid":
+                            pdf.set_text_color(*green)
+                        elif datum == "Recycling Soon":
+                            pdf.set_text_color(*orange)
+                        elif datum == "Expired":
+                            pdf.set_text_color(*red)
+                        
+                        row.cell(datum)
+                        pdf.set_text_color(*dark_gray) # Reset color
+                    else:
+                        row.cell(datum)
 
-            # Evaluated Date
-            pdf.set_xy(x_start + sum(col_widths[:2]), y_start)
-            pdf.multi_cell(col_widths[2], row_height, evaluated_date, 0, 'C')
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
-
-            # Evaluator
-            pdf.set_xy(x_start + sum(col_widths[:3]), y_start)
-            pdf.multi_cell(col_widths[3], row_height, evaluator, 0, 'L')
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
-
-            # Last Practice
-            pdf.set_xy(x_start + sum(col_widths[:4]), y_start)
-            pdf.multi_cell(col_widths[4], row_height, last_practice, 0, 'C')
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
-
-            # Recycling Due
-            pdf.set_xy(x_start + sum(col_widths[:5]), y_start)
-            pdf.multi_cell(col_widths[5], row_height, recycling_due, 0, 'C')
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
-
-            # Status
-            pdf.set_xy(x_start + sum(col_widths[:6]), y_start)
-            pdf.set_text_color(*status_color)
-            pdf.multi_cell(col_widths[6], row_height, status_text, 0, 'C')
-            pdf.set_text_color(*dark_gray) # Reset color
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
-
-            # Species
-            pdf.set_xy(x_start + sum(col_widths[:7]), y_start)
-            pdf.multi_cell(col_widths[7], row_height, species_names, 0, 'L')
-            max_cell_height = max(max_cell_height, pdf.get_y() - y_start)
-
-            # Draw borders for the entire row
-            pdf.set_xy(x_start, y_start)
-            for w in col_widths:
-                pdf.cell(w, max_cell_height, '', 1, 0, 'L', fill)
-            pdf.ln(max_cell_height) # Move to next line, using max height of cells
-
-            fill = not fill # Alternate row background
-
-    pdf_output = pdf.output(dest='S')
+    pdf_output = pdf.output()
     
     return send_file(io.BytesIO(pdf_output), as_attachment=True,
                      download_name=f"booklet_{user.full_name.replace(' ', '_')}.pdf",
                      mimetype='application/pdf')
+

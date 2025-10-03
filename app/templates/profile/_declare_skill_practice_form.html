@@ -7,6 +7,7 @@
                 <th>Current Level</th>
                 <th>New Level</th>
                 <th>Latest Practice Date</th>
+                <th>Tutor</th> <!-- NEW HEADER -->
             </tr>
         </thead>
         <tbody>
@@ -31,6 +32,15 @@
                     <input type="datetime-local" class="form-control form-control-sm practice-date-input"
                         name="practice_date-{{ comp.competency_id }}"
                         value="{{ comp.latest_practice_date if comp.latest_practice_date else '' }}">
+                </td>
+                <td> <!-- NEW TD FOR TUTOR CHECKBOX -->
+                    <div class="form-check form-switch">
+                        <input class="form-check-input tutor-checkbox" type="checkbox" id="tutor-switch-{{ comp.competency_id }}"
+                               data-competency-id="{{ comp.competency_id }}"
+                               data-initial-is-tutor="{{ 'true' if comp.is_tutor else 'false' }}"
+                               {% if comp.is_tutor %}checked{% endif %}>
+                        <label class="form-check-label" for="tutor-switch-{{ comp.competency_id }}"></label>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -57,13 +67,16 @@
                 const competencyId = row.data('competency-id');
                 const newLevel = row.find('.level-select').val();
                 const practiceDate = row.find('.practice-date-input').val();
+                const initialIsTutor = row.find('.tutor-checkbox').data('initial-is-tutor') === 'true';
+                const wantsToBeTutor = row.find('.tutor-checkbox').is(':checked');
 
-                // Only include if there's a change or a new practice date
-                if (newLevel || practiceDate) {
+                // Only include if there's a change or a new practice date or tutor status change
+                if (newLevel || practiceDate || (wantsToBeTutor !== initialIsTutor)) {
                     practiceData.push({
                         competency_id: competencyId,
                         level: newLevel === "" ? null : newLevel, // Send null if "No Change"
-                        practice_date: practiceDate === "" ? null : practiceDate
+                        practice_date: practiceDate === "" ? null : practiceDate,
+                        wants_to_be_tutor: wantsToBeTutor // NEW: Include tutor status
                     });
                 }
             });

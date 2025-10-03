@@ -74,7 +74,7 @@ class SkillForm(FlaskForm):
     training_videos_urls_text = TextAreaField('Training Videos URLs (comma-separated)', validators=[Optional()])
     potential_external_tutors_text = TextAreaField('Potential External Tutors (comma-separated)', validators=[Optional()])
     species = QuerySelectMultipleField('Associated Species', query_factory=get_species, get_label='name')
-    tutors = QuerySelectMultipleField('Internal Tutors', query_factory=get_users, get_label='full_name')
+
     submit = SubmitField('Save Skill')
 
     def __init__(self, original_name=None, *args, **kwargs):
