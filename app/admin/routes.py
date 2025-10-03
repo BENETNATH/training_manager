@@ -230,7 +230,7 @@ def add_team():
         return redirect(url_for('admin.manage_teams'))
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return render_template('admin/_team_form_fields.html', form=form)
+        return render_template('admin/_team_form_fields.html', form=form, api_key=current_user.api_key)
 
     return render_template('admin/team_form.html', title='Add Team', form=form)
 
@@ -258,7 +258,7 @@ def edit_team(id):
         form.team_leads.data = team.team_leads
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return render_template('admin/_team_form_fields.html', form=form, team=team)
+        return render_template('admin/_team_form_fields.html', form=form, team=team, api_key=current_user.api_key)
     return render_template('admin/team_form.html', title='Edit Team', form=form)
 
 @bp.route('/teams/delete/<int:id>', methods=['POST'])

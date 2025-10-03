@@ -145,6 +145,24 @@ def token_required(f):
 
 # Namespaces
 ns_users = api.namespace('users', description='User operations')
+# ... (other namespaces)
+
+@ns_users.route('/search')
+class UserSearch(Resource):
+    @api.marshal_list_with(user_model)
+    @api.doc(security='apikey', params={'q': 'Search query for user full name or email'})
+    @token_required
+    def get(self):
+        """Search for users by full name or email"""
+        query = request.args.get('q', '')
+        if query:
+            users = User.query.filter(
+                (User.full_name.ilike(f'%{query}%')) | 
+                (User.email.ilike(f'%{query}%'))
+            ).all()
+        else:
+            users = User.query.all() # Return all users if no query
+        return users
 ns_teams = api.namespace('teams', description='Team operations')
 ns_species = api.namespace('species', description='Species operations')
 ns_skills = api.namespace('skills', description='Skill operations')

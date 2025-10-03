@@ -529,9 +529,18 @@ def generate_user_booklet_pdf(user_id):
                      download_name=f"booklet_{user.full_name.replace(' ', '_')}.pdf",
                      mimetype='application/pdf')
 
+@bp.route('/training_requests/delete/<int:request_id>', methods=['POST'])
+@login_required
+def delete_training_request(request_id):
+    training_request = TrainingRequest.query.get_or_404(request_id)
+    if training_request.requester != current_user and not current_user.is_admin:
+        abort(403)
+    db.session.delete(training_request)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Training request deleted successfully!'})
 @bp.route('/external_training/<int:training_id>')
 @login_required
-def view_external_training(training_id):
+def show_external_training(training_id):
     external_training = ExternalTraining.query.options(
         db.joinedload(ExternalTraining.user),
         db.joinedload(ExternalTraining.validator),

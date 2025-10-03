@@ -12,3 +12,69 @@
         {% endif %}
     </div>
 {% endfor %}
+
+<script>
+$(document).ready(function() {
+    const apiKey = '{{ api_key }}';
+
+    function initializeSelect2Ajax(selector, placeholderText) {
+        $(selector).select2({
+            placeholder: placeholderText,
+            allowClear: true,
+            multiple: true,
+            dropdownParent: $(selector).parent(), // Adjust dropdown parent if needed
+            ajax: {
+                url: "{{ url_for('api.users_user_search') }}",
+                dataType: 'json',
+                delay: 250,
+                headers: {
+                    'X-API-Key': apiKey
+                },
+                data: function (params) {
+                    return {
+                        q: params.term, // search term
+                        page: params.page
+                    };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: data.map(user => ({
+                            id: user.id,
+                            text: user.full_name + ' (' + user.email + ')'
+                        })),
+                        pagination: {
+                            more: (params.page * 30) < data.length // Assuming 30 results per page for simplicity
+                        }
+                    };
+                },
+                cache: true
+            },
+            minimumInputLength: 1,
+            templateResult: function (user) {
+                if (user.loading) return user.text;
+                return user.text;
+            },
+            templateSelection: function (user) {
+                return user.text;
+            }
+        });
+    }
+
+    initializeSelect2Ajax('#members', 'Select members');
+    initializeSelect2Ajax('#team_leads', 'Select team leads');
+
+    // Pre-populate existing values for members and team_leads if editing
+    {% if form.members.data %}
+        {% for member in form.members.data %}
+            $('#members').append(new Option('{{ member.full_name }} ({{ member.email }})', '{{ member.id }}', true, true)).trigger('change');
+        {% endfor %}
+    {% endif %}
+
+    {% if form.team_leads.data %}
+        {% for lead in form.team_leads.data %}
+            $('#team_leads').append(new Option('{{ lead.full_name }} ({{ lead.email }})', '{{ lead.id }}', true, true)).trigger('change');
+        {% endfor %}
+    {% endif %}
+});
+</script>
