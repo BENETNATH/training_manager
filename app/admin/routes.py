@@ -7,15 +7,16 @@ from app import db
 from app.admin import bp
 from app.admin.forms import UserForm, TeamForm, SpeciesForm, SkillForm, TrainingPathForm, ImportForm, AddUserToTeamForm, TrainingValidationForm, AttendeeValidationForm, CompetencyValidationForm
 from app.training.forms import TrainingSessionForm # Import TrainingSessionForm
-from app.models import User, Team, Species, Skill, TrainingPath, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim, TrainingSessionTutorSkill
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingPathSkill, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim, TrainingSessionTutorSkill, tutor_skill_association
 from app.decorators import admin_required
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, case
 import openpyxl # Import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.comments import Comment
 from datetime import datetime, timedelta # Import datetime, timedelta
 from collections import defaultdict
 import json # Import json
+import re
 
 @bp.route('/')
 @bp.route('/index')
@@ -26,6 +27,7 @@ def index():
     pending_requests_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PENDING).count()
     pending_external_trainings_count = ExternalTraining.query.filter_by(status=ExternalTrainingStatus.PENDING).count()
     skills_without_tutors_count = Skill.query.filter(~Skill.tutors.any()).count()
+    proposed_skills_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).count()
     
     # Placeholder for more complex metrics
     recycling_needed_count = 0
@@ -64,6 +66,7 @@ def index():
                            pending_requests_count=pending_requests_count,
                            pending_external_trainings_count=pending_external_trainings_count,
                            skills_without_tutors_count=skills_without_tutors_count,
+                           proposed_skills_count=proposed_skills_count,
                            recycling_needed_count=recycling_needed_count,
                            sessions_to_be_finalized_count=sessions_to_be_finalized_count,
                            next_session=next_session,
@@ -356,14 +359,55 @@ def delete_species(id):
 @login_required
 @admin_required
 def manage_skills():
-    skills = Skill.query.options(db.joinedload(Skill.species)).order_by(Skill.name).all()
-    return render_template('admin/manage_skills.html', title='Manage Skills', skills=skills)
+    skills_query = db.session.query(
+        Skill,
+        func.count(func.distinct(Competency.user_id)).label('user_count'),
+        func.count(func.distinct(case((Competency.needs_recycling == True, Competency.user_id), else_=None))).label('recycling_count'),
+        func.count(func.distinct(tutor_skill_association.c.user_id)).label('tutor_count')
+    ).outerjoin(Competency, Skill.id == Competency.skill_id) \
+     .outerjoin(tutor_skill_association, Skill.id == tutor_skill_association.c.skill_id) \
+     .group_by(Skill.id)
+
+    skill_name = request.args.get('skill_name', '')
+    if skill_name:
+        skills_query = skills_query.filter(Skill.name.ilike(f'%{skill_name}%'))
+
+    needs_recycling = request.args.get('needs_recycling', 'false').lower() == 'true'
+    if needs_recycling:
+        skills_query = skills_query.having(func.count(func.distinct(case((Competency.needs_recycling == True, Competency.user_id), else_=None))) > 0)
+
+    skills_data = skills_query.order_by(Skill.name).all()
+
+    return render_template('admin/manage_skills.html', title='Manage Skills', skills_data=skills_data, needs_recycling=needs_recycling, skill_name=skill_name)
+
+@bp.route('/api/skills')
+@login_required
+@admin_required
+def api_skills():
+    search = request.args.get('q', '')
+    if search:
+        query = Skill.query.filter(Skill.name.ilike(f'%{search}%'))
+    else:
+        query = Skill.query
+    skills = query.order_by(Skill.name).all()
+    return jsonify([{'id': s.id, 'text': s.name} for s in skills])
 
 @bp.route('/skills/add', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def add_skill():
     form = SkillForm()
+    proposal_id = request.args.get('from_proposal')
+    proposal_to_delete = None
+    if proposal_id:
+        proposal_to_delete = TrainingRequest.query.get_or_404(proposal_id)
+        if request.method == 'GET':
+            # Regex to extract name and description
+            match = re.match(r"Proposed Skill: (.*) - Description: (.*)", proposal_to_delete.notes)
+            if match:
+                form.name.data = match.group(1)
+                form.description.data = match.group(2)
+
     if form.validate_on_submit():
         skill = Skill(name=form.name.data, description=form.description.data,
                       validity_period_months=form.validity_period_months.data,
@@ -381,9 +425,13 @@ def add_skill():
             skill.protocol_attachment_path = os.path.join('uploads', 'protocols', filename)
 
         skill.species = form.species.data
-        skill.tutors = form.tutors.data
 
         db.session.add(skill)
+        
+        # If the skill was created from a proposal, delete the proposal
+        if proposal_to_delete:
+            db.session.delete(proposal_to_delete)
+
         db.session.commit()
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -393,8 +441,7 @@ def add_skill():
                 'skill': {
                     'id': skill.id,
                     'name': skill.name,
-                    'description': skill.description,
-                    'tutors': [t.full_name for t in skill.tutors]
+                    'description': skill.description
                 }
             })
 
@@ -445,8 +492,7 @@ def edit_skill(id):
                     'id': skill.id,
                     'name': skill.name,
                     'description': skill.description,
-                    'species': [s.name for s in skill.species],
-                    'tutors': [t.full_name for t in skill.tutors]
+                    'species': [s.name for s in skill.species]
                 }
             })
 
@@ -498,13 +544,29 @@ def add_training_path():
     form = TrainingPathForm()
     if form.validate_on_submit():
         training_path = TrainingPath(name=form.name.data, description=form.description.data)
-        training_path.skills = form.skills.data
-        training_path.assigned_users = form.assigned_users.data
+        
+        skills_data = json.loads(form.skills_json.data)
+        for skill_data in skills_data:
+            skill = Skill.query.get(skill_data['skill_id'])
+            if skill:
+                tps = TrainingPathSkill(
+                    skill=skill,
+                    order=skill_data['order']
+                )
+                species_ids = skill_data.get('species_ids', [])
+                if species_ids:
+                    tps.species = Species.query.filter(Species.id.in_(species_ids)).all()
+                training_path.skills_association.append(tps)
+
         db.session.add(training_path)
         db.session.commit()
         flash('Training Path added successfully!', 'success')
         return redirect(url_for('admin.manage_training_paths'))
-    return render_template('admin/training_path_form.html', title='Add Training Path', form=form)
+        
+    all_skills = Skill.query.order_by(Skill.name).all()
+    all_species = Species.query.order_by(Species.name).all()
+    all_skills_json = [{'id': s.id, 'name': s.name} for s in all_skills]
+    return render_template('admin/training_path_form.html', title='Add Training Path', form=form, all_skills=all_skills_json, all_species=all_species, training_path=None)
 
 @bp.route('/training_paths/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -515,17 +577,44 @@ def edit_training_path(id):
     if form.validate_on_submit():
         training_path.name = form.name.data
         training_path.description = form.description.data
-        training_path.skills = form.skills.data
-        training_path.assigned_users = form.assigned_users.data
+        
+        # Clear existing skills and re-add from form
+        training_path.skills_association.clear()
+        
+        skills_data = json.loads(form.skills_json.data)
+        for skill_data in skills_data:
+            skill = Skill.query.get(skill_data['skill_id'])
+            if skill:
+                tps = TrainingPathSkill(
+                    skill=skill,
+                    order=skill_data['order']
+                )
+                species_ids = skill_data.get('species_ids', [])
+                if species_ids:
+                    tps.species = Species.query.filter(Species.id.in_(species_ids)).all()
+                training_path.skills_association.append(tps)
+
         db.session.commit()
         flash('Training Path updated successfully!', 'success')
         return redirect(url_for('admin.manage_training_paths'))
+        
     elif request.method == 'GET':
         form.name.data = training_path.name
         form.description.data = training_path.description
-        form.skills.data = training_path.skills
-        form.assigned_users.data = training_path.assigned_users
-    return render_template('admin/training_path_form.html', title='Edit Training Path', form=form)
+        
+        skills_json_data = []
+        for assoc in training_path.skills_association:
+            skills_json_data.append({
+                'skill_id': assoc.skill_id,
+                'order': assoc.order,
+                'species_ids': [s.id for s in assoc.species]
+            })
+        form.skills_json.data = json.dumps(skills_json_data)
+
+    all_skills = Skill.query.order_by(Skill.name).all()
+    all_species = Species.query.order_by(Species.name).all()
+    all_skills_json = [{'id': s.id, 'name': s.name} for s in all_skills]
+    return render_template('admin/training_path_form.html', title='Edit Training Path', form=form, all_skills=all_skills_json, all_species=all_species, training_path=training_path)
 
 @bp.route('/training_paths/delete/<int:id>', methods=['POST'])
 @login_required
@@ -1449,3 +1538,10 @@ def recycling_report():
         report_data[MockSpecies()] = report_data.pop(None)
 
     return render_template('admin/recycling_report.html', title='Rapport de Recyclage', report_data=report_data)
+
+@bp.route('/proposed_skills')
+@login_required
+@admin_required
+def proposed_skills():
+    proposed = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).order_by(TrainingRequest.request_date.desc()).all()
+    return render_template('admin/proposed_skills.html', title='Proposed Skills', proposed_skills=proposed)

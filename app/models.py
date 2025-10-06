@@ -12,16 +12,6 @@ tutor_skill_association = db.Table('tutor_skill_association',
     db.Column('skill_id', db.Integer, db.ForeignKey('skill.id'), primary_key=True)
 )
 
-training_path_skills = db.Table('training_path_skills',
-    db.Column('training_path_id', db.Integer, db.ForeignKey('training_path.id'), primary_key=True),
-    db.Column('skill_id', db.Integer, db.ForeignKey('skill.id'), primary_key=True)
-)
-
-training_path_assigned_users = db.Table('training_path_assigned_users',
-    db.Column('training_path_id', db.Integer, db.ForeignKey('training_path.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
-)
-
 training_session_tutors = db.Table('training_session_tutors',
     db.Column('training_session_id', db.Integer, db.ForeignKey('training_session.id'), primary_key=True),
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
@@ -84,6 +74,26 @@ skill_practice_event_skills = db.Table('skill_practice_event_skills',
     db.Column('skill_id', db.Integer, db.ForeignKey('skill.id'), primary_key=True)
 )
 
+training_path_skill_species = db.Table('training_path_skill_species',
+    db.Column('training_path_skill_tp_id', db.Integer, primary_key=True),
+    db.Column('training_path_skill_s_id', db.Integer, primary_key=True),
+    db.Column('species_id', db.Integer, db.ForeignKey('species.id'), primary_key=True),
+    db.ForeignKeyConstraint(
+        ['training_path_skill_tp_id', 'training_path_skill_s_id'],
+        ['training_path_skill.training_path_id', 'training_path_skill.skill_id']
+    )
+)
+
+class TrainingPathSkill(db.Model):
+    __tablename__ = 'training_path_skill'
+    training_path_id = db.Column(db.Integer, db.ForeignKey('training_path.id'), primary_key=True)
+    skill_id = db.Column(db.Integer, db.ForeignKey('skill.id'), primary_key=True)
+    order = db.Column(db.Integer, nullable=False)
+
+    training_path = db.relationship('TrainingPath', back_populates='skills_association')
+    skill = db.relationship('Skill')
+    species = db.relationship('Species', secondary=training_path_skill_species)
+
 user_team_membership = db.Table('user_team_membership',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('team_id', db.Integer, db.ForeignKey('team.id'), primary_key=True)
@@ -133,7 +143,6 @@ class User(UserMixin, db.Model):
     external_trainings = db.relationship('ExternalTraining', back_populates='user', lazy='dynamic', foreign_keys='ExternalTraining.user_id')
     validated_external_trainings = db.relationship('ExternalTraining', back_populates='validator', lazy='dynamic', foreign_keys='ExternalTraining.validator_id')
     skill_practice_events = db.relationship('SkillPracticeEvent', back_populates='user', lazy='dynamic')
-    assigned_training_paths = db.relationship('TrainingPath', secondary=training_path_assigned_users, back_populates='assigned_users')
     tutored_skills = db.relationship('Skill', secondary=tutor_skill_association, back_populates='tutors')
     attended_training_sessions = db.relationship('TrainingSession', secondary=training_session_attendees, back_populates='attendees')
     tutored_training_sessions = db.relationship('TrainingSession', secondary=training_session_tutors, back_populates='tutors')
@@ -202,7 +211,6 @@ class Skill(db.Model):
 
     species = db.relationship('Species', secondary=skill_species_association, back_populates='skills')
     tutors = db.relationship('User', secondary=tutor_skill_association, back_populates='tutored_skills')
-    training_paths = db.relationship('TrainingPath', secondary=training_path_skills, back_populates='skills')
     competencies = db.relationship('Competency', back_populates='skill', lazy='dynamic')
     training_sessions_covered = db.relationship('TrainingSession', secondary=training_session_skills_covered, back_populates='skills_covered')
     training_requests_for_skill = db.relationship('TrainingRequest', secondary=training_request_skills_requested, back_populates='skills_requested')
@@ -217,8 +225,11 @@ class TrainingPath(db.Model):
     name = db.Column(db.String(128), unique=True, nullable=False)
     description = db.Column(db.Text)
 
-    skills = db.relationship('Skill', secondary=training_path_skills, back_populates='training_paths')
-    assigned_users = db.relationship('User', secondary=training_path_assigned_users, back_populates='assigned_training_paths')
+    skills_association = db.relationship('TrainingPathSkill', back_populates='training_path', cascade="all, delete-orphan", order_by='TrainingPathSkill.order')
+
+    @property
+    def skills(self):
+        return [assoc.skill for assoc in self.skills_association]
 
     def __repr__(self):
         return f'<TrainingPath {self.name}>'
@@ -332,6 +343,7 @@ class TrainingRequest(db.Model):
     requester_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     request_date = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     status = db.Column(db.Enum(TrainingRequestStatus), default=TrainingRequestStatus.PENDING, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
 
     requester = db.relationship('User', back_populates='training_requests')
     skills_requested = db.relationship('Skill', secondary=training_request_skills_requested, back_populates='training_requests_for_skill')

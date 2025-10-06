@@ -90,8 +90,7 @@ class SkillForm(FlaskForm):
 class TrainingPathForm(FlaskForm):
     name = StringField('Training Path Name', validators=[DataRequired(), Length(min=2, max=128)])
     description = TextAreaField('Description', validators=[Optional()])
-    skills = QuerySelectMultipleField('Skills in Path', query_factory=lambda: Skill.query.order_by(Skill.name).all(), get_label='name')
-    assigned_users = QuerySelectMultipleField('Assigned Users', query_factory=get_users, get_label='full_name')
+    skills_json = HiddenField('Skills JSON', validators=[DataRequired()])
     submit = SubmitField('Save Training Path')
 
     def __init__(self, original_name=None, *args, **kwargs):

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="mb-4">Compétences proposées</h1>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Liste des propositions</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="proposed-skills-table" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Demandeur</th>
+                            <th>Proposition</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for proposal in proposed_skills %}
+                        <tr id="proposal-row-{{ proposal.id }}">
+                            <td>{{ proposal.requester.full_name }}</td>
+                            <td>{{ proposal.notes }}</td>
+                            <td>{{ proposal.request_date.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.add_skill', from_proposal=proposal.id) }}" class="btn btn-success btn-sm">Approuver</a>
+                                <button class="btn btn-danger btn-sm reject-proposal-btn" data-proposal-id="{{ proposal.id }}" data-delete-url="{{ url_for('admin.reject_training_request', request_id=proposal.id) }}">Rejeter</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // Setup for DataTable
+    var frenchLanguage = {
+        "sEmptyTable":     "Aucune donnée disponible dans le tableau",
+        "sInfo":           "Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments",
+        "sInfoEmpty":      "Affichage de l'élément 0 à 0 sur 0 élément",
+        "sInfoFiltered":   "(filtré de _MAX_ éléments au total)",
+        "sInfoPostFix":    "",
+        "sInfoThousands":  ",",
+        "sLengthMenu":     "Afficher _MENU_ éléments",
+        "sLoadingRecords": "Chargement...",
+        "sProcessing":     "Traitement...",
+        "sSearch":         "Rechercher :",
+        "sZeroRecords":    "Aucun élément correspondant trouvé",
+        "oPaginate": { "sFirst": "Premier", "sLast": "Dernier", "sNext": "Suivant", "sPrevious": "Précédent" },
+        "oAria": { "sSortAscending": ": activer pour trier la colonne par ordre croissant", "sSortDescending": ": activer pour trier la colonne par ordre décroissant" }
+    };
+    $('#proposed-skills-table').DataTable({ language: frenchLanguage });
+
+    // Handle AJAX deletion for proposals
+    $('#proposed-skills-table').on('click', '.reject-proposal-btn', function() {
+        var button = $(this);
+        var proposalId = button.data('proposal-id');
+        var deleteUrl = button.data('delete-url');
+        var csrfToken = $('meta[name=csrf-token]').attr('content');
+
+        if (confirm('Êtes-vous sûr de vouloir rejeter cette proposition ?')) {
+            fetch(deleteUrl, { 
+                method: 'POST', 
+                headers: { 
+                    'X-Requested-With': 'XMLHttpRequest', 
+                    'X-CSRFToken': csrfToken 
+                } 
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    $('#proposed-skills-table').DataTable().row('#proposal-row-' + proposalId).remove().draw();
+                    // Optionally, show a success flash message
+                } else {
+                    alert('Erreur: ' + (data.message || 'Inconnue.'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur réseau est survenue.');
+            });
+        }
+    });
+});
+</script>
+{% endblock %}
