@@ -11,7 +11,7 @@ from fpdf.fonts import FontFace
 from datetime import datetime, timedelta
 import json
 
-from app import db, mail
+from app import db, mail, csrf
 from app.profile import bp
 from app.models import User, Competency, Skill, SkillPracticeEvent, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus, TrainingSession, ExternalTrainingSkillClaim, Species # Added ExternalTrainingSkillClaim and Species
 from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm
@@ -116,17 +116,41 @@ def submit_training_request():
         form.skills_requested.query_factory = lambda: get_skills_for_species(initial_species_id)
 
     if form.validate_on_submit():
-        req = TrainingRequest(requester=current_user, status=TrainingRequestStatus.PENDING)
-        
-        # Fetch Skill objects based on the submitted IDs
         selected_skills = form.skills_requested.data
+        selected_species = form.species.data
+
+        for skill in selected_skills:
+            existing_request = TrainingRequest.query.filter(
+                TrainingRequest.requester_id == current_user.id,
+                TrainingRequest.status == TrainingRequestStatus.PENDING,
+                TrainingRequest.skills_requested.any(id=skill.id)
+            ).first()
+
+            if existing_request:
+                if selected_species not in existing_request.species_requested:
+                    existing_request.species_requested.append(selected_species)
+                    db.session.commit()
+                    message = f"Updated your existing training request for '{skill.name}' to include species '{selected_species.name}'."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': True, 'message': message, 'redirect_url': url_for('profile.user_profile')})
+                    flash(message, 'info')
+                else:
+                    message = f"You have already requested training for the skill '{skill.name}' with species '{selected_species.name}'."
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'success': False, 'message': message})
+                    flash(message, 'warning')
+                return redirect(url_for('profile.user_profile'))
+
+        # If no existing request for any of the selected skills, create a new one
+        req = TrainingRequest(requester=current_user, status=TrainingRequestStatus.PENDING)
         req.skills_requested = selected_skills
-        
-        req.species_requested = [form.species.data]
+        req.species_requested = [selected_species]
         db.session.add(req)
         db.session.commit()
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': True, 'message': 'Votre demande de formation a été soumise avec succès !', 'redirect_url': url_for('profile.user_profile')})
+        
         flash('Your training request has been submitted!', 'success')
         return redirect(url_for('profile.user_profile'))
     elif request.method == 'POST': # Validation failed
@@ -185,7 +209,7 @@ def submit_external_training():
             ext_training.attachment_path = f"uploads/external/{filename}"
         
         db.session.add(ext_training)
-        # Process skill claims from the FieldList
+
         for skill_claim_data in form.skill_claims.data:
             skill_claim = ExternalTrainingSkillClaim(
                 skill=skill_claim_data['skill'],

@@ -26,12 +26,24 @@ class ExternalTrainingSkillClaimForm(FlaskForm):
     wants_to_be_tutor = BooleanField('Want to be tutor ?')
     practice_date = DateTimeLocalField('Date of Latest Practice', format='%Y-%m-%dT%H:%M', validators=[Optional()])
 
+from wtforms.validators import DataRequired, Optional, Length, ValidationError
+
+
 class ExternalTrainingForm(FlaskForm):
     external_trainer_name = StringField('External Trainer Name', validators=[DataRequired()])
     date = DateTimeLocalField('Date of Training', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
     skill_claims = FieldList(FormField(ExternalTrainingSkillClaimForm), min_entries=1, label='Skills Claimed')
     attachment = FileField('Certificate/Document Attachment', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
     submit = SubmitField('Submit External Training')
+
+    def validate_skill_claims(self, field):
+        seen_skills = set()
+        for skill_claim_form in field.entries:
+            if skill_claim_form.form.skill.data:
+                skill_id = skill_claim_form.form.skill.data.id
+                if skill_id in seen_skills:
+                    raise ValidationError('Duplicate skill claims are not allowed.')
+                seen_skills.add(skill_id)
 
 
 

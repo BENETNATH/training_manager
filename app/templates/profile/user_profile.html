@@ -344,17 +344,34 @@ $(document).ready(function() {
         window.actionModal = new bootstrap.Modal(actionModalElement);
 
         // Destroy Select2 instances when the modal is hidden to prevent conflicts
-        $('#action-modal').on('hidden.bs.modal', function () {
+        $('#action-modal').on('hide.bs.modal', function (e) {
+            // When the modal is about to be hidden, check if the trigger was the close button
+            if (document.activeElement === this.querySelector('.btn-close')) {
+                // If so, blur it to prevent the accessibility error
+                document.activeElement.blur();
+            }
+
             $('.select2-hidden-accessible').each(function() {
                 if ($(this).data('select2')) {
                     $(this).select2('destroy');
                 }
             });
+
+            // Return focus to the element that opened the modal
+            if (activeElement) {
+                activeElement.focus();
+                activeElement = null; // Clear the stored element
+            } else {
+                // As a fallback, focus the body
+                document.body.focus();
+            }
         });
     }
     var currentFormActionUrl = '';
+    var activeElement = null; // Variable to store the element that opened the modal
 
     $('.action-btn').on('click', function() {
+        activeElement = this; // Store the clicked button
         var button = $(this);
         var actionUrl = button.data('action-url');
         var modalTitle = button.data('modal-title');
@@ -444,31 +461,38 @@ $(document).ready(function() {
                 }
 
                 function initializeSelect2ForEntry(entry) {
-                    $(entry).find('select').each(function() {
-                        const selectElement = $(this);
-                        const placeholder = selectElement.attr('placeholder');
-                        const isMultiple = selectElement.attr('multiple') === 'multiple';
+                    const $modalBody = $('#action-modal .modal-body');
 
-                        const select2Options = {
+                    $(entry).find('select').each(function () {
+                        const $sel = $(this);
+                        const placeholder = $sel.attr('placeholder') || '';
+
+                        const opts = {
                             placeholder: placeholder,
                             allowClear: true,
-                            width: '100%'
+                            width: '100%',
+                            dropdownParent: $modalBody
                         };
 
-                        // Apply minimumResultsForSearch only to level-select elements
-                        if (selectElement.hasClass('level-select')) {
-                            select2Options.minimumResultsForSearch = Infinity;
+                        if (!$sel.hasClass('level-select')) {
+                            opts.minimumResultsForSearch = 0;
+                        } else {
+                            opts.minimumResultsForSearch = Infinity;
                         }
 
-                        selectElement.select2(select2Options);
+                        if ($sel.attr('id').includes('-skill')) {
+                            opts.data = allSkills.map(s => ({ id: s.id, text: s.name }));
+                        } else if ($sel.attr('id').includes('-species_claimed')) {
+                            opts.data = allSpecies.map(s => ({ id: s.id, text: s.name }));
+                        }
 
-                        // If it's a level-select, attach the change listener and trigger it
-                        if (selectElement.hasClass('level-select')) {
-                            selectElement.on('change', function() {
+                        $sel.select2(opts);
+
+                        if ($sel.hasClass('level-select')) {
+                            $sel.on('change', function () {
                                 toggleTutorCheckbox(this);
                             });
-                            // Trigger change immediately to set initial state
-                            toggleTutorCheckbox(selectElement[0]);
+                            toggleTutorCheckbox($sel[0]);
                         }
                     });
                 }

@@ -12,3 +12,127 @@
         </div>
     </div>
 {% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        let skillClaimCounter = $('.skill-claim-entry').length;
+        const allSkills = JSON.parse($('#all-skills-data').val());
+        const allSpecies = JSON.parse($('#all-species-data').val());
+
+        function initializeSelect2ForNewRow(row) {
+            const skillSelect = row.find('select[name$="-skill"]');
+            const speciesSelect = row.find('select[name$="-species_claimed"]');
+
+            skillSelect.select2({
+                placeholder: "Select Skill",
+                allowClear: true,
+                dropdownParent: skillSelect.parent(),
+                data: allSkills.map(s => ({ id: s.id, text: s.name }))
+            });
+
+            speciesSelect.select2({
+                placeholder: "Select Species",
+                allowClear: true,
+                multiple: true,
+                dropdownParent: speciesSelect.parent(),
+                data: allSpecies.map(s => ({ id: s.id, text: s.name }))
+            }).on('select2:open', function(e) {
+                const select2Instance = $(this).data('select2');
+                const dropdownContainer = select2Instance.$dropdown;
+                setTimeout(function() {
+                    const searchField = dropdownContainer.find('.select2-search__field');
+                    if (searchField.length) {
+                        searchField.prop('disabled', false); // Ensure it's not disabled
+                        searchField.prop('readonly', false); // Ensure it's not read-only
+                        searchField.focus();
+                    }
+                }, 0);
+            });
+        }
+
+        // Initialize Select2 for existing rows on page load
+        $('.skill-claim-entry').each(function() {
+            initializeSelect2ForNewRow($(this));
+        });
+
+        // Delegated event listener for skill select2:open
+        $(document).on('select2:open', 'select[name$="-skill"]', function(e) {
+            const select2Instance = $(this).data('select2');
+            const dropdownContainer = select2Instance.$dropdown;
+            setTimeout(function() {
+                const searchField = dropdownContainer.find('.select2-search__field');
+                console.log('Skill Search Field (Delegated):', searchField);
+                if (searchField.length) {
+                    searchField.prop('disabled', false);
+                    searchField.prop('readonly', false);
+                    searchField.focus();
+                }
+            }, 0);
+        });
+
+        // Initialize Select2 for existing rows on page load
+        $('.skill-claim-entry').each(function() {
+            initializeSelect2ForNewRow($(this));
+        });
+
+        // Add Skill Claim button handler
+        $('#add-skill-claim').on('click', function() {
+            const newIndex = skillClaimCounter;
+            const newEntryHtml = `
+                <div class="card mb-2 p-2 skill-claim-entry">
+                    <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
+                        <h6 class="mb-0">Skill Claim #<span class="skill-claim-number">${newIndex + 1}</span></h6>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Remove</button>
+                    </div>
+                    <div class="card-body p-2">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <select name="skill_claims-${newIndex}-skill" id="skill_claims-${newIndex}-skill" class="form-control form-control-sm" placeholder="Select Skill"></select>
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                <select name="skill_claims-${newIndex}-species_claimed" id="skill_claims-${newIndex}-species_claimed" class="form-control form-control-sm species-select" multiple="multiple" placeholder="Select Species"></select>
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                <select name="skill_claims-${newIndex}-level" id="skill_claims-${newIndex}-level" class="form-control form-control-sm level-select" placeholder="Level">
+                                    <option value="Novice">Novice</option>
+                                    <option value="Intermediate">Intermediate</option>
+                                    <option value="Expert">Expert">Expert</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mt-2">
+                                <input type="datetime-local" name="skill_claims-${newIndex}-practice_date" id="skill_claims-${newIndex}-practice_date" class="form-control form-control-sm" placeholder="Last Practice Date">
+                            </div>
+                            <div class="col-md-3 mt-2 d-flex align-items-end">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input tutor-checkbox" id="skill_claims-${newIndex}-wants_to_be_tutor" name="skill_claims-${newIndex}-wants_to_be_tutor" type="checkbox" value="y">
+                                    <label class="form-check-label" for="skill_claims-${newIndex}-wants_to_be_tutor">Wants to be Tutor</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const newRow = $(newEntryHtml);
+            $('#skill-claims-container').append(newRow);
+            initializeSelect2ForNewRow(newRow);
+            skillClaimCounter++;
+
+            // Update skill claim numbers
+            $('.skill-claim-entry').each(function(index) {
+                $(this).find('.skill-claim-number').text(index + 1);
+            });
+        });
+
+        // Remove Skill Claim button handler
+        $('#skill-claims-container').on('click', '.remove-skill-claim', function() {
+            $(this).closest('.skill-claim-entry').remove();
+            // Update skill claim numbers after removal
+            $('.skill-claim-entry').each(function(index) {
+                $(this).find('.skill-claim-number').text(index + 1);
+            });
+        });
+    });
+</script>
+{% endblock %}

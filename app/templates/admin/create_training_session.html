@@ -94,7 +94,7 @@ $(document).ready(function() {
             if (search.length) {
                 search.focus();
             }
-        }, 100);
+        }, 0);
     });
 
     let skillsForSpecies = [];
@@ -220,7 +220,7 @@ $(document).ready(function() {
                 if (search.length) {
                     search.focus();
                 }
-            }, 100);
+            }, 0);
         });
         tutorSelect.select2({ placeholder: "Choisir un tuteur", allowClear: true, dropdownParent: $('#training-program-card-body') }).on('select2:open', function(e) {
             const parent = $(this).data('select2').$dropdown;
@@ -229,7 +229,7 @@ $(document).ready(function() {
                 if (search.length) {
                     search.focus();
                 }
-            }, 100);
+            }, 0);
         });
 
         // Populate skill select

@@ -113,6 +113,22 @@ def add_user():
         db.session.add(user)
         db.session.commit()
 
+        # Process training path if selected
+        if form.training_path.data:
+            training_path = form.training_path.data
+            for tps in training_path.skills_association:
+                training_request = TrainingRequest(
+                    requester=user,
+                    status=TrainingRequestStatus.PENDING,
+                    notes=f"Automatically generated from Training Path: {training_path.name}"
+                )
+                db.session.add(training_request) # Add to session here
+                training_request.skills_requested.append(tps.skill)
+                # Also add species associated with the skill in the training path
+                for species in tps.species:
+                    training_request.species_requested.append(species)
+            db.session.commit()
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({
                 'success': True, 
@@ -530,6 +546,28 @@ def delete_skill(id):
     return redirect(url_for('admin.manage_skills'))
 
 # Training Path Management
+import os
+import io
+from flask import render_template, redirect, url_for, flash, request, current_app, send_file, jsonify
+from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
+from app import db
+from app.admin import bp
+from app.admin.forms import UserForm, TeamForm, SpeciesForm, SkillForm, TrainingPathForm, ImportForm, AddUserToTeamForm, TrainingValidationForm, AttendeeValidationForm, CompetencyValidationForm
+from app.training.forms import TrainingSessionForm # Import TrainingSessionForm
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingPathSkill, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim, TrainingSessionTutorSkill, tutor_skill_association
+from app.decorators import admin_required
+from sqlalchemy import func, extract, case
+import openpyxl # Import openpyxl
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.comments import Comment
+from datetime import datetime, timedelta # Import datetime, timedelta
+from collections import defaultdict
+import json # Import json
+import re
+from flask_wtf.csrf import generate_csrf # Moved import to top
+
+
 @bp.route('/training_paths')
 @login_required
 @admin_required

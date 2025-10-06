@@ -15,6 +15,9 @@ def get_users():
 def get_species():
     return Species.query.order_by(Species.name).all()
 
+def get_training_paths():
+    return TrainingPath.query.order_by(TrainingPath.name).all()
+
 class UserForm(FlaskForm):
     full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=120)])
     email = StringField('Email', validators=[DataRequired(), Email()])
@@ -22,6 +25,7 @@ class UserForm(FlaskForm):
     is_admin = BooleanField('Is Admin')
     teams = QuerySelectMultipleField('Teams', query_factory=get_teams, get_label='name')
     teams_as_lead = QuerySelectMultipleField('Led Teams', query_factory=get_teams, get_label='name')
+    training_path = QuerySelectField('Assign Training Path', query_factory=get_training_paths, get_label='name', allow_blank=True, blank_text='-- Select Training Path (Optional) --')
     submit = SubmitField('Save User')
 
     def __init__(self, original_email=None, *args, **kwargs):

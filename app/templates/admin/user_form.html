@@ -12,3 +12,20 @@
         </div>
     </div>
 {% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        $('#training_path').select2({
+            placeholder: "Select a Training Path",
+            allowClear: true
+        }).on('select2:open', function() {
+            // Focus the search field when the dropdown opens
+            setTimeout(function() {
+                $('.select2-search__field').focus();
+            }, 0);
+        });
+    });
+</script>
+{% endblock %}
