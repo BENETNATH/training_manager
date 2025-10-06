@@ -122,6 +122,12 @@ tutor_validity_payload = api.model('TutorValidityPayload', {
     'training_date': fields.String(required=True, description='Date of the training')
 })
 
+# New payload model for declaring a practice
+declare_practice_payload = api.model('DeclarePracticePayload', {
+    'skill_id': fields.Integer(required=True, description='ID of the skill for which practice is declared'),
+    'notes': fields.String(description='Optional notes about the practice')
+})
+
 
 # API Key Authentication
 def token_required(f):
@@ -141,6 +147,9 @@ def token_required(f):
 
         if not found_user:
             api.abort(401, "Invalid API Key")
+        
+        from flask import g
+        g.current_user = found_user
         
         return f(*args, **kwargs)
     return decorated
@@ -252,6 +261,53 @@ class UserResource(Resource):
         db.session.delete(user)
         db.session.commit()
         return '', 204
+
+@ns_users.route('/available_skills')
+class UserAvailableSkills(Resource):
+    @api.marshal_list_with(skill_model)
+    @api.doc(security='apikey', description='List skills for which the authenticated user has a valid (not outdated) competency.')
+    @token_required
+    def get(self):
+        """List available skills for the authenticated user (not outdated)"""
+        from flask import g
+        user = g.current_user
+
+        available_skills = []
+        for competency in user.competencies:
+            if not competency.needs_recycling:
+                available_skills.append(competency.skill)
+        return available_skills
+
+@ns_users.route('/declare_practice')
+class UserDeclarePractice(Resource):
+    @api.expect(declare_practice_payload)
+    @api.response(201, 'Skill practice declared successfully')
+    @api.response(404, 'Skill not found')
+    @api.doc(security='apikey', description='Declare a practice event for a specific skill for the authenticated user.')
+    @token_required
+    def post(self):
+        """Declare a practice for a specific skill for the authenticated user"""
+        from flask import g
+        user = g.current_user
+        data = api.payload
+        skill_id = data['skill_id']
+        notes = data.get('notes')
+
+        skill = Skill.query.get(skill_id)
+        if not skill:
+            api.abort(404, "Skill not found")
+
+        practice_event = SkillPracticeEvent(
+            user=user,
+            practice_date=datetime.utcnow(),
+            notes=notes
+        )
+        practice_event.skills.append(skill) # Assuming SkillPracticeEvent has a 'skills' relationship
+        
+        db.session.add(practice_event)
+        db.session.commit()
+
+        return {'message': 'Skill practice declared successfully', 'event_id': practice_event.id}, 201
 
 # Team Endpoints
 @ns_teams.route('/')
