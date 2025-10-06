@@ -5,6 +5,7 @@ from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 from flask_wtf.file import FileField, FileAllowed
 from app.models import User, Team, Species, Skill, Complexity, TrainingPath
 from wtforms import FieldList, FormField
+from app import db
 
 def get_teams():
     return Team.query.order_by(Team.name).all()
@@ -15,8 +16,11 @@ def get_users():
 def get_species():
     return Species.query.order_by(Species.name).all()
 
-def get_training_paths():
-    return TrainingPath.query.order_by(TrainingPath.name).all()
+def get_training_paths_with_species():
+    return TrainingPath.query.options(db.joinedload(TrainingPath.species)).order_by(TrainingPath.name).all()
+
+def get_training_path_label(training_path):
+    return f"{training_path.name} ({training_path.species.name})"
 
 class UserForm(FlaskForm):
     full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=120)])
@@ -25,7 +29,7 @@ class UserForm(FlaskForm):
     is_admin = BooleanField('Is Admin')
     teams = QuerySelectMultipleField('Teams', query_factory=get_teams, get_label='name')
     teams_as_lead = QuerySelectMultipleField('Led Teams', query_factory=get_teams, get_label='name')
-    training_path = QuerySelectField('Assign Training Path', query_factory=get_training_paths, get_label='name', allow_blank=True, blank_text='-- Select Training Path (Optional) --')
+    assigned_training_paths = QuerySelectMultipleField('Assign Training Paths', query_factory=get_training_paths_with_species, get_label=get_training_path_label)
     submit = SubmitField('Save User')
 
     def __init__(self, original_email=None, *args, **kwargs):
@@ -94,6 +98,7 @@ class SkillForm(FlaskForm):
 class TrainingPathForm(FlaskForm):
     name = StringField('Training Path Name', validators=[DataRequired(), Length(min=2, max=128)])
     description = TextAreaField('Description', validators=[Optional()])
+    species = QuerySelectField('Associated Species', query_factory=get_species, get_label='name', validators=[DataRequired()])
     skills_json = HiddenField('Skills JSON', validators=[DataRequired()])
     submit = SubmitField('Save Training Path')
 

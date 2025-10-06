@@ -17,15 +17,64 @@
 {{ super() }}
 <script>
     $(document).ready(function() {
-        $('#training_path').select2({
-            placeholder: "Select a Training Path",
-            allowClear: true
+        var $assignedTrainingPaths = $('#assigned_training_paths');
+        var $detailsDiv = $('#selected-training-paths-details');
+
+        $assignedTrainingPaths.select2({
+            placeholder: "Select Training Paths (Optional)",
+            allowClear: true,
+            multiple: true
         }).on('select2:open', function() {
-            // Focus the search field when the dropdown opens
             setTimeout(function() {
                 $('.select2-search__field').focus();
             }, 0);
+        }).on('change', function() {
+            updateTrainingPathDetails();
         });
+
+        function updateTrainingPathDetails() {
+            $detailsDiv.empty(); // Clear previous details
+            var selectedPathIds = $assignedTrainingPaths.val();
+
+            if (selectedPathIds && selectedPathIds.length > 0) {
+                var allSkills = {}; // Use an object to store unique skills by ID
+
+                var fetchPromises = selectedPathIds.map(function(pathId) {
+                    return $.ajax({
+                        url: '/admin/api/training_path/' + pathId + '/skills',
+                        method: 'GET',
+                        success: function(skills) {
+                            skills.forEach(function(skill) {
+                                allSkills[skill.id] = skill; // Add/overwrite to ensure uniqueness
+                            });
+                        },
+                        error: function(error) {
+                            console.error('Error fetching skills for path '+ pathId + ':', error);
+                        }
+                    });
+                });
+
+                $.when.apply($, fetchPromises).done(function() {
+                    if (Object.keys(allSkills).length > 0) {
+                        var detailsHtml = '<h5>Skills in Selected Training Paths:</h5><ul>';
+                        Object.values(allSkills).forEach(function(skill) {
+                            detailsHtml += '<li><strong>' + skill.name + '</strong>: ' + skill.description;
+                            if (skill.species) {
+                                detailsHtml += ' (Species: ' + skill.species + ')';
+                            }
+                            detailsHtml += '</li>';
+                        });
+                        detailsHtml += '</ul>';
+                        $detailsDiv.html(detailsHtml);
+                    } else {
+                        $detailsDiv.html('<p>No skills found for the selected training paths.</p>');
+                    }
+                });
+            }
+        }
+
+        // Call on page load to display details for pre-selected paths (e.g., on edit page)
+        updateTrainingPathDetails();
     });
 </script>
 {% endblock %}

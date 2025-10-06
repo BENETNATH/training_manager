@@ -6,7 +6,7 @@ from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession
 from werkzeug.security import generate_password_hash
 from functools import wraps # Import wraps
 import secrets # Import secrets
-from datetime import datetime, timedelta # Import datetime
+from datetime import datetime, timedelta, timezone # Import datetime
 
 # API Models for marshalling
 
@@ -25,23 +25,25 @@ skill_model = api.model('Skill', {
     'tutor_ids': fields.List(fields.Integer, description='List of associated tutor IDs', attribute=lambda x: [t.id for t in x.tutors]),
 })
 
-user_model = api.model('User', {
-    'id': fields.Integer(readOnly=True),
-    'full_name': fields.String(required=True, description='User full name'),
-    'email': fields.String(required=True, description='User email address'),
-    'is_admin': fields.Boolean(description='Is user an administrator'),
-    'api_key': fields.String(description='User API Key', readOnly=True), # Expose API key
-    'team_id': fields.Integer(description='ID of the team the user belongs to'), # This might need adjustment if a user can belong to multiple teams
-    'is_team_lead': fields.Boolean(description='Is user a team lead', attribute=lambda x: len(x.teams_as_lead) > 0, readOnly=True),
-    'team_name': fields.String(attribute=lambda x: x.teams[0].name if x.teams else None, description='Name of the team the user belongs to', readOnly=True),
-    'tutored_skills': fields.List(fields.Nested(skill_model), attribute='tutored_skills', description='Skills the user can tutor', skip_none=True),
+user_preview_model = api.model('UserPreview', {
+    'id': fields.Integer(readOnly=True, description='The unique identifier of a user'),
+    'full_name': fields.String(required=True, description='Full name of the user'),
 })
 
 team_model = api.model('Team', {
-    'id': fields.Integer(readOnly=True),
-    'name': fields.String(required=True, description='Team name'),
-    'lead_id': fields.Integer(description='ID of the team lead user'),
-    'lead_name': fields.String(attribute='lead.full_name', description='Name of the team lead', readOnly=True),
+    'id': fields.Integer(readOnly=True, description='The unique identifier of a team'),
+    'name': fields.String(required=True, description='The name of the team'),
+    'members': fields.List(fields.Nested(user_preview_model), description='Members of the team'),
+    'team_leads': fields.List(fields.Nested(user_preview_model), description='Team leads of the team')
+})
+
+user_model = api.model('User', {
+    'id': fields.Integer(readOnly=True, description='The unique identifier of a user'),
+    'full_name': fields.String(required=True, description='Full name of the user'),
+    'email': fields.String(required=True, description='Email address of the user'),
+    'is_admin': fields.Boolean(description='Whether the user is an administrator'),
+    'teams': fields.List(fields.Nested(team_model), description='Teams the user belongs to'),
+    'teams_as_lead': fields.List(fields.Nested(team_model), description='Teams the user leads')
 })
 
 species_model = api.model('Species', {
@@ -107,7 +109,7 @@ external_training_model = api.model('ExternalTraining', {
     'attachment_path': fields.String(description='Path to attachment'),
     'status': fields.String(enum=[s.value for s in ExternalTrainingStatus], description='Status of external training'),
     'validator_id': fields.Integer(description='ID of the validator'),
-    'skills_claimed_ids': fields.List(fields.Integer, description='List of claimed skill IDs', attribute=lambda x: [s.id for s in x.skills_claimed]),
+    'skills_claimed_ids': fields.List(fields.Integer, description='List of claimed skill IDs', attribute=lambda x: [s.skill_id for s in x.skill_claims]),
 })
 
 skill_ids_payload = api.model('SkillIdsPayload', {
@@ -199,10 +201,8 @@ class UserList(Resource):
         """Create a new user"""
         data = api.payload
         user = User(full_name=data['full_name'], email=data['email'],
-                    is_admin=data.get('is_admin', False),
-                    is_team_lead=data.get('is_team_lead', False))
-        if 'password' in data: # Password should be hashed before saving
-            user.set_password(data['password'])
+                    is_admin=data.get('is_admin', False))
+        user.set_password(data['password'])
         if 'team_id' in data:
             user.team = Team.query.get(data['team_id'])
         db.session.add(user)
@@ -231,7 +231,6 @@ class UserResource(Resource):
         user.full_name = data['full_name']
         user.email = data['email']
         user.is_admin = data.get('is_admin', user.is_admin)
-        user.is_team_lead = data.get('is_team_lead', user.is_team_lead)
         if 'password' in data:
             user.set_password(data['password'])
         if 'team_id' in data:
@@ -577,7 +576,7 @@ class CompetencyList(Resource):
             user_id=data['user_id'],
             skill_id=data['skill_id'],
             level=data.get('level'),
-            evaluation_date=datetime.fromisoformat(data['evaluation_date']) if 'evaluation_date' in data else datetime.utcnow(),
+            session = TrainingSession(title='Test Session', start_time=datetime.now(timezone.utc), end_time=datetime.now(timezone.utc) + timedelta(hours=1)),
             certificate_path=data.get('certificate_path')
         )
         if 'evaluator_id' in data:
@@ -651,10 +650,13 @@ class SkillPracticeEventList(Resource):
         data = api.payload
         event = SkillPracticeEvent(
             user_id=data['user_id'],
-            skill_id=data['skill_id'],
             practice_date=datetime.fromisoformat(data['practice_date']) if 'practice_date' in data else datetime.utcnow(),
             notes=data.get('notes')
         )
+        for skill_id in data['skill_ids']:
+            skill = Skill.query.get(skill_id)
+            if skill:
+                event.skills.append(skill)
         db.session.add(event)
         db.session.commit()
         return event, 201

@@ -13,7 +13,7 @@ from sqlalchemy import func, extract, case
 import openpyxl # Import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.comments import Comment
-from datetime import datetime, timedelta # Import datetime, timedelta
+from datetime import datetime, timedelta, timezone # Import datetime, timedelta
 from collections import defaultdict
 import json # Import json
 import re
@@ -43,12 +43,12 @@ def index():
     users_needing_recycling = list(users_needing_recycling_set)
     
     sessions_to_be_finalized_count = TrainingSession.query.filter(
-        TrainingSession.start_time < datetime.utcnow(),
+        TrainingSession.start_time < datetime.now(timezone.utc),
         TrainingSession.status != 'Realized'
     ).count()
 
     # Logic for sessions this month (now next session)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     next_session = TrainingSession.query.filter(TrainingSession.start_time > now).order_by(TrainingSession.start_time.asc()).first()
 
     # Data for the tables
@@ -113,21 +113,25 @@ def add_user():
         db.session.add(user)
         db.session.commit()
 
-        # Process training path if selected
-        if form.training_path.data:
-            training_path = form.training_path.data
+        # Handle assigned training paths
+        user.assigned_training_paths = form.assigned_training_paths.data
+
+        # Process training requests for each selected training path
+        for training_path in form.assigned_training_paths.data:
             for tps in training_path.skills_association:
-                training_request = TrainingRequest(
-                    requester=user,
-                    status=TrainingRequestStatus.PENDING,
-                    notes=f"Automatically generated from Training Path: {training_path.name}"
-                )
-                db.session.add(training_request) # Add to session here
-                training_request.skills_requested.append(tps.skill)
-                # Also add species associated with the skill in the training path
-                for species in tps.species:
-                    training_request.species_requested.append(species)
-            db.session.commit()
+                if tps.skill: # Ensure skill exists
+                    training_request = TrainingRequest(
+                        requester=user,
+                        status=TrainingRequestStatus.PENDING,
+                        notes=f"Automatically generated from Training Path: {training_path.name}"
+                    )
+                    db.session.add(training_request)
+                    db.session.flush() # Assign an ID to the new training_request
+                    training_request.skills_requested.append(tps.skill)
+                    training_request.species_requested.append(training_path.species)
+                else:
+                    current_app.logger.warning(f"TrainingPathSkill {tps.training_path_id}-{tps.skill_id} has no associated skill. Skipping.")
+        db.session.commit()
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({
@@ -168,9 +172,33 @@ def edit_user(id):
         if user.api_key is None: # Add this check
             user.generate_api_key() # Add this line
             
+        # Get currently assigned training paths before updating
+        current_training_paths = set(user.assigned_training_paths)
+
         # Handle many-to-many relationships
         user.teams = form.teams.data
         user.teams_as_lead = form.teams_as_lead.data
+        user.assigned_training_paths = form.assigned_training_paths.data
+
+        # Identify newly added training paths
+        new_training_paths = set(form.assigned_training_paths.data)
+        added_training_paths = new_training_paths - current_training_paths
+
+        # Create training requests for newly added paths
+        for training_path in added_training_paths:
+            for tps in training_path.skills_association:
+                if tps.skill:
+                    training_request = TrainingRequest(
+                        requester=user,
+                        status=TrainingRequestStatus.PENDING,
+                        notes=f"Automatically generated from Training Path: {training_path.name}"
+                    )
+                    db.session.add(training_request)
+                    db.session.flush() # Assign an ID to the new training_request
+                    training_request.skills_requested.append(tps.skill)
+                    training_request.species_requested.append(training_path.species)
+                else:
+                    current_app.logger.warning(f"TrainingPathSkill {tps.training_path_id}-{tps.skill_id} has no associated skill. Skipping.")
 
         db.session.commit()
 
@@ -198,6 +226,7 @@ def edit_user(id):
         # Pre-populate many-to-many fields
         form.teams.data = user.teams
         form.teams_as_lead.data = user.teams_as_lead
+        form.assigned_training_paths.data = user.assigned_training_paths
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('admin/_user_form_fields.html', form=form)
@@ -538,6 +567,8 @@ def edit_skill(id):
 @admin_required
 def delete_skill(id):
     skill = Skill.query.get_or_404(id)
+    # Delete associated ExternalTrainingSkillClaim records first
+    ExternalTrainingSkillClaim.query.filter_by(skill_id=skill.id).delete()
     db.session.delete(skill)
     db.session.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -561,11 +592,28 @@ from sqlalchemy import func, extract, case
 import openpyxl # Import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.comments import Comment
-from datetime import datetime, timedelta # Import datetime, timedelta
+from datetime import datetime, timedelta, timezone # Import datetime, timedelta
 from collections import defaultdict
 import json # Import json
 import re
-from flask_wtf.csrf import generate_csrf # Moved import to top
+@bp.route('/skills/<int:skill_id>/users/<string:user_type>')
+@login_required
+@admin_required
+def skill_users(skill_id, user_type):
+    skill = Skill.query.get_or_404(skill_id)
+    if user_type == 'competent':
+        users = User.query.join(Competency, User.id == Competency.user_id).filter(Competency.skill_id == skill_id).all()
+        title = f"Users with skill: {skill.name}"
+    elif user_type == 'in_training':
+        users = User.query.join(TrainingRequest, User.id == TrainingRequest.requester_id).filter(TrainingRequest.skills_requested.any(id=skill_id), TrainingRequest.status == TrainingRequestStatus.PENDING).all()
+        title = f"Users in training for: {skill.name}"
+    elif user_type == 'tutors':
+        users = User.query.join(tutor_skill_association).filter(tutor_skill_association.c.skill_id == skill_id).all()
+        title = f"Tutors for: {skill.name}"
+    else:
+        return redirect(url_for('admin.manage_skills'))
+    return render_template('admin/skill_users.html', title=title, users=users, skill=skill)
+
 
 
 @bp.route('/training_paths')
@@ -582,8 +630,18 @@ def add_training_path():
     form = TrainingPathForm()
     if form.validate_on_submit():
         training_path = TrainingPath(name=form.name.data, description=form.description.data)
+        training_path.species_id = form.species.data.id # Set species_id directly
+        db.session.add(training_path)
         
         skills_data = json.loads(form.skills_json.data)
+        
+        # Server-side check for duplicate skills
+        skill_ids_in_form = [skill_data['skill_id'] for skill_data in skills_data]
+        if len(skill_ids_in_form) != len(set(skill_ids_in_form)):
+            flash('Duplicate skills found in the training path. Please ensure each skill is unique.', 'danger')
+            db.session.rollback()
+            return redirect(url_for('admin.add_training_path'))
+
         for skill_data in skills_data:
             skill = Skill.query.get(skill_data['skill_id'])
             if skill:
@@ -591,9 +649,6 @@ def add_training_path():
                     skill=skill,
                     order=skill_data['order']
                 )
-                species_ids = skill_data.get('species_ids', [])
-                if species_ids:
-                    tps.species = Species.query.filter(Species.id.in_(species_ids)).all()
                 training_path.skills_association.append(tps)
 
         db.session.add(training_path)
@@ -604,6 +659,11 @@ def add_training_path():
     all_skills = Skill.query.order_by(Skill.name).all()
     all_species = Species.query.order_by(Species.name).all()
     all_skills_json = [{'id': s.id, 'name': s.name} for s in all_skills]
+    
+    # Ensure skills_json is an empty array for new forms
+    if not form.skills_json.data:
+        form.skills_json.data = '[]'
+
     return render_template('admin/training_path_form.html', title='Add Training Path', form=form, all_skills=all_skills_json, all_species=all_species, training_path=None)
 
 @bp.route('/training_paths/edit/<int:id>', methods=['GET', 'POST'])
@@ -615,11 +675,20 @@ def edit_training_path(id):
     if form.validate_on_submit():
         training_path.name = form.name.data
         training_path.description = form.description.data
+        training_path.species = form.species.data # Update species
         
         # Clear existing skills and re-add from form
         training_path.skills_association.clear()
         
         skills_data = json.loads(form.skills_json.data)
+
+        # Server-side check for duplicate skills
+        skill_ids_in_form = [skill_data['skill_id'] for skill_data in skills_data]
+        if len(skill_ids_in_form) != len(set(skill_ids_in_form)):
+            flash('Duplicate skills found in the training path. Please ensure each skill is unique.', 'danger')
+            db.session.rollback()
+            return redirect(url_for('admin.edit_training_path', id=training_path.id))
+
         for skill_data in skills_data:
             skill = Skill.query.get(skill_data['skill_id'])
             if skill:
@@ -627,9 +696,6 @@ def edit_training_path(id):
                     skill=skill,
                     order=skill_data['order']
                 )
-                species_ids = skill_data.get('species_ids', [])
-                if species_ids:
-                    tps.species = Species.query.filter(Species.id.in_(species_ids)).all()
                 training_path.skills_association.append(tps)
 
         db.session.commit()
@@ -639,13 +705,14 @@ def edit_training_path(id):
     elif request.method == 'GET':
         form.name.data = training_path.name
         form.description.data = training_path.description
+        form.species.data = training_path.species # Pre-populate species
         
         skills_json_data = []
         for assoc in training_path.skills_association:
             skills_json_data.append({
-                'skill_id': assoc.skill_id,
-                'order': assoc.order,
-                'species_ids': [s.id for s in assoc.species]
+                'skill_id': assoc.skill.id,
+                'name': assoc.skill.name,
+                'order': assoc.order
             })
         form.skills_json.data = json.dumps(skills_json_data)
 
@@ -772,7 +839,7 @@ def export_users_xlsx():
     workbook.save(output)
     output.seek(0)
 
-    return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'users_export_{datetime.utcnow().strftime("%Y%m%d%H%M%S")}.xlsx')
+    return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'users_export_{datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")}.xlsx')
 
 @bp.route('/download_user_import_template_xlsx')
 @login_required
@@ -997,7 +1064,7 @@ def export_skills_xlsx():
     workbook.save(output)
     output.seek(0)
 
-    return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'skills_export_{datetime.utcnow().strftime("%Y%m%d%H%M%S")}.xlsx')
+    return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=f'skills_export_{datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")}.xlsx')
 
 
 
@@ -1148,7 +1215,7 @@ def manage_training_sessions():
 
     if filter_param == 'to_be_finalized':
         query = query.filter(
-            TrainingSession.start_time < datetime.utcnow(),
+            TrainingSession.start_time < datetime.now(timezone.utc),
             TrainingSession.status != 'Realized'
         )
 
@@ -1301,7 +1368,7 @@ def validate_training_session(session_id):
                     if competency_to_update:
                         # Update existing competency
                         competency_to_update.level = level
-                        competency_to_update.evaluation_date = datetime.utcnow()
+                        competency_to_update.evaluation_date = datetime.now(timezone.utc)
                         competency_to_update.evaluator = current_user
                         competency_to_update.training_session = session
                         competency_to_update.external_evaluator_name = None # Ensure this is cleared if an internal evaluator is used
@@ -1313,7 +1380,7 @@ def validate_training_session(session_id):
                             user=attendee,
                             skill=skill,
                             level=level,
-                            evaluation_date=datetime.utcnow(),
+                            evaluation_date=datetime.now(timezone.utc),
                             evaluator=current_user,
                             training_session=session,
                             external_training_id=None # Ensure this is None for training sessions
@@ -1583,3 +1650,33 @@ def recycling_report():
 def proposed_skills():
     proposed = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).order_by(TrainingRequest.request_date.desc()).all()
     return render_template('admin/proposed_skills.html', title='Proposed Skills', proposed_skills=proposed)
+
+@bp.route('/api/training_path/<int:path_id>/skills')
+@login_required
+@admin_required
+def get_training_path_skills(path_id):
+    training_path = TrainingPath.query.options(db.joinedload(TrainingPath.skills_association).joinedload(TrainingPathSkill.skill)).get_or_404(path_id)
+    skills_data = []
+    for tps in training_path.skills_association:
+        skills_data.append({
+            'id': tps.skill.id,
+            'name': tps.skill.name,
+            'description': tps.skill.description,
+            'species': training_path.species.name # Use the species from TrainingPath
+        })
+    return jsonify(skills_data)
+
+@bp.route('/api/skills_by_species/<int:species_id>')
+@login_required
+@admin_required
+def get_skills_by_species(species_id):
+    species = Species.query.get_or_404(species_id)
+    query = Skill.query.filter(Skill.species.any(id=species.id))
+
+    search = request.args.get('q', '')
+    if search:
+        query = query.filter(Skill.name.ilike(f'%{search}%'))
+
+    skills = query.order_by(Skill.name).all()
+    skills_data = [{'id': s.id, 'text': s.name} for s in skills]
+    return jsonify(skills_data)

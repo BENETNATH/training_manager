@@ -10,6 +10,7 @@
                 <th>ID</th>
                 <th>Name</th>
                 <th>Description</th>
+                <th>Species</th>
                 <th>Skills</th>
                 <th>Assigned Users</th>
                 <th>Actions</th>
@@ -21,6 +22,7 @@
                 <td>{{ path.id }}</td>
                 <td>{{ path.name }}</td>
                 <td>{{ path.description | truncate(50) }}</td>
+                <td>{{ path.species.name }}</td>
                 <td>
                     {% for skill in path.skills %}
                         <span class="badge bg-info">{{ skill.name }}</span>

@@ -79,15 +79,7 @@ skill_practice_event_skills = db.Table('skill_practice_event_skills',
     db.Column('skill_id', db.Integer, db.ForeignKey('skill.id'), primary_key=True)
 )
 
-training_path_skill_species = db.Table('training_path_skill_species',
-    db.Column('training_path_skill_tp_id', db.Integer, primary_key=True),
-    db.Column('training_path_skill_s_id', db.Integer, primary_key=True),
-    db.Column('species_id', db.Integer, db.ForeignKey('species.id'), primary_key=True),
-    db.ForeignKeyConstraint(
-        ['training_path_skill_tp_id', 'training_path_skill_s_id'],
-        ['training_path_skill.training_path_id', 'training_path_skill.skill_id']
-    )
-)
+
 
 class TrainingPathSkill(db.Model):
     __tablename__ = 'training_path_skill'
@@ -97,7 +89,6 @@ class TrainingPathSkill(db.Model):
 
     training_path = db.relationship('TrainingPath', back_populates='skills_association')
     skill = db.relationship('Skill')
-    species = db.relationship('Species', secondary=training_path_skill_species)
 
 user_team_membership = db.Table('user_team_membership',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
@@ -230,6 +221,9 @@ class TrainingPath(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
     description = db.Column(db.Text)
+    species_id = db.Column(db.Integer, db.ForeignKey('species.id'), nullable=False) # New: Single species for the training path
+
+    species = db.relationship('Species', backref='training_paths') # New relationship
 
     skills_association = db.relationship('TrainingPathSkill', back_populates='training_path', cascade="all, delete-orphan", order_by='TrainingPathSkill.order')
 

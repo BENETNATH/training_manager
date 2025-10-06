@@ -47,9 +47,9 @@
                 <td>{{ skill_data.Skill.id }}</td>
                 <td>{{ skill_data.Skill.name }}</td>
                 <td>{{ (skill_data.Skill.description | default('') | truncate(50)) if skill_data.Skill.description is not none else 'N/A' }}</td>
-                <td>{{ skill_data.user_count }}</td>
-                <td>{{ skill_data.recycling_count }}</td>
-                <td>{{ skill_data.tutor_count }}</td>
+                <td><a href="{{ url_for('admin.skill_users', skill_id=skill_data.Skill.id, user_type='competent') }}">{{ skill_data.user_count }}</a></td>
+                <td><a href="{{ url_for('admin.skill_users', skill_id=skill_data.Skill.id, user_type='in_training') }}">{{ skill_data.recycling_count }}</a></td>
+                <td><a href="{{ url_for('admin.skill_users', skill_id=skill_data.Skill.id, user_type='tutors') }}">{{ skill_data.tutor_count }}</a></td>
                 <td>
                     <a href="{{ url_for('admin.edit_skill', id=skill_data.Skill.id) }}" class="btn btn-sm btn-warning" title="Edit"><i class="fa fa-edit"></i></a>
                     <form action="{{ url_for('admin.delete_skill', id=skill_data.Skill.id) }}" method="post" style="display:inline;">

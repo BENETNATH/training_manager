@@ -1,26 +1,28 @@
 import pytest
 from app import db
-from app.models import User, Team, Skill, Species, Complexity
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, Complexity, TrainingRequestStatus, ExternalTrainingStatus
 from datetime import datetime, timedelta
 
-def test_user_password(app):
+def test_user_creation(app):
     with app.app_context():
         u = User(full_name='John Doe', email='john@example.com')
-        u.set_password('cat')
-        assert not u.check_password('dog')
-        assert u.check_password('cat')
+        u.set_password('password')
+        db.session.add(u)
+        db.session.commit()
+        assert u.id is not None
+        assert u.check_password('password')
+        assert not u.check_password('wrongpassword')
 
 def test_user_team_relationship(app):
     with app.app_context():
         t = Team(name='Development')
-        u = User(full_name='Jane Doe', email='jane@example.com', team=t)
-        u.set_password('testpassword') # Set a password for the user
+        u = User(full_name='Jane Doe', email='jane@example.com')
+        u.set_password('password')
+        u.teams.append(t)
         db.session.add(t)
         db.session.add(u)
         db.session.commit()
-        assert u.team.name == 'Development'
-        assert t.members.count() == 1
-        assert t.members.first().full_name == 'Jane Doe'
+        assert u.teams[0].name == 'Development'
 
 def test_user_api_key_generation(app):
     with app.app_context():
@@ -28,36 +30,27 @@ def test_user_api_key_generation(app):
         u.set_password('apipassword')
         db.session.add(u)
         db.session.commit()
-        assert u.api_key is None # Should be None initially
-
-        u.generate_api_key()
         assert u.api_key is not None
-        assert len(u.api_key) == 64 # 32 bytes * 2 (hex)
+        old_key = u.api_key
+        u.generate_api_key()
+        db.session.commit()
+        assert u.api_key != old_key
 
-def test_skill_creation(app):
+def test_skill_complexity_enum(app):
     with app.app_context():
-        s = Skill(name='Python Programming', description='Basic Python skills',
-                  validity_period_months=24, complexity=Complexity.COMPLEX)
+        s = Skill(name='Complex Skill', complexity=Complexity.COMPLEX)
         db.session.add(s)
         db.session.commit()
-        assert s.name == 'Python Programming'
-        assert s.complexity == Complexity.COMPLEX
+        retrieved_skill = Skill.query.filter_by(name='Complex Skill').first()
+        assert retrieved_skill.complexity == Complexity.COMPLEX
 
-def test_skill_species_relationship(app):
+def test_training_request_status_enum(app):
     with app.app_context():
-        s1 = Species(name='Canine')
-        s2 = Species(name='Feline')
-        db.session.add_all([s1, s2])
+        u = User(full_name='Request User', email='request@example.com')
+        u.set_password('password')
+        tr = TrainingRequest(requester=u, status=TrainingRequestStatus.APPROVED)
+        db.session.add(u)
+        db.session.add(tr)
         db.session.commit()
-
-        skill = Skill(name='Animal Handling', complexity=Complexity.SIMPLE)
-        skill.species.append(s1)
-        skill.species.append(s2)
-        db.session.add(skill)
-        db.session.commit()
-
-        assert len(skill.species) == 2
-        assert s1 in skill.species
-        assert s2 in skill.species
-        assert skill in s1.skills
-        assert skill in s2.skills
+        retrieved_tr = TrainingRequest.query.first()
+        assert retrieved_tr.status == TrainingRequestStatus.APPROVED

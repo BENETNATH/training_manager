@@ -1,26 +1,23 @@
 import pytest
 from app import db
-from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, Complexity, TrainingRequestStatus, ExternalTrainingStatus
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, ExternalTrainingSkillClaim, Complexity, TrainingRequestStatus, ExternalTrainingStatus
 from datetime import datetime, timedelta
 import json
+from flask import url_for
 
-@pytest.fixture
-def api_user(app):
-    with app.app_context():
-        user = User(full_name='API Test User', email='api_test@example.com', is_admin=True)
-        user.set_password('api_password')
-        user.generate_api_key()
-        db.session.add(user)
-        db.session.commit()
-        return user
+def create_api_user():
+    user = User(full_name='API Test User', email='api_test@example.com', is_admin=True)
+    user.set_password('api_password')
+    user.generate_api_key()
+    db.session.add(user)
+    db.session.commit()
+    return user
 
-@pytest.fixture
-def auth_headers(api_user):
-    return {'X-API-Key': api_user.api_key}
 
-def test_api_key_authentication(client, api_user):
+def test_api_key_authentication(client):
+    user = create_api_user()
     # Test with valid API key
-    headers = {'X-API-Key': api_user.api_key}
+    headers = {'X-API-Key': user.api_key}
     response = client.get('/api/users/', headers=headers)
     assert response.status_code == 200
 
@@ -33,255 +30,383 @@ def test_api_key_authentication(client, api_user):
     response = client.get('/api/users/')
     assert response.status_code == 401
 
-def test_api_get_users(client, auth_headers, api_user):
-    response = client.get('/api/users/', headers=auth_headers)
+def test_api_get_users(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
+    response = client.get('/api/users/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) == 1 # Only the api_user exists initially
-    assert data[0]['email'] == api_user.email
+    assert data[0]['email'] == user.email
 
-def test_api_create_user(client, auth_headers):
+def test_api_create_user(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     user_data = {
         'full_name': 'New API User',
         'email': 'new_api_user@example.com',
         'password': 'new_password',
-        'is_admin': False,
-        'is_team_lead': False
+        'is_admin': False
     }
-    response = client.post('/api/users/', headers=auth_headers, json=user_data)
+    response = client.post('/api/users/', headers=headers, json=user_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['email'] == 'new_api_user@example.com'
     assert User.query.filter_by(email='new_api_user@example.com').first() is not None
 
-def test_api_get_user_by_id(client, auth_headers, api_user):
-    response = client.get(f'/api/users/{api_user.id}', headers=auth_headers)
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data['email'] == api_user.email
-
-def test_api_update_user(client, auth_headers, api_user):
+def test_api_update_user(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     updated_data = {
         'full_name': 'Updated API User',
         'email': 'api_test_updated@example.com',
         'is_admin': True
     }
-    response = client.put(f'/api/users/{api_user.id}', headers=auth_headers, json=updated_data)
+    response = client.put(f'/api/users/{user.id}', headers=headers, json=updated_data)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert data['full_name'] == 'Updated API User'
     assert data['email'] == 'api_test_updated@example.com'
     assert data['is_admin'] is True
 
-def test_api_delete_user(client, auth_headers, api_user):
+def test_api_delete_user(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     user_to_delete = User(full_name='Delete User', email='delete@example.com')
     user_to_delete.set_password('deletepass')
     db.session.add(user_to_delete)
     db.session.commit()
 
-    response = client.delete(f'/api/users/{user_to_delete.id}', headers=auth_headers)
+    response = client.delete(f'/api/users/{user_to_delete.id}', headers=headers)
     assert response.status_code == 204
     assert User.query.get(user_to_delete.id) is None
 
 # Add tests for other API endpoints (Teams, Species, Skills, etc.)
-def test_api_get_teams(client, auth_headers):
+def test_api_get_teams(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     team = Team(name='Test Team')
     db.session.add(team)
     db.session.commit()
-    response = client.get('/api/teams/', headers=auth_headers)
+    response = client.get('/api/teams/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
     assert data[0]['name'] == 'Test Team'
 
-def test_api_create_team(client, auth_headers):
+def test_api_create_team(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     team_data = {'name': 'New API Team'}
-    response = client.post('/api/teams/', headers=auth_headers, json=team_data)
+    response = client.post('/api/teams/', headers=headers, json=team_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['name'] == 'New API Team'
 
-def test_api_get_species(client, auth_headers):
+def test_api_get_species(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     species = Species(name='Test Species')
     db.session.add(species)
     db.session.commit()
-    response = client.get('/api/species/', headers=auth_headers)
+    response = client.get('/api/species/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
     assert data[0]['name'] == 'Test Species'
 
-def test_api_create_species(client, auth_headers):
+def test_api_create_species(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     species_data = {'name': 'New API Species'}
-    response = client.post('/api/species/', headers=auth_headers, json=species_data)
+    response = client.post('/api/species/', headers=headers, json=species_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['name'] == 'New API Species'
 
-def test_api_get_skills(client, auth_headers):
+def test_api_get_skills(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='Test Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
-    response = client.get('/api/skills/', headers=auth_headers)
+    response = client.get('/api/skills/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
     assert data[0]['name'] == 'Test Skill'
 
-def test_api_create_skill(client, auth_headers):
+def test_api_create_skill(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill_data = {'name': 'New API Skill', 'complexity': 'SIMPLE'}
-    response = client.post('/api/skills/', headers=auth_headers, json=skill_data)
+    response = client.post('/api/skills/', headers=headers, json=skill_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['name'] == 'New API Skill'
 
-def test_api_get_training_paths(client, auth_headers):
+def test_api_get_training_paths(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     path = TrainingPath(name='Test Path')
     db.session.add(path)
     db.session.commit()
-    response = client.get('/api/training_paths/', headers=auth_headers)
+    response = client.get('/api/training_paths/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
     assert data[0]['name'] == 'Test Path'
 
-def test_api_create_training_path(client, auth_headers):
+def test_api_create_training_path(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     path_data = {'name': 'New API Path'}
-    response = client.post('/api/training_paths/', headers=auth_headers, json=path_data)
+    response = client.post('/api/training_paths/', headers=headers, json=path_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['name'] == 'New API Path'
 
-def test_api_get_training_sessions(client, auth_headers):
+def test_api_get_training_sessions(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     session = TrainingSession(title='Test Session', start_time=datetime.utcnow(), end_time=datetime.utcnow() + timedelta(hours=1))
     db.session.add(session)
     db.session.commit()
-    response = client.get('/api/training_sessions/', headers=auth_headers)
+    response = client.get('/api/training_sessions/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
     assert data[0]['title'] == 'Test Session'
 
-def test_api_create_training_session(client, auth_headers):
+def test_api_create_training_session(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     session_data = {
         'title': 'New API Session',
         'start_time': datetime.utcnow().isoformat(),
         'end_time': (datetime.utcnow() + timedelta(hours=1)).isoformat()
     }
-    response = client.post('/api/training_sessions/', headers=auth_headers, json=session_data)
+    response = client.post('/api/training_sessions/', headers=headers, json=session_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['title'] == 'New API Session'
 
-def test_api_get_competencies(client, auth_headers, api_user):
+def test_api_get_competencies(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='Competency Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
-    competency = Competency(user=api_user, skill=skill, level='Novice')
+    competency = Competency(user=user, skill=skill, level='Novice')
     db.session.add(competency)
     db.session.commit()
-    response = client.get('/api/competencies/', headers=auth_headers)
+    response = client.get('/api/competencies/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
-    assert data[0]['user_id'] == api_user.id
+    assert data[0]['user_id'] == user.id
 
-def test_api_create_competency(client, auth_headers, api_user):
+def test_api_create_competency(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='New Competency Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
     competency_data = {
-        'user_id': api_user.id,
+        'user_id': user.id,
         'skill_id': skill.id,
         'level': 'Expert'
     }
-    response = client.post('/api/competencies/', headers=auth_headers, json=competency_data)
+    response = client.post('/api/competencies/', headers=headers, json=competency_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['level'] == 'Expert'
 
-def test_api_get_skill_practice_events(client, auth_headers, api_user):
+def test_api_get_skill_practice_events(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='Practice Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
-    event = SkillPracticeEvent(user=api_user, skill=skill, practice_date=datetime.utcnow())
+    event = SkillPracticeEvent(user=user, notes='notes')
+    event.skills.append(skill)
     db.session.add(event)
     db.session.commit()
-    response = client.get('/api/skill_practice_events/', headers=auth_headers)
+    response = client.get('/api/skill_practice_events/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
-    assert data[0]['user_id'] == api_user.id
+    assert data[0]['user_id'] == user.id
 
-def test_api_create_skill_practice_event(client, auth_headers, api_user):
+def test_api_create_skill_practice_event(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='New Practice Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
     event_data = {
-        'user_id': api_user.id,
-        'skill_id': skill.id,
+        'user_id': user.id,
+        'skill_ids': [skill.id],
         'practice_date': datetime.utcnow().isoformat(),
         'notes': 'Practiced well'
     }
-    response = client.post('/api/skill_practice_events/', headers=auth_headers, json=event_data)
+    response = client.post('/api/skill_practice_events/', headers=headers, json=event_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['notes'] == 'Practiced well'
 
-def test_api_get_training_requests(client, auth_headers, api_user):
+def test_api_get_training_requests(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='Request Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
-    request_obj = TrainingRequest(requester=api_user, status=TrainingRequestStatus.PENDING)
+    request_obj = TrainingRequest(requester=user, status=TrainingRequestStatus.PENDING)
     request_obj.skills_requested.append(skill)
     db.session.add(request_obj)
     db.session.commit()
-    response = client.get('/api/training_requests/', headers=auth_headers)
+    response = client.get('/api/training_requests/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
-    assert data[0]['requester_id'] == api_user.id
+    assert data[0]['requester_id'] == user.id
 
-def test_api_create_training_request(client, auth_headers, api_user):
+def test_api_create_training_request(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='Another Request Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
     request_data = {
-        'requester_id': api_user.id,
-        'skills_requested_ids': [skill.id],
+        'requester_id': user.id,
+        'skill_ids': [skill.id],
         'status': 'PENDING'
     }
-    response = client.post('/api/training_requests/', headers=auth_headers, json=request_data)
+    response = client.post('/api/training_requests/', headers=headers, json=request_data)
     assert response.status_code == 201
     data = json.loads(response.data)
-    assert data['status'] == 'Pending'
+    assert data['status'] == 'TrainingRequestStatus.PENDING'
 
-def test_api_get_external_trainings(client, auth_headers, api_user):
+def test_api_get_external_trainings(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='External Training Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
-    external_training = ExternalTraining(user=api_user, external_trainer_name='Trainer A', date=datetime.utcnow(), status=ExternalTrainingStatus.PENDING)
-    external_training.skills_claimed.append(skill)
+    external_training = ExternalTraining(user=user, external_trainer_name='Trainer A', date=datetime.utcnow(), status=ExternalTrainingStatus.PENDING)
+    claim = ExternalTrainingSkillClaim(skill=skill, level='Novice')
+    external_training.skill_claims.append(claim)
     db.session.add(external_training)
     db.session.commit()
-    response = client.get('/api/external_trainings/', headers=auth_headers)
+    response = client.get('/api/external_trainings/', headers=headers)
     assert response.status_code == 200
     data = json.loads(response.data)
     assert len(data) > 0
-    assert data[0]['user_id'] == api_user.id
+    assert data[0]['user_id'] == user.id
 
-def test_api_create_external_training(client, auth_headers, api_user):
+def test_api_create_external_training(client):
+    user = create_api_user()
+    headers = {'X-API-Key': user.api_key}
     skill = Skill(name='Yet Another External Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
     external_training_data = {
-        'user_id': api_user.id,
+        'user_id': user.id,
         'external_trainer_name': 'Trainer B',
         'date': datetime.utcnow().isoformat(),
         'status': 'PENDING',
-        'skills_claimed_ids': [skill.id]
+        'skill_claims': [{'skill_id': skill.id, 'level': 'Expert'}]
     }
-    response = client.post('/api/external_trainings/', headers=auth_headers, json=external_training_data)
+    response = client.post('/api/external_trainings/', headers=headers, json=external_training_data)
     assert response.status_code == 201
     data = json.loads(response.data)
     assert data['external_trainer_name'] == 'Trainer B'
+
+def test_submit_training_request_new(client):
+    with client.application.test_request_context():
+        user = create_api_user()
+        client.post(url_for('auth.login'), data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
+
+        skill = Skill(name='New Skill for Request', complexity=Complexity.SIMPLE)
+        species = Species(name='New Species for Request')
+        db.session.add_all([skill, species])
+        db.session.commit()
+
+        data = {
+            'species': species.id,
+            'skills_requested': [skill.id],
+            'submit': True
+        }
+        response = client.post('/profile/request-training', data=data)
+        assert response.status_code == 302
+        with client.session_transaction() as sess:
+            assert sess['_flashes'][0][1] == 'Your training request has been submitted!'
+        
+        request = TrainingRequest.query.filter_by(requester_id=user.id).first()
+        assert request is not None
+        assert skill in request.skills_requested
+        assert species in request.species_requested
+
+def test_submit_training_request_duplicate(client):
+    with client.application.test_request_context():
+        user = create_api_user()
+        client.post(url_for('auth.login'), data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
+
+        skill = Skill(name='Duplicate Skill Request', complexity=Complexity.SIMPLE)
+        species = Species(name='Duplicate Species Request')
+        db.session.add_all([skill, species])
+        db.session.commit()
+
+        # First request
+        request1 = TrainingRequest(requester=user, status=TrainingRequestStatus.PENDING)
+        request1.skills_requested.append(skill)
+        request1.species_requested.append(species)
+        db.session.add(request1)
+        db.session.commit()
+
+        data = {
+            'species': species.id,
+            'skills_requested': [skill.id],
+            'submit': True
+        }
+        response = client.post('/profile/request-training', data=data)
+        assert response.status_code == 302
+        with client.session_transaction() as sess:
+            assert sess['_flashes'][0][1] == f"You have already requested training for the skill '{skill.name}' with species '{species.name}'."
+
+        # Check that a new request was not created
+        requests = TrainingRequest.query.filter_by(requester_id=user.id).all()
+        assert len(requests) == 1
+
+def test_submit_training_request_update_species(client):
+    with client.application.test_request_context():
+        user = create_api_user()
+        client.post(url_for('auth.login'), data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
+
+        skill = Skill(name='Update Species Skill', complexity=Complexity.SIMPLE)
+        species1 = Species(name='Update Species 1')
+        species2 = Species(name='Update Species 2')
+        db.session.add_all([skill, species1, species2])
+        db.session.commit()
+
+        # First request
+        request1 = TrainingRequest(requester=user, status=TrainingRequestStatus.PENDING)
+        request1.skills_requested.append(skill)
+        request1.species_requested.append(species1)
+        db.session.add(request1)
+        db.session.commit()
+
+        data = {
+            'species': species2.id,
+            'skills_requested': [skill.id],
+            'submit': True
+        }
+        response = client.post('/profile/request-training', data=data)
+        assert response.status_code == 302
+        with client.session_transaction() as sess:
+            assert sess['_flashes'][0][1] == f"Updated your existing training request for '{skill.name}' to include species '{species2.name}'."
+
+        # Check that the existing request was updated
+        request = TrainingRequest.query.filter_by(requester_id=user.id).first()
+        assert species2 in request.species_requested
+        assert len(request.species_requested) == 2
