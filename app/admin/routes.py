@@ -237,6 +237,21 @@ def edit_user(id):
 @admin_required
 def delete_user(id):
     user = User.query.get_or_404(id)
+    
+    # Delete associated records with NOT NULL foreign keys
+    TrainingRequest.query.filter_by(requester_id=user.id).delete()
+    Competency.query.filter_by(user_id=user.id).delete()
+    ExternalTraining.query.filter_by(user_id=user.id).delete()
+    SkillPracticeEvent.query.filter_by(user_id=user.id).delete()
+
+    # Clear many-to-many relationships
+    user.teams.clear()
+    user.teams_as_lead.clear()
+    user.assigned_training_paths.clear()
+    user.tutored_skills.clear()
+    user.attended_training_sessions.clear()
+    user.tutored_training_sessions.clear()
+
     db.session.delete(user)
     db.session.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest': # Check if the request is an AJAX request

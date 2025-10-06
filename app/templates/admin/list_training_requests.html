@@ -110,7 +110,7 @@ $(document).ready(function() {
         var button = $(this);
         var requestId = button.data('request-id');
         var rejectUrl = "{{ url_for('admin.reject_training_request', request_id=0) }}".replace('0', requestId);
-        var csrfToken = '{{ csrf_token() }}';
+        var csrfToken = $('meta[name="csrf-token"]').attr('content');
 
         if (confirm('Êtes-vous sûr de vouloir rejeter cette demande de formation ?')) {
             fetch(rejectUrl, {
