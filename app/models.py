@@ -12,6 +12,11 @@ tutor_skill_association = db.Table('tutor_skill_association',
     db.Column('skill_id', db.Integer, db.ForeignKey('skill.id'), primary_key=True)
 )
 
+training_path_assigned_users = db.Table('training_path_assigned_users',
+    db.Column('training_path_id', db.Integer, db.ForeignKey('training_path.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
 training_session_tutors = db.Table('training_session_tutors',
     db.Column('training_session_id', db.Integer, db.ForeignKey('training_session.id'), primary_key=True),
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
@@ -143,6 +148,7 @@ class User(UserMixin, db.Model):
     external_trainings = db.relationship('ExternalTraining', back_populates='user', lazy='dynamic', foreign_keys='ExternalTraining.user_id')
     validated_external_trainings = db.relationship('ExternalTraining', back_populates='validator', lazy='dynamic', foreign_keys='ExternalTraining.validator_id')
     skill_practice_events = db.relationship('SkillPracticeEvent', back_populates='user', lazy='dynamic')
+    assigned_training_paths = db.relationship('TrainingPath', secondary=training_path_assigned_users, back_populates='assigned_users')
     tutored_skills = db.relationship('Skill', secondary=tutor_skill_association, back_populates='tutors')
     attended_training_sessions = db.relationship('TrainingSession', secondary=training_session_attendees, back_populates='attendees')
     tutored_training_sessions = db.relationship('TrainingSession', secondary=training_session_tutors, back_populates='tutors')
@@ -230,6 +236,8 @@ class TrainingPath(db.Model):
     @property
     def skills(self):
         return [assoc.skill for assoc in self.skills_association]
+
+    assigned_users = db.relationship('User', secondary=training_path_assigned_users, back_populates='assigned_training_paths')
 
     def __repr__(self):
         return f'<TrainingPath {self.name}>'
