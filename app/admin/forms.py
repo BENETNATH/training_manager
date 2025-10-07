@@ -27,6 +27,7 @@ class UserForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[Optional(), Length(min=6)])
     is_admin = BooleanField('Is Admin')
+    study_level = SelectField('Study Level', choices=[('pre-BAC', 'pre-BAC')] + [(str(i), str(i)) for i in range(9)] + [('8+', '8+')], validators=[Optional()])
     teams = QuerySelectMultipleField('Teams', query_factory=get_teams, get_label='name')
     teams_as_lead = QuerySelectMultipleField('Led Teams', query_factory=get_teams, get_label='name')
     assigned_training_paths = QuerySelectMultipleField('Assign Training Paths', query_factory=get_training_paths_with_species, get_label=get_training_path_label)

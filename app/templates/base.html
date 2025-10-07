@@ -25,7 +25,7 @@
           <ul class="navbar-nav me-auto">
             {% if current_user.is_authenticated %}
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('profile.user_profile') }}">Mon Profil</a>
+              <a class="nav-link" href="{{ url_for('profile.user_profile', username=current_user.full_name) }}">Mon Profil</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('profile.skills_list') }}">Skills</a>

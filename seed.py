@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from app import create_app, db
 from app.models import (
     User, Team, Species, Skill, TrainingPath, TrainingSession, Competency,
-    SkillPracticeEvent, TrainingRequest, ExternalTraining,
+    SkillPracticeEvent, TrainingRequest, ExternalTraining, ExternalTrainingSkillClaim,
     Complexity, TrainingRequestStatus, ExternalTrainingStatus
 )
 from werkzeug.security import generate_password_hash
@@ -26,7 +26,7 @@ def create_admin_user():
     else:
         admin_user = User.query.filter_by(email=admin_email).first()
         if admin_user is None:
-            admin_user = User(full_name="Admin User", email=admin_email, is_admin=True, is_team_lead=True)
+            admin_user = User(full_name="Admin User", email=admin_email, is_admin=True, study_level="8+")
             admin_user.set_password(admin_password)
             db.session.add(admin_user)
             db.session.commit()
@@ -51,20 +51,30 @@ def create_teams(count=5):
 
 def create_users(teams, count=20):
     users = []
+    study_levels = ['pre-BAC'] + [str(i) for i in range(9)] + ['8+']
     for _ in range(count):
         full_name = fake.name()
         email = fake.unique.email()
         password = "password" # Default password for generated users
-        team_id = random.choice(teams).id if teams else None
         is_admin = fake.boolean(chance_of_getting_true=10) # 10% chance of being admin
-        is_team_lead = fake.boolean(chance_of_getting_true=20) # 20% chance of being team lead
+        study_level = random.choice(study_levels)
 
-        user = User(full_name=full_name, email=email, is_admin=is_admin, is_team_lead=is_team_lead, team_id=team_id)
+        user = User(full_name=full_name, email=email, is_admin=is_admin, study_level=study_level)
         user.set_password(password)
         db.session.add(user)
         users.append(user)
     db.session.commit()
-    print(f"Created {len(users)} users.")
+
+    # Assign users to teams and potentially as team leads after they are committed
+    for user in users:
+        if teams and fake.boolean(chance_of_getting_true=70): # 70% chance to be in a team
+            chosen_team = random.choice(teams)
+            user.teams.append(chosen_team)
+            if fake.boolean(chance_of_getting_true=20): # 20% chance of being team lead for that team
+                user.teams_as_lead.append(chosen_team)
+        db.session.add(user)
+    db.session.commit()
+    print(f"Created {len(users)} users and assigned them to teams.")
     return User.query.all()
 
 def create_species(count=5):
@@ -108,13 +118,18 @@ def create_skills(species_list, count=30):
     print(f"Created {len(skills)} skills.")
     return Skill.query.all()
 
-def create_training_paths(skills, count=10):
+def create_training_paths(skills, species_list, count=10):
     training_paths = []
     for _ in range(count):
         path_name = fake.unique.bs() + " Training Path"
         description = fake.paragraph()
         
-        training_path = TrainingPath(name=path_name, description=description)
+        if not species_list:
+            print("Warning: No species available to assign to TrainingPath. Skipping creation.")
+            continue
+
+        chosen_species = random.choice(species_list)
+        training_path = TrainingPath(name=path_name, description=description, species_id=chosen_species.id)
         
         if skills:
             num_skills = random.randint(1, min(5, len(skills)))
@@ -145,10 +160,12 @@ def create_training_sessions(users, skills, count=15):
             location=location,
             start_time=start_time,
             end_time=end_time,
-            tutor=tutor,
             animal_count=animal_count,
             ethical_authorization_id=ethical_authorization_id
         )
+        
+        if tutor:
+            training_session.tutors.append(tutor)
         
         if skills:
             num_skills = random.randint(1, min(3, len(skills)))
@@ -200,10 +217,10 @@ def create_skill_practice_events(users, skills, count=40):
 
         event = SkillPracticeEvent(
             user=user,
-            skill=skill,
             practice_date=practice_date,
             notes=notes
         )
+        event.skills.append(skill)
         db.session.add(event)
         practice_events.append(event)
     db.session.commit()
@@ -249,12 +266,26 @@ def create_external_trainings(users, skills, count=10):
             status=status,
             validator=validator
         )
+        db.session.add(external_training) # Add external_training to session immediately
+        db.session.flush() # Flush to assign an ID to external_training
         
         if skills:
             num_skills = random.randint(1, min(3, len(skills)))
-            external_training.skills_claimed.extend(random.sample(skills, num_skills))
+            # For each skill, create an ExternalTrainingSkillClaim object
+            for skill_obj in random.sample(skills, num_skills):
+                skill_claim = ExternalTrainingSkillClaim(
+                    level=random.choice(['Novice', 'Intermediate', 'Expert']),
+                    wants_to_be_tutor=fake.boolean(chance_of_getting_true=30),
+                    practice_date=fake.date_time_between(start_date=date, end_date='now') if fake.boolean(chance_of_getting_true=50) else None
+                )
+                skill_claim.skill = skill_obj # Assign skill object to the relationship
+                skill_claim.external_training = external_training # Explicitly link to parent external_training
+                db.session.add(skill_claim) # Add skill_claim to session
+                # Assign species associated with the skill to the skill claim
+                if skill_obj.species:
+                    skill_claim.species_claimed.extend(skill_obj.species)
+                # No need to append to external_training.skill_claims here, as it's handled by the relationship backref
             
-        db.session.add(external_training)
         external_trainings.append(external_training)
     db.session.commit()
     print(f"Created {len(external_trainings)} external trainings.")
@@ -277,33 +308,42 @@ with app.app_context():
 
     # Assign team leads by setting lead_id directly
     for team in teams:
-        potential_leads = [u for u in users if u.is_team_lead and u.team_id == team.id]
+        # Find users who are leads for this specific team
+        potential_leads = [u for u in users if team in u.teams_as_lead]
         if potential_leads:
-            team.lead_id = random.choice(potential_leads).id
-            db.session.add(team)
-    db.session.commit()
-    print("Assigned team leads.")
+            # This part needs to be re-evaluated. The Team model does not have a lead_id attribute.
+            # Team leads are associated via the many-to-many relationship team_leads.
+            # The current logic here is trying to set a single lead_id on the team, which is incorrect.
+            # If the goal is to ensure each team has at least one lead, this logic needs to be different.
+            # For now, I will comment out this section as it's trying to set a non-existent attribute.
+            pass # No direct lead_id on Team model
 
     species_list = create_species()
     skills = create_skills(species_list)
 
     # Assign some skills to tutors
     for user in users:
-        if user.is_team_lead and skills and fake.boolean(chance_of_getting_true=50):
-            num_tutored_skills = random.randint(1, min(3, len(skills)))
-            user.tutored_skills.extend(random.sample(skills, num_tutored_skills))
-            db.session.add(user)
+        if user.teams_as_lead and skills and fake.boolean(chance_of_getting_true=50):
+            # Get skills not already tutored by the user
+            available_skills = [skill for skill in skills if skill not in user.tutored_skills]
+            if available_skills:
+                num_tutored_skills = random.randint(1, min(3, len(available_skills)))
+                user.tutored_skills.extend(random.sample(available_skills, num_tutored_skills))
+                db.session.add(user)
     db.session.commit()
     print("Assigned tutored skills to some team leads.")
 
-    training_paths = create_training_paths(skills)
+    training_paths = create_training_paths(skills, species_list)
 
     # Assign some training paths to users
     for user in users:
         if training_paths and fake.boolean(chance_of_getting_true=40):
-            num_assigned_paths = random.randint(1, min(2, len(training_paths)))
-            user.assigned_training_paths.extend(random.sample(training_paths, num_assigned_paths))
-            db.session.add(user)
+            # Get paths not already assigned to the user
+            available_paths = [path for path in training_paths if path not in user.assigned_training_paths]
+            if available_paths:
+                num_assigned_paths = random.randint(1, min(2, len(available_paths)))
+                user.assigned_training_paths.extend(random.sample(available_paths, num_assigned_paths))
+                db.session.add(user)
     db.session.commit()
     print("Assigned training paths to some users.")
 
@@ -312,9 +352,12 @@ with app.app_context():
     # Assign attendees to training sessions
     for session in training_sessions:
         if users and fake.boolean(chance_of_getting_true=70):
-            num_attendees = random.randint(1, min(5, len(users)))
-            session.attendees.extend(random.sample(users, num_attendees))
-            db.session.add(session)
+            # Get users not already assigned to the session
+            available_users = [user for user in users if user not in session.attendees]
+            if available_users:
+                num_attendees = random.randint(1, min(5, len(available_users)))
+                session.attendees.extend(random.sample(available_users, num_attendees))
+                db.session.add(session)
     db.session.commit()
     print("Assigned attendees to training sessions.")
 

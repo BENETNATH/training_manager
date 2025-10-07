@@ -100,7 +100,7 @@ def add_user():
     form = UserForm()
     if form.validate_on_submit():
         user = User(full_name=form.full_name.data, email=form.email.data,
-                    is_admin=form.is_admin.data)
+                    is_admin=form.is_admin.data, study_level=form.study_level.data)
         user.set_password(form.password.data)
         
         # Generate API key for new user
@@ -142,6 +142,7 @@ def add_user():
                     'full_name': user.full_name,
                     'email': user.email,
                     'is_admin': user.is_admin,
+                    'study_level': user.study_level,
                     'teams': [t.name for t in user.teams],
                     'teams_as_lead': [lt.name for lt in user.teams_as_lead]
                 }
@@ -167,6 +168,7 @@ def edit_user(id):
         if form.password.data:
             user.set_password(form.password.data)
         user.is_admin = form.is_admin.data
+        user.study_level = form.study_level.data
         
         # Generate API key if missing
         if user.api_key is None: # Add this check
@@ -211,6 +213,7 @@ def edit_user(id):
                     'full_name': user.full_name,
                     'email': user.email,
                     'is_admin': user.is_admin,
+                    'study_level': user.study_level,
                     'teams': [t.name for t in user.teams],
                     'teams_as_lead': [lt.name for lt in user.teams_as_lead]
                 }
@@ -222,6 +225,7 @@ def edit_user(id):
         form.full_name.data = user.full_name
         form.email.data = user.email
         form.is_admin.data = user.is_admin
+        form.study_level.data = user.study_level
         
         # Pre-populate many-to-many fields
         form.teams.data = user.teams

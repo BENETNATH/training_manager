@@ -7,6 +7,9 @@
         <div class="col-md-8">
             <h2>{{ user.full_name }}</h2>
             <p class="text-muted"><a href="mailto:{{ user.email }}">{{ user.email }}</a></p>
+            {% if user.study_level %}
+                <p>Niveau d'étude : <strong>{{ user.study_level }}</strong></p>
+            {% endif %}
             {% if user.id == current_user.id %} {# Only show API key to the owner of the profile #}
                 <div class="mb-3">
                     <label for="api-key-display" class="form-label">Clé API:</label>
@@ -40,6 +43,7 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('profile.submit_external_training') }}" data-modal-title="Soumettre une Formation Externe" id="submit-external-training-btn"><i class="fas fa-external-link-alt"></i> Soumettre Formation Externe</button></li>
                         <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('profile.propose_skill') }}" data-modal-title="Proposer une Nouvelle Compétence" id="propose-skill-btn"><i class="fas fa-lightbulb"></i> Proposer une Compétence</button></li>
+                        <li><a class="dropdown-item" href="{{ url_for('profile.edit_profile') }}"><i class="fas fa-user-edit"></i> Modifier le Profil</a></li>
                         <li><hr class="dropdown-divider"></li>
                     </ul>
                 </div>

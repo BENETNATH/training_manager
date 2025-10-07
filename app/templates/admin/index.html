@@ -148,7 +148,7 @@
                             <td>{{ team.members|length }}</td>
                             <td>
                                 {% for lead in team.team_leads %}
-                                    <a href="{{ url_for('profile.user_profile', user_id=lead.id) }}" class="badge bg-primary text-decoration-none">{{ lead.full_name }}</a>
+                                    <a href="{{ url_for('profile.user_profile', username=lead.full_name) }}" class="badge bg-primary text-decoration-none">{{ lead.full_name }}</a>
                                 {% else %}
                                     Aucun
                                 {% endfor %}
@@ -219,7 +219,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{{ url_for('profile.user_profile', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-info" title="Voir le livret"><i class="fa fa-eye"></i></a>
+                                <a href="{{ url_for('profile.user_profile', username=user.full_name) }}" target="_blank" class="btn btn-sm btn-info" title="Voir le livret"><i class="fa fa-eye"></i></a>
                                 <button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="{{ url_for('admin.edit_user', id=user.id) }}" title="Éditer"><i class="fa fa-edit"></i></button>
                                 <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="{{ user.id }}" data-delete-url="{{ url_for('admin.delete_user', id=user.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
                                 <a href="{{ url_for('profile.generate_user_booklet_pdf', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>

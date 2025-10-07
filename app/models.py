@@ -124,6 +124,7 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), index=True, unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    study_level = db.Column(db.String(64), nullable=True)
     api_key = db.Column(db.String(64), unique=True, nullable=True) # New API Key field
 
     teams = db.relationship('Team', secondary=user_team_membership, back_populates='members')

@@ -26,7 +26,7 @@ class ExternalTrainingSkillClaimForm(FlaskForm):
     wants_to_be_tutor = BooleanField('Want to be tutor ?')
     practice_date = DateTimeLocalField('Date of Latest Practice', format='%Y-%m-%dT%H:%M', validators=[Optional()])
 
-from wtforms.validators import DataRequired, Optional, Length, ValidationError
+from wtforms.validators import DataRequired, Optional, Length, ValidationError, Email
 
 
 class ExternalTrainingForm(FlaskForm):
@@ -44,6 +44,22 @@ class ExternalTrainingForm(FlaskForm):
                 if skill_id in seen_skills:
                     raise ValidationError('Duplicate skill claims are not allowed.')
                 seen_skills.add(skill_id)
+
+class EditProfileForm(FlaskForm):
+    full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=120)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    study_level = SelectField('Study Level', choices=[('pre-BAC', 'pre-BAC')] + [(str(i), str(i)) for i in range(9)] + [('8+', '8+')], validators=[Optional()])
+    submit = SubmitField('Save Changes')
+
+    def __init__(self, original_email=None, *args, **kwargs):
+        super(EditProfileForm, self).__init__(*args, **kwargs)
+        self.original_email = original_email
+
+    def validate_email(self, email):
+        if email.data != self.original_email:
+            user = User.query.filter_by(email=self.email.data).first()
+            if user:
+                raise ValidationError('That email is already registered. Please use a different email address.')
 
 
 

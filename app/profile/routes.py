@@ -15,7 +15,7 @@ from sqlalchemy import func
 from app import db, mail, csrf
 from app.profile import bp
 from app.models import User, Competency, Skill, SkillPracticeEvent, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus, TrainingSession, ExternalTrainingSkillClaim, Species, tutor_skill_association
-from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm
+from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm, EditProfileForm
 
 class MyFPDF(FPDF, HTMLMixin):
     pass
@@ -39,65 +39,47 @@ class PDFWithFooter(FPDF):
         self.cell(0, 10, footer_text, 0, 0, "C")
 
 
-@bp.route('/<int:user_id>')
-@bp.route('/')
+@bp.route('/user/<username>')
 @login_required
-def user_profile(user_id=None):
-    if user_id:
-        if not current_user.is_admin:
-            abort(403) # Only admins can view other users' profiles
-        user = User.query.get_or_404(user_id)
-    else:
-        user = current_user
+def user_profile(username):
+    user = User.query.filter_by(full_name=username).first_or_404()
+    # Fetch competencies for the user, eager loading skill and species
+    competencies = Competency.query.filter_by(user_id=user.id).options(
+        db.joinedload(Competency.skill).joinedload(Skill.species)
+    ).all()
 
-    # --- Logique du Parcours de Formation ---
-    all_required_skills = set()
-    for path in user.assigned_training_paths:
-        for skill in path.skills:
-            all_required_skills.add(skill)
-    
-    user_competencies = user.competencies
-    acquired_skills = {comp.skill for comp in user_competencies}
-    required_skills_todo = list(all_required_skills - acquired_skills)
-    
-    # --- Logique de Recyclage et Dernière Pratique ---
-    # The properties on the Competency model now handle these calculations.
-    # We just need to ensure they are accessed to trigger the logic if needed.
-    for comp in user_competencies:
-        # Accessing the properties will trigger their calculation
-        _ = comp.latest_practice_date
-        _ = comp.recycling_due_date
-        _ = comp.needs_recycling
-        _ = comp.warning_date
+    # Group competencies by skill for easier display
+    competencies_by_skill = defaultdict(list)
+    for comp in competencies:
+        competencies_by_skill[comp.skill].append(comp)
 
-    # --- Demandes de formation en cours ---
-    pending_training_requests_by_user = TrainingRequest.query.filter(
-        TrainingRequest.requester == user,
-        TrainingRequest.status.in_([TrainingRequestStatus.PENDING, TrainingRequestStatus.PROPOSED_SKILL])
-    ).order_by(TrainingRequest.request_date.desc()).all()
+    # Fetch training requests for the user
+    training_requests = TrainingRequest.query.filter_by(requester_id=user.id).order_by(TrainingRequest.request_date.desc()).all()
 
-    # --- Sessions de formation passées et à venir ---
-    now = datetime.utcnow()
-    upcoming_training_sessions_by_user = TrainingSession.query.join(TrainingSession.attendees).filter(
-        User.id == user.id,
-        TrainingSession.start_time > now
-    ).order_by(TrainingSession.start_time.asc()).all()
-    completed_training_sessions_by_user = TrainingSession.query.join(TrainingSession.attendees).filter(
-        User.id == user.id,
-        TrainingSession.end_time <= now
-    ).order_by(TrainingSession.end_time.desc()).all()
+    # Fetch external trainings for the user
+    external_trainings = ExternalTraining.query.filter_by(user_id=user.id).order_by(ExternalTraining.date.desc()).all()
 
-    return render_template('profile/user_profile.html', 
-                           title=f"{user.full_name}'s Profile", 
-                           user=user,
-                           competencies=user_competencies,
-                           required_skills_todo=required_skills_todo,
-                           pending_training_requests_by_user=pending_training_requests_by_user,
-                           upcoming_training_sessions_by_user=upcoming_training_sessions_by_user,
-                           completed_training_sessions_by_user=completed_training_sessions_by_user,
-                           datetime=datetime,
-                           TrainingRequestStatus=TrainingRequestStatus)
+    # Fetch skill practice events for the user
+    skill_practice_events = SkillPracticeEvent.query.filter_by(user_id=user.id).order_by(SkillPracticeEvent.practice_date.desc()).all()
 
+    return render_template('profile/user_profile.html', user=user, competencies_by_skill=competencies_by_skill, training_requests=training_requests, external_trainings=external_trainings, skill_practice_events=skill_practice_events)
+
+@bp.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = EditProfileForm(original_email=current_user.email)
+    if form.validate_on_submit():
+        current_user.full_name = form.full_name.data
+        current_user.email = form.email.data
+        current_user.study_level = form.study_level.data
+        db.session.commit()
+        flash('Your changes have been saved.', 'success')
+        return redirect(url_for('profile.user_profile', username=current_user.full_name))
+    elif request.method == 'GET':
+        form.full_name.data = current_user.full_name
+        form.email.data = current_user.email
+        form.study_level.data = current_user.study_level
+    return render_template('profile/edit_profile.html', title='Edit Profile', form=form)
 @bp.route('/request-training', methods=['GET', 'POST'])
 @login_required
 def submit_training_request():
