@@ -10,10 +10,11 @@ from fpdf.enums import TableBordersLayout
 from fpdf.fonts import FontFace
 from datetime import datetime, timedelta
 import json
+from sqlalchemy import func
 
 from app import db, mail, csrf
 from app.profile import bp
-from app.models import User, Competency, Skill, SkillPracticeEvent, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus, TrainingSession, ExternalTrainingSkillClaim, Species # Added ExternalTrainingSkillClaim and Species
+from app.models import User, Competency, Skill, SkillPracticeEvent, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus, TrainingSession, ExternalTrainingSkillClaim, Species, tutor_skill_association
 from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm
 
 class MyFPDF(FPDF, HTMLMixin):
@@ -117,42 +118,70 @@ def submit_training_request():
 
     if form.validate_on_submit():
         selected_skills = form.skills_requested.data
-        selected_species = form.species.data
+        selected_species_list = form.species.data # Now a list of species
+        
+        if not selected_species_list:
+            flash('Please select at least one species for the training request.', 'danger')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Please select at least one species for the training request.'}), 400
+            return redirect(url_for('profile.user_profile'))
+
+        successful_requests_messages = []
+        existing_requests_messages = []
+        errors_occurred = False
 
         for skill in selected_skills:
-            existing_request = TrainingRequest.query.filter(
-                TrainingRequest.requester_id == current_user.id,
-                TrainingRequest.status == TrainingRequestStatus.PENDING,
-                TrainingRequest.skills_requested.any(id=skill.id)
-            ).first()
+            for species in selected_species_list:
+                # Check for existing pending request
+                existing_req = TrainingRequest.query.filter_by(
+                    requester=current_user,
+                    status=TrainingRequestStatus.PENDING
+                ).join(TrainingRequest.skills_requested).filter(Skill.id == skill.id).join(TrainingRequest.species_requested).filter(Species.id == species.id).first()
 
-            if existing_request:
-                if selected_species not in existing_request.species_requested:
-                    existing_request.species_requested.append(selected_species)
-                    db.session.commit()
-                    message = f"Updated your existing training request for '{skill.name}' to include species '{selected_species.name}'."
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return jsonify({'success': True, 'message': message, 'redirect_url': url_for('profile.user_profile')})
-                    flash(message, 'info')
-                else:
-                    message = f"You have already requested training for the skill '{skill.name}' with species '{selected_species.name}'."
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return jsonify({'success': False, 'message': message})
-                    flash(message, 'warning')
-                return redirect(url_for('profile.user_profile'))
+                if existing_req:
+                    existing_requests_messages.append(f"Request for '{skill.name}' on '{species.name}' already exists and is pending.")
+                    continue # Skip creating this request
 
-        # If no existing request for any of the selected skills, create a new one
-        req = TrainingRequest(requester=current_user, status=TrainingRequestStatus.PENDING)
-        req.skills_requested = selected_skills
-        req.species_requested = [selected_species]
-        db.session.add(req)
-        db.session.commit()
+                # Create new TrainingRequest
+                req = TrainingRequest(requester=current_user, status=TrainingRequestStatus.PENDING)
+                db.session.add(req)
+                
+                req.skills_requested.append(skill)
+                req.species_requested.append(species) # Each request is for a single species
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Votre demande de formation a été soumise avec succès !', 'redirect_url': url_for('profile.user_profile')})
-        
-        flash('Your training request has been submitted!', 'success')
-        return redirect(url_for('profile.user_profile'))
+                successful_requests_messages.append(f"Request for '{skill.name}' on '{species.name}' created.")
+                current_app.logger.info(f"Created new TrainingRequest: {req} for skill: {skill.name} and species: {species.name}")
+
+        try:
+            db.session.commit()
+            
+            # Flash messages for successful and existing requests
+            for msg in successful_requests_messages:
+                flash(msg, 'success')
+            for msg in existing_requests_messages:
+                flash(msg, 'info') # Use info for existing requests
+
+            if errors_occurred: # This flag is currently not set, but kept for future potential errors
+                flash('Some errors occurred during submission.', 'danger')
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Combine messages for AJAX response
+                all_messages = successful_requests_messages + existing_requests_messages
+                if errors_occurred:
+                    all_messages.append('Some errors occurred during submission.')
+                return jsonify({'success': not errors_occurred, 'message': '; '.join(all_messages), 'redirect_url': url_for('profile.user_profile')})
+            
+            return redirect(url_for('profile.user_profile'))
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error committing training request: {e}")
+            flash('An unexpected error occurred during submission.', 'danger')
+            errors_occurred = True # Mark that an error occurred
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'An unexpected error occurred during submission.'}), 500
+            return redirect(url_for('profile.user_profile'))
     elif request.method == 'POST': # Validation failed
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form_html = render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
@@ -188,7 +217,7 @@ def propose_skill():
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/_propose_skill_form.html', form=form)
 
-    return render_template('profile/propose_skill_form.html', title='Proposer une Compétence', form=form)
+    return render_template('profile/propose_skill.html', title='Proposer une Compétence', form=form)
 
 @bp.route('/submit-external-training', methods=['GET', 'POST'])
 @login_required
@@ -283,8 +312,12 @@ def declare_skill_practice():
                         pass # Optionally update notes or just skip if event exists
                 
                 # Add user as tutor if wants_to_be_tutor is true
-                if wants_to_be_tutor and current_user not in competency.skill.tutors:
-                    competency.skill.tutors.append(current_user)
+                if wants_to_be_tutor:
+                    if current_user not in competency.skill.tutors:
+                        competency.skill.tutors.append(current_user)
+                else: # wants_to_be_tutor is false, so remove if they are a tutor
+                    if current_user in competency.skill.tutors:
+                        competency.skill.tutors.remove(current_user)
 
             db.session.commit()
             return jsonify({'success': True, 'message': 'Pratiques et niveaux mis à jour avec succès !', 'redirect_url': url_for('profile.user_profile')})
@@ -406,27 +439,12 @@ def generate_certificate(competency_id):
     pdf.set_text_color(*light_gray)
     pdf.ln(5)
     pdf.cell(0, 8, f'Awarded on: {comp.evaluation_date.strftime("%B %d, %Y")}', 0, 1, 'C')
-    pdf.cell(0, 8, f'Evaluated by: {comp.evaluator.full_name if comp.evaluator else "N/A"}', 0, 1, 'C')
-
-    # Signature Block
-    y_signature = 170 # Position signatures 170mm from the top of the page
-    
-    left_x_start = 45.6
-    right_x_start = 171.2
-
-    # Administrator Signature
-    pdf.set_xy(left_x_start, y_signature) # Position left signature
-    pdf.set_font('Times', '', 12)
-    pdf.set_text_color(*dark_gray)
-    pdf.cell(80, 5, '', 'B', 1, 'C') # Line
-    pdf.set_xy(left_x_start, y_signature + 5) # Move Y down for text
-    pdf.cell(80, 10, 'Administrator Signature', 0, 0, 'C')
-
-    # Evaluator Signature
-    pdf.set_xy(right_x_start, y_signature) # Position right signature
-    pdf.cell(80, 5, '', 'B', 1, 'C') # Line
-    pdf.set_xy(right_x_start, y_signature + 5) # Move Y down for text
-    pdf.cell(80, 10, 'Evaluator Signature', 0, 0, 'C')
+    evaluator_name = "N/A"
+    if comp.external_evaluator_name:
+        evaluator_name = comp.external_evaluator_name
+    elif comp.evaluator:
+        evaluator_name = comp.evaluator.full_name
+    pdf.cell(0, 8, f'Evaluated by: {evaluator_name}', 0, 1, 'C')
 
     pdf_output = pdf.output(dest='S')
     
@@ -509,7 +527,7 @@ def generate_user_booklet_pdf(user_id):
                 comp.skill.name,
                 comp.level or "N/A",
                 comp.evaluation_date.strftime("%Y-%m-%d"),
-                comp.evaluator.full_name if comp.evaluator else "N/A",
+                comp.external_evaluator_name if comp.external_evaluator_name else (comp.evaluator.full_name if comp.evaluator else "N/A"),
                 comp.latest_practice_date.strftime("%Y-%m-%d") if comp.latest_practice_date else "N/A",
                 recycling_due,
                 status_text,
@@ -580,3 +598,27 @@ def show_external_training(training_id):
                            title='External Training Details',
                            external_training=external_training)
 
+@bp.route('/skills')
+@login_required
+def skills_list():
+    form = ProposeSkillForm()
+    skills_query = db.session.query(
+        Skill,
+        func.count(func.distinct(Competency.user_id)).label('user_count'),
+        func.count(func.distinct(tutor_skill_association.c.user_id)).label('tutor_count')
+    ).outerjoin(Competency, Skill.id == Competency.skill_id) \
+     .outerjoin(tutor_skill_association, Skill.id == tutor_skill_association.c.skill_id) \
+     .options(db.joinedload(Skill.species)) \
+     .group_by(Skill.id)
+
+    skill_name = request.args.get('skill_name', '')
+    if skill_name:
+        skills_query = skills_query.filter(Skill.name.ilike(f'%{skill_name}%'))
+
+    skills_data = skills_query.order_by(Skill.name).all()
+
+    return render_template('profile/skills_list.html',
+                           title='Available Skills',
+                           skills_data=skills_data,
+                           skill_name=skill_name,
+                           form=form)

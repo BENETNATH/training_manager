@@ -1159,6 +1159,7 @@ def create_training_session():
             ethical_authorization_id=form.ethical_authorization_id.data,
             animal_count=form.animal_count.data
         )
+        db.session.add(session)
         
         # Process dynamic skill-tutor rows
         skill_ids = set()
@@ -1309,7 +1310,6 @@ def delete_training_session(session_id):
 
 @bp.route('/training_sessions/<int:session_id>', methods=['GET'])
 @login_required
-@admin_required
 def view_training_session_details(session_id):
     session = TrainingSession.query.options(
         db.joinedload(TrainingSession.attendees),
@@ -1319,9 +1319,16 @@ def view_training_session_details(session_id):
         db.joinedload(TrainingSession.tutor_skill_mappings)
     ).get_or_404(session_id)
 
+    read_only = False
+    if not current_user.is_admin:
+        if current_user not in session.attendees and current_user not in session.tutors:
+            abort(403) # Not admin, not attendee, not tutor
+        read_only = True # Attendee or tutor, but not admin, so read-only
+
     return render_template('admin/view_training_session_details.html', 
                            title='Session Details', 
-                           session=session)
+                           session=session,
+                           read_only=read_only)
 
 @bp.route('/training_sessions/<int:session_id>/validate', methods=['GET', 'POST'])
 @login_required

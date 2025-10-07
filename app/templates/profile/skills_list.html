@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Available Skills</h1>
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <form>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="skillSearch" placeholder="Search for a skill..." value="{{ skill_name or '' }}">
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <table class="table table-striped" id="skillsTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Species</th>
+                <th>Users with Skill</th>
+                <th>Tutors</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for skill, user_count, tutor_count in skills_data %}
+                <tr>
+                    <td>{{ skill.name }}</td>
+                    <td>{{ skill.description }}</td>
+                    <td>
+                        {% for species in skill.species %}
+                            {{ species.name }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td>{{ user_count }}</td>
+                    <td>{{ tutor_count }}</td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="5">No skills found.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('skillSearch');
+        const table = document.getElementById('skillsTable');
+        const tableBody = table.getElementsByTagName('tbody')[0];
+        const rows = tableBody.getElementsByTagName('tr');
+
+        searchInput.addEventListener('keyup', function(event) {
+            const filter = searchInput.value.toLowerCase();
+            for (let i = 0; i < rows.length; i++) {
+                let cells = rows[i].getElementsByTagName('td');
+                let found = false;
+                for (let j = 0; j < cells.length; j++) {
+                    if (cells[j]) {
+                        if (cells[j].innerHTML.toLowerCase().indexOf(filter) > -1) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (found) {
+                    rows[i].style.display = '';
+                } else {
+                    rows[i].style.display = 'none';
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

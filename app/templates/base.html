@@ -17,7 +17,7 @@
   <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container">
-        <a class="navbar-brand" href="{% if current_user.is_authenticated and current_user.is_admin %}{{ url_for('admin.index') }}{% elif current_user.is_authenticated %}{{ url_for('profile.user_profile') }}{% else %}{{ url_for('auth.login') }}{% endif %}">Training Manager</a>
+        <a class="navbar-brand" href="{% if current_user.is_authenticated and current_user.is_admin %}{{ url_for('admin.index') }}{% elif current_user.is_authenticated %}{{ url_for('root.index') }}{% else %}{{ url_for('auth.login') }}{% endif %}">Training Manager</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -27,6 +27,10 @@
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('profile.user_profile') }}">Mon Profil</a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('profile.skills_list') }}">Skills</a>
+            </li>
+
             {% if current_user.is_admin %}
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">

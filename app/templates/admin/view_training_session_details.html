@@ -57,11 +57,17 @@
                 <p>Aucune compétence couverte.</p>
             {% endif %}
 
+            {% if not read_only %}
             <div class="mt-4">
                 <a href="{{ url_for('admin.validate_training_session', session_id=session.id) }}" class="btn btn-primary">Valider la Session</a>
             </div>
+            {% endif %}
 
+            {% if read_only %}
+            <a href="{{ url_for('profile.user_profile') }}" class="btn btn-secondary mt-3">Retour au profil</a>
+            {% else %}
             <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary mt-3">Retour à la liste des sessions</a>
+            {% endif %}
         </div>
     </div>
 {% endblock %}
