@@ -209,3 +209,7 @@ __marimo__/
 app/static/uploads/external/*
 .vscode/settings.json
 GEMINI.md
+app/static/uploads/*
+*.out
+test_app_access*
+*.log?

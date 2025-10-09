@@ -1,15 +1,30 @@
 from functools import wraps
-from flask_login import current_user
-from flask import abort
-from app.models import TrainingSession
+from flask_login import current_user, login_required
+from flask import abort, current_app, url_for, jsonify, request, redirect, flash
+from app.models import TrainingSession, User
+
+def permission_required(permission_name):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.can(permission_name):
+                abort(403)  # Forbidden
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_admin:
-            abort(403)  # Forbidden
+        if not current_user.can('admin_access'):
+            if current_user.is_authenticated:
+                flash('You do not have permission to access the admin dashboard.', 'danger')
+                return redirect(url_for('profile.user_profile', username=current_user.full_name))
+            else:
+                # This case should ideally be handled by @login_required, but as a fallback
+                abort(403) # Or redirect to login
         return f(*args, **kwargs)
-    return decorated_function
+    return decorator
 
 def tutor_or_admin_required(f):
     @wraps(f)
@@ -21,7 +36,8 @@ def tutor_or_admin_required(f):
         
         session = TrainingSession.query.get_or_404(session_id)
         
-        if not current_user.is_admin and current_user.id != session.tutor_id:
+        # Check if user has permission to validate training sessions OR is a tutor for this session
+        if not current_user.can('training_session_validate') and current_user not in session.tutors:
             abort(403)  # Forbidden
             
         return f(*args, **kwargs)
@@ -30,10 +46,9 @@ def tutor_or_admin_required(f):
 def team_lead_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Check if the user is authenticated and leads at least one team
-        if not current_user.is_authenticated or not current_user.teams_as_lead:
-            flash('You do not have permission to access this page.', 'danger')
-            return redirect(url_for('main.dashboard'))
+        # Check if the user has the 'view_team_competencies' permission
+        if not current_user.can('view_team_competencies'):
+            abort(403) # Forbidden
         return f(*args, **kwargs)
     return decorated_function
 

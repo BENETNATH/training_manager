@@ -26,10 +26,7 @@ def create_admin_user():
     else:
         admin_user = User.query.filter_by(email=admin_email).first()
         if admin_user is None:
-            admin_user = User(full_name="Admin User", email=admin_email, is_admin=True, study_level="8+")
-            admin_user.set_password(admin_password)
-            db.session.add(admin_user)
-            db.session.commit()
+            admin_user = User.create_admin_user(email=admin_email, password=admin_password)
             print(f"Admin user '{admin_email}' created.")
             return admin_user
         else:
@@ -291,9 +288,83 @@ def create_external_trainings(users, skills, count=10):
     print(f"Created {len(external_trainings)} external trainings.")
     return external_trainings
 
+def create_initial_regulatory_trainings(users):
+    initial_trainings = []
+    for user in users:
+        if fake.boolean(chance_of_getting_true=50): # 50% of users have initial training
+            level = random.choice(list(InitialRegulatoryTrainingLevel))
+            training_date = fake.date_time_between(start_date='-5y', end_date='-1y')
+            initial_training = InitialRegulatoryTraining(
+                user=user,
+                level=level,
+                training_date=training_date,
+                attachment_path=None # For simplicity, no attachments in seed
+            )
+            db.session.add(initial_training)
+            initial_trainings.append(initial_training)
+    db.session.commit()
+    print(f"Created {len(initial_trainings)} initial regulatory trainings.")
+    return initial_trainings
+
+def create_continuous_training_events(users, count=20):
+    events = []
+    for _ in range(count):
+        title = fake.sentence(nb_words=5)
+        description = fake.paragraph()
+        training_type = random.choice(list(ContinuousTrainingType))
+        location = fake.city() if training_type == ContinuousTrainingType.PRESENTIAL else None
+        event_date = fake.date_time_between(start_date='-3y', end_date='+1y')
+        duration_hours = random.randint(1, 8)
+        creator = random.choice(users)
+
+        event = ContinuousTrainingEvent(
+            title=title,
+            description=description,
+            training_type=training_type,
+            location=location,
+            event_date=event_date,
+            duration_hours=duration_hours,
+            attachment_path=None, # For simplicity, no attachments in seed
+            creator=creator,
+            status=ContinuousTrainingEventStatus.APPROVED # Seeded events are approved by default
+        )
+        db.session.add(event)
+        events.append(event)
+    db.session.commit()
+    print(f"Created {len(events)} continuous training events.")
+    return events
+
+def create_user_continuous_trainings(users, continuous_training_events, count_per_user=3):
+    user_cts = []
+    for user in users:
+        if continuous_training_events:
+            num_trainings = random.randint(0, count_per_user)
+            chosen_events = random.sample(continuous_training_events, min(num_trainings, len(continuous_training_events)))
+            for event in chosen_events:
+                status = random.choice(list(UserContinuousTrainingStatus))
+                validated_by = random.choice(users) if status == UserContinuousTrainingStatus.APPROVED else None
+                validated_hours = event.duration_hours if status == UserContinuousTrainingStatus.APPROVED else None
+                validation_date = fake.date_time_between(start_date=event.event_date, end_date='now') if status == UserContinuousTrainingStatus.APPROVED else None
+
+                user_ct = UserContinuousTraining(
+                    user=user,
+                    event=event,
+                    attendance_attachment_path=None, # For simplicity, no attachments in seed
+                    status=status,
+                    validated_by=validated_by,
+                    validated_hours=validated_hours,
+                    validation_date=validation_date
+                )
+                db.session.add(user_ct)
+                user_cts.append(user_ct)
+    db.session.commit()
+    print(f"Created {len(user_cts)} user continuous trainings.")
+    return user_cts
+
 
 with app.app_context():
     db.create_all() # Ensure tables exist
+    init_roles_and_permissions()
 
     print("Seeding database...")
 
@@ -365,5 +436,9 @@ with app.app_context():
     skill_practice_events = create_skill_practice_events(users, skills)
     training_requests = create_training_requests(users, skills)
     external_trainings = create_external_trainings(users, skills)
+
+    initial_regulatory_trainings = create_initial_regulatory_trainings(users)
+    continuous_training_events = create_continuous_training_events(users)
+    user_continuous_trainings = create_user_continuous_trainings(users, continuous_training_events)
 
     print("Database seeding complete!")

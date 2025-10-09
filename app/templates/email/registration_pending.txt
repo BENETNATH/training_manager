@@ -1,0 +1,8 @@
+Dear {{ user.full_name }},
+
+Thank you for registering with the Training Manager application. Your account is currently awaiting approval from an administrator.
+
+We will notify you once your account has been approved or if further information is required.
+
+Sincerely,
+The Training Manager Team

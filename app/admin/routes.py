@@ -5,10 +5,10 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
 from app.admin import bp
-from app.admin.forms import UserForm, TeamForm, SpeciesForm, SkillForm, TrainingPathForm, ImportForm, AddUserToTeamForm, TrainingValidationForm, AttendeeValidationForm, CompetencyValidationForm
+from app.admin.forms import UserForm, TeamForm, SpeciesForm, SkillForm, TrainingPathForm, ImportForm, AddUserToTeamForm, TrainingValidationForm, AttendeeValidationForm, CompetencyValidationForm, RoleForm, ContinuousTrainingEventForm, BatchValidateUserContinuousTrainingForm, ValidateUserContinuousTrainingEntryForm # Added new forms
 from app.training.forms import TrainingSessionForm # Import TrainingSessionForm
-from app.models import User, Team, Species, Skill, TrainingPath, TrainingPathSkill, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim, TrainingSessionTutorSkill, tutor_skill_association
-from app.decorators import admin_required
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingPathSkill, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim, TrainingSessionTutorSkill, tutor_skill_association, Permission, Role, ContinuousTrainingEvent, ContinuousTrainingEventStatus, UserContinuousTraining, UserContinuousTrainingStatus # Added new models and enums
+from app.decorators import permission_required
 from sqlalchemy import func, extract, case
 import openpyxl # Import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -17,18 +17,294 @@ from datetime import datetime, timedelta, timezone # Import datetime, timedelta
 from collections import defaultdict
 import json # Import json
 import re
+from app.email import send_email # Import send_email
+
+@bp.route('/continuous_training_events')
+@login_required
+@permission_required('continuous_training_manage')
+def manage_continuous_training_events():
+    events = ContinuousTrainingEvent.query.order_by(ContinuousTrainingEvent.event_date.desc()).all()
+    return render_template('admin/manage_continuous_training_events.html', title='Gérer les Événements de Formation Continue', events=events)
+
+@bp.route('/continuous_training_events/add', methods=['GET', 'POST'])
+@login_required
+@permission_required('continuous_training_manage')
+def add_continuous_training_event():
+    form = ContinuousTrainingEventForm()
+    if form.validate_on_submit():
+        attachment_path = None
+        if form.attachment.data:
+            filename = secure_filename(f"ct_event_{datetime.utcnow().timestamp()}_{form.attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'continuous_training_events')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attachment.data.save(os.path.join(upload_path, filename))
+            attachment_path = f"uploads/continuous_training_events/{filename}"
+
+        event = ContinuousTrainingEvent(
+            title=form.title.data,
+            description=form.description.data,
+            training_type=form.training_type.data,
+            location=form.location.data,
+            event_date=form.event_date.data,
+            duration_hours=form.duration_hours.data,
+            attachment_path=attachment_path,
+            creator=current_user,
+            status=ContinuousTrainingEventStatus.PENDING # Events are pending until validated by an admin/validator
+        )
+        db.session.add(event)
+        db.session.commit()
+        flash('Événement de formation continue ajouté avec succès !', 'success')
+        return redirect(url_for('admin.manage_continuous_training_events'))
+    return render_template('admin/continuous_training_event_form.html', title='Ajouter un Événement de Formation Continue', form=form)
+
+@bp.route('/continuous_training_events/edit/<int:event_id>', methods=['GET', 'POST'])
+@login_required
+@permission_required('continuous_training_manage')
+def edit_continuous_training_event(event_id):
+    event = ContinuousTrainingEvent.query.get_or_404(event_id)
+    form = ContinuousTrainingEventForm(obj=event)
+    if form.validate_on_submit():
+        # Handle "Validate Event" button submission
+        if request.form.get('validate_event') == 'true':
+            if not form.duration_hours.data:
+                flash('La durée en heures est obligatoire pour valider l\'événement.', 'danger')
+                return render_template('admin/continuous_training_event_form.html', title='Éditer un Événement de Formation Continue', form=form, event=event)
+            
+            event.status = ContinuousTrainingEventStatus.APPROVED
+            event.validator = current_user
+            flash('Événement de formation continue validé avec succès !', 'success')
+        else: # Regular "Save Event" submission
+            flash('Événement de formation continue mis à jour avec succès !', 'success')
+
+        event.title = form.title.data
+        event.description = form.description.data
+        event.training_type = form.training_type.data
+        event.location = form.location.data
+        event.event_date = form.event_date.data
+        event.duration_hours = form.duration_hours.data
+
+        if form.attachment.data:
+            # Delete old attachment if exists
+            if event.attachment_path:
+                old_path = os.path.join(current_app.root_path, 'static', event.attachment_path)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            filename = secure_filename(f"ct_event_{datetime.utcnow().timestamp()}_{form.attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'continuous_training_events')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attachment.data.save(os.path.join(upload_path, filename))
+            event.attachment_path = f"uploads/continuous_training_events/{filename}"
+        
+        db.session.commit()
+        return redirect(url_for('admin.manage_continuous_training_events'))
+    elif request.method == 'GET':
+        form.title.data = event.title
+        form.description.data = event.description
+        form.training_type.data = event.training_type.name
+        form.location.data = event.location
+        form.event_date.data = event.event_date
+        form.duration_hours.data = event.duration_hours
+
+    return render_template('admin/continuous_training_event_form.html', title='Éditer un Événement de Formation Continue', form=form, event=event)
+
+@bp.route('/continuous_training_events/delete/<int:event_id>', methods=['POST'])
+@login_required
+@permission_required('continuous_training_manage')
+def delete_continuous_training_event(event_id):
+    event = ContinuousTrainingEvent.query.get_or_404(event_id)
+    db.session.delete(event)
+    db.session.commit()
+    flash('Événement de formation continue supprimé avec succès !', 'success')
+    return redirect(url_for('admin.manage_continuous_training_events'))
+
+@bp.route('/initial_regulatory_trainings')
+@login_required
+@permission_required('initial_regulatory_training_manage')
+def manage_initial_regulatory_trainings():
+    initial_trainings = InitialRegulatoryTraining.query.order_by(InitialRegulatoryTraining.training_date.desc()).all()
+    return render_template('admin/manage_initial_regulatory_trainings.html', title='Gérer les Formations Réglementaires Initiales', initial_trainings=initial_trainings)
+
+@bp.route('/initial_regulatory_trainings/add', methods=['GET', 'POST'])
+@login_required
+@permission_required('initial_regulatory_training_manage')
+def add_initial_regulatory_training():
+    form = AdminInitialRegulatoryTrainingForm()
+    if form.validate_on_submit():
+        attachment_path = None
+        if form.attachment.data:
+            filename = secure_filename(f"{form.user.data.id}_initial_reg_training_{datetime.utcnow().timestamp()}_{form.attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'initial_regulatory_training')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attachment.data.save(os.path.join(upload_path, filename))
+            attachment_path = f"uploads/initial_regulatory_training/{filename}"
+
+        initial_training = InitialRegulatoryTraining(
+            user=form.user.data,
+            level=InitialRegulatoryTrainingLevel[form.level.data],
+            training_date=form.training_date.data,
+            attachment_path=attachment_path
+        )
+        db.session.add(initial_training)
+        db.session.commit()
+        flash('Formation réglementaire initiale ajoutée avec succès !', 'success')
+        return redirect(url_for('admin.manage_initial_regulatory_trainings'))
+    return render_template('admin/initial_regulatory_training_form.html', title='Ajouter une Formation Réglementaire Initiale', form=form)
+
+@bp.route('/initial_regulatory_trainings/edit/<int:training_id>', methods=['GET', 'POST'])
+@login_required
+@permission_required('initial_regulatory_training_manage')
+def edit_initial_regulatory_training(training_id):
+    initial_training = InitialRegulatoryTraining.query.get_or_404(training_id)
+    form = AdminInitialRegulatoryTrainingForm(obj=initial_training)
+    if form.validate_on_submit():
+        initial_training.user = form.user.data
+        initial_training.level = InitialRegulatoryTrainingLevel[form.level.data]
+        initial_training.training_date = form.training_date.data
+
+        if form.attachment.data:
+            # Delete old attachment if exists
+            if initial_training.attachment_path:
+                old_path = os.path.join(current_app.root_path, 'static', initial_training.attachment_path)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            filename = secure_filename(f"{form.user.data.id}_initial_reg_training_{datetime.utcnow().timestamp()}_{form.attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'initial_regulatory_training')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attachment.data.save(os.path.join(upload_path, filename))
+            initial_training.attachment_path = f"uploads/initial_regulatory_training/{filename}"
+        
+        db.session.commit()
+        flash('Formation réglementaire initiale mise à jour avec succès !', 'success')
+        return redirect(url_for('admin.manage_initial_regulatory_trainings'))
+    elif request.method == 'GET':
+        form.user.data = initial_training.user
+        form.level.data = initial_training.level.name
+        form.training_date.data = initial_training.training_date
+
+    return render_template('admin/initial_regulatory_training_form.html', title='Éditer une Formation Réglementaire Initiale', form=form, initial_training=initial_training)
+
+@bp.route('/initial_regulatory_trainings/delete/<int:training_id>', methods=['POST'])
+@login_required
+@permission_required('initial_regulatory_training_manage')
+def delete_initial_regulatory_training(training_id):
+    initial_training = InitialRegulatoryTraining.query.get_or_404(training_id)
+    db.session.delete(initial_training)
+    db.session.commit()
+    flash('Formation réglementaire initiale supprimée avec succès !', 'success')
+    return redirect(url_for('admin.manage_initial_regulatory_trainings'))
+
+@bp.route('/validate_continuous_trainings')
+@login_required
+@permission_required('continuous_training_validate')
+def validate_continuous_trainings():
+    pending_user_cts = UserContinuousTraining.query.filter_by(status=UserContinuousTrainingStatus.PENDING).order_by(UserContinuousTraining.validation_date.desc()).all()
+    form = BatchValidateUserContinuousTrainingForm()
+    
+    # Populate form for GET request
+    for user_ct in pending_user_cts:
+        entry_form = ValidateUserContinuousTrainingEntryForm()
+        entry_form.user_ct_id = user_ct.id
+        entry_form.user_full_name = user_ct.user.full_name
+        entry_form.event_title = user_ct.event.title
+        entry_form.event_date = user_ct.event.event_date.strftime('%Y-%m-%d %H:%M')
+        entry_form.attendance_attachment_path = user_ct.attendance_attachment_path
+        entry_form.validated_hours = user_ct.event.duration_hours # Pre-fill with event's duration
+        entry_form.status = UserContinuousTrainingStatus.PENDING.name
+        form.entries.append_entry(entry_form)
+
+    return render_template('admin/validate_continuous_trainings.html', title='Valider Formations Continues', form=form, pending_user_cts=pending_user_cts)
+
+@bp.route('/validate_continuous_trainings/batch', methods=['POST'])
+@login_required
+@permission_required('continuous_training_validate')
+def batch_validate_continuous_trainings():
+    form = BatchValidateUserContinuousTrainingForm()
+    if form.validate_on_submit():
+        for entry in form.entries:
+            user_ct = UserContinuousTraining.query.get(entry.user_ct_id.data)
+            if user_ct:
+                user_ct.validated_hours = entry.validated_hours.data
+                user_ct.status = UserContinuousTrainingStatus[entry.status.data]
+                user_ct.validated_by = current_user
+                user_ct.validation_date = datetime.utcnow()
+                db.session.add(user_ct)
+        db.session.commit()
+        flash('Formations continues validées avec succès !', 'success')
+        return redirect(url_for('admin.validate_continuous_trainings'))
+    flash('Erreur lors de la validation des formations continues.', 'danger')
+    return redirect(url_for('admin.validate_continuous_trainings'))
+
+@bp.route('/validate_continuous_trainings/single/<int:user_ct_id>', methods=['POST'])
+@login_required
+@permission_required('continuous_training_validate')
+def single_validate_continuous_training(user_ct_id):
+    user_ct = UserContinuousTraining.query.get_or_404(user_ct_id)
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'No JSON data provided.'}), 400
+
+    validated_hours_str = data.get('validated_hours')
+    status_str = data.get('status')
+
+    # Manual validation and type conversion for validated_hours
+    try:
+        validated_hours = float(validated_hours_str)
+        if validated_hours < 0:
+            raise ValueError("Validated hours cannot be negative.")
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'message': 'Heures validées invalides. Doit être un nombre positif.'}), 400
+    
+    try:
+        status = UserContinuousTrainingStatus[status_str]
+    except KeyError:
+        return jsonify({'success': False, 'message': 'Statut invalide.'}), 400
+
+    user_ct.validated_hours = validated_hours
+    user_ct.status = status
+    user_ct.validated_by = current_user
+    user_ct.validation_date = datetime.utcnow()
+    
+    try:
+        db.session.add(user_ct)
+        db.session.commit()
+        
+        current_app.logger.debug(f"UserContinuousTraining {user_ct_id} validated successfully.")
+        return jsonify({'success': True, 'message': 'Formation continue validée avec succès !'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error during single validation for user_ct_id {user_ct_id}: {e}")
+        return jsonify({'success': False, 'message': f'Erreur de base de données lors de la validation: {str(e)}'}), 500
+
+@bp.route('/validate_continuous_trainings/reject/<int:user_ct_id>', methods=['POST'])
+@login_required
+@permission_required('continuous_training_validate')
+def reject_continuous_training(user_ct_id):
+    user_ct = UserContinuousTraining.query.get_or_404(user_ct_id)
+    user_ct.status = UserContinuousTrainingStatus.REJECTED
+    user_ct.validated_by = current_user
+    user_ct.validation_date = datetime.utcnow()
+    db.session.add(user_ct)
+    db.session.commit()
+    flash('Formation continue rejetée avec succès !', 'info')
+    return redirect(url_for('admin.validate_continuous_trainings'))
 
 @bp.route('/')
 @bp.route('/index')
 @login_required
-@admin_required
+@permission_required('admin_access')
 def index():
     # Metrics for the cards
     pending_requests_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PENDING).count()
     pending_external_trainings_count = ExternalTraining.query.filter_by(status=ExternalTrainingStatus.PENDING).count()
     skills_without_tutors_count = Skill.query.filter(~Skill.tutors.any()).count()
     proposed_skills_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).count()
-    
+    pending_user_approvals_count = User.query.filter_by(is_approved=False).count()
+    pending_continuous_training_validations_count = UserContinuousTraining.query.filter_by(status=UserContinuousTrainingStatus.PENDING).count()
+    pending_continuous_event_requests_count = ContinuousTrainingEvent.query.filter_by(status=ContinuousTrainingEventStatus.PENDING).count()
+
     # Placeholder for more complex metrics
     recycling_needed_count = 0
     users_needing_recycling_set = set() # Keep this to pass to the template if needed
@@ -67,6 +343,9 @@ def index():
                            pending_external_trainings_count=pending_external_trainings_count,
                            skills_without_tutors_count=skills_without_tutors_count,
                            proposed_skills_count=proposed_skills_count,
+                           pending_user_approvals_count=pending_user_approvals_count,
+                           pending_continuous_training_validations_count=pending_continuous_training_validations_count,
+                           pending_continuous_event_requests_count=pending_continuous_event_requests_count,
                            recycling_needed_count=recycling_needed_count,
                            sessions_to_be_finalized_count=sessions_to_be_finalized_count,
                            next_session=next_session,
@@ -80,14 +359,60 @@ def index():
 # User Management
 @bp.route('/users')
 @login_required
-@admin_required
+@permission_required('user_manage')
 def manage_users():
     users = User.query.all()
     return render_template('admin/manage_users.html', title='Manage Users', users=users)
 
+@bp.route('/pending_users')
+@login_required
+@permission_required('user_manage')
+def pending_users():
+    pending_users = User.query.filter_by(is_approved=False).all()
+    return render_template('admin/pending_users.html', title='Pending User Approvals', pending_users=pending_users)
+
+@bp.route('/approve_user/<int:user_id>', methods=['POST'])
+@login_required
+@permission_required('user_manage')
+def approve_user(user_id):
+    user = User.query.get_or_404(user_id)
+    user.is_approved = True
+    user_role = Role.query.filter_by(name='User').first()
+    if user_role and user_role not in user.roles:
+        user.roles.append(user_role)
+    db.session.commit()
+    flash(f'User {user.full_name} approved successfully!', 'success')
+
+    # Send approval email to user
+    send_email('[Training Manager] Account Approved',
+               sender=current_app.config['MAIL_USERNAME'],
+               recipients=[user.email],
+               text_body=render_template('email/registration_approved.txt', user=user),
+               html_body=render_template('email/registration_approved.html', user=user))
+
+    return redirect(url_for('admin.pending_users'))
+
+@bp.route('/reject_user/<int:user_id>', methods=['POST'])
+@login_required
+@permission_required('user_manage')
+def reject_user(user_id):
+    user = User.query.get_or_404(user_id)
+    db.session.delete(user) # Delete the user if rejected
+    db.session.commit()
+    flash(f'User {user.full_name} rejected and deleted.', 'info')
+
+    # Send rejection email to user
+    send_email('[Training Manager] Account Rejected',
+               sender=current_app.config['MAIL_USERNAME'],
+               recipients=[user.email],
+               text_body=render_template('email/registration_rejected.txt', user=user),
+               html_body=render_template('email/registration_rejected.html', user=user))
+
+    return redirect(url_for('admin.pending_users'))
+
 @bp.route('/teams')
 @login_required
-@admin_required
+@permission_required('team_manage')
 def manage_teams():
     teams = Team.query.all()
     return render_template('admin/manage_teams.html', title='Manage Teams', teams=teams)
@@ -95,7 +420,7 @@ def manage_teams():
 
 @bp.route('/users/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('user_manage')
 def add_user():
     form = UserForm()
     if form.validate_on_submit():
@@ -109,6 +434,7 @@ def add_user():
         # Handle many-to-many relationships
         user.teams = form.teams.data
         user.teams_as_lead = form.teams_as_lead.data
+        user.roles = form.roles.data # Assign roles
 
         db.session.add(user)
         db.session.commit()
@@ -144,7 +470,8 @@ def add_user():
                     'is_admin': user.is_admin,
                     'study_level': user.study_level,
                     'teams': [t.name for t in user.teams],
-                    'teams_as_lead': [lt.name for lt in user.teams_as_lead]
+                    'teams_as_lead': [lt.name for lt in user.teams_as_lead],
+                    'roles': [r.name for r in user.roles]
                 }
             })
 
@@ -158,7 +485,7 @@ def add_user():
 
 @bp.route('/users/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('user_manage')
 def edit_user(id):
     user = User.query.get_or_404(id)
     form = UserForm(original_email=user.email)
@@ -181,6 +508,7 @@ def edit_user(id):
         user.teams = form.teams.data
         user.teams_as_lead = form.teams_as_lead.data
         user.assigned_training_paths = form.assigned_training_paths.data
+        user.roles = form.roles.data # Assign roles
 
         # Identify newly added training paths
         new_training_paths = set(form.assigned_training_paths.data)
@@ -189,7 +517,7 @@ def edit_user(id):
         # Create training requests for newly added paths
         for training_path in added_training_paths:
             for tps in training_path.skills_association:
-                if tps.skill:
+                if tps.skill: # Ensure skill exists
                     training_request = TrainingRequest(
                         requester=user,
                         status=TrainingRequestStatus.PENDING,
@@ -215,7 +543,8 @@ def edit_user(id):
                     'is_admin': user.is_admin,
                     'study_level': user.study_level,
                     'teams': [t.name for t in user.teams],
-                    'teams_as_lead': [lt.name for lt in user.teams_as_lead]
+                    'teams_as_lead': [lt.name for lt in user.teams_as_lead],
+                    'roles': [r.name for r in user.roles]
                 }
             })
 
@@ -231,6 +560,7 @@ def edit_user(id):
         form.teams.data = user.teams
         form.teams_as_lead.data = user.teams_as_lead
         form.assigned_training_paths.data = user.assigned_training_paths
+        form.roles.data = user.roles # Pre-populate roles
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('admin/_user_form_fields.html', form=form)
@@ -238,7 +568,7 @@ def edit_user(id):
 
 @bp.route('/users/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('user_manage')
 def delete_user(id):
     user = User.query.get_or_404(id)
     
@@ -263,11 +593,70 @@ def delete_user(id):
     flash('User deleted successfully!', 'success')
     return redirect(url_for('admin.manage_users'))
 
+# Role Management
+@bp.route('/roles')
+@login_required
+@permission_required('role_manage')
+def manage_roles():
+    roles = Role.query.all()
+    return render_template('admin/manage_roles.html', title='Manage Roles', roles=roles)
+
+@bp.route('/roles/add', methods=['GET', 'POST'])
+@login_required
+@permission_required('role_manage')
+def add_role():
+    form = RoleForm()
+    if form.validate_on_submit():
+        role = Role(name=form.name.data, description=form.description.data)
+        role.permissions = form.permissions.data
+        db.session.add(role)
+        db.session.commit()
+        flash('Role added successfully!', 'success')
+        return redirect(url_for('admin.manage_roles'))
+    return render_template('admin/role_form.html', title='Add Role', form=form)
+
+@bp.route('/roles/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@permission_required('role_manage')
+def edit_role(id):
+    role = Role.query.get_or_404(id)
+    form = RoleForm(original_name=role.name)
+    if form.validate_on_submit():
+        role.name = form.name.data
+        role.description = form.description.data
+        role.permissions = form.permissions.data
+        db.session.commit()
+        flash('Role updated successfully!', 'success')
+        return redirect(url_for('admin.manage_roles'))
+    elif request.method == 'GET':
+        form.name.data = role.name
+        form.description.data = role.description
+        form.permissions.data = role.permissions
+    return render_template('admin/role_form.html', title='Edit Role', form=form)
+
+@bp.route('/roles/delete/<int:id>', methods=['POST'])
+@login_required
+@permission_required('role_manage')
+def delete_role(id):
+    role = Role.query.get_or_404(id)
+    db.session.delete(role)
+    db.session.commit()
+    flash('Role deleted successfully!', 'success')
+    return redirect(url_for('admin.manage_roles'))
+
+# Permission Management
+@bp.route('/permissions')
+@login_required
+@permission_required('permission_manage')
+def manage_permissions():
+    permissions = Permission.query.all()
+    return render_template('admin/manage_permissions.html', title='Manage Permissions', permissions=permissions)
+
 # Team Management
 
 @bp.route('/teams/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('team_manage')
 def add_team():
     form = TeamForm()
     if form.validate_on_submit():
@@ -303,7 +692,7 @@ def add_team():
 
 @bp.route('/teams/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('team_manage')
 def edit_team(id):
     team = Team.query.get_or_404(id)
     form = TeamForm(original_name=team.name)
@@ -330,7 +719,7 @@ def edit_team(id):
 
 @bp.route('/teams/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('team_manage')
 def delete_team(id):
     team = Team.query.get_or_404(id)
     
@@ -347,7 +736,7 @@ def delete_team(id):
 
 @bp.route('/team/<int:team_id>/add_users', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('team_manage')
 def add_users_to_team(team_id):
     team = Team.query.get_or_404(team_id)
     form = AddUserToTeamForm()
@@ -375,14 +764,14 @@ def add_users_to_team(team_id):
 # Species Management
 @bp.route('/species')
 @login_required
-@admin_required
+@permission_required('species_manage')
 def manage_species():
     species_list = Species.query.all()
     return render_template('admin/manage_species.html', title='Manage Species', species_list=species_list)
 
 @bp.route('/species/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('species_manage')
 def add_species():
     form = SpeciesForm()
     if form.validate_on_submit():
@@ -395,7 +784,7 @@ def add_species():
 
 @bp.route('/species/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('species_manage')
 def edit_species(id):
     species = Species.query.get_or_404(id)
     form = SpeciesForm(original_name=species.name)
@@ -410,7 +799,7 @@ def edit_species(id):
 
 @bp.route('/species/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('species_manage')
 def delete_species(id):
     species = Species.query.get_or_404(id)
     db.session.delete(species)
@@ -421,7 +810,7 @@ def delete_species(id):
 # Skill Management
 @bp.route('/skills')
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def manage_skills():
     skills_query = db.session.query(
         Skill,
@@ -438,7 +827,7 @@ def manage_skills():
 
     needs_recycling = request.args.get('needs_recycling', 'false').lower() == 'true'
     if needs_recycling:
-        skills_query = skills_query.having(func.count(func.distinct(case((Competency.needs_recycling == True, Competency.user_id), else_=None))) > 0)
+        skills_query = skills_query.having(func.count(func.distinct(case(((Competency.needs_recycling == True), Competency.user_id), else_=None))) > 0)
 
     skills_data = skills_query.order_by(Skill.name).all()
 
@@ -446,7 +835,7 @@ def manage_skills():
 
 @bp.route('/api/skills')
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def api_skills():
     search = request.args.get('q', '')
     if search:
@@ -458,7 +847,7 @@ def api_skills():
 
 @bp.route('/skills/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def add_skill():
     form = SkillForm()
     proposal_id = request.args.get('from_proposal')
@@ -521,7 +910,7 @@ def add_skill():
 
 @bp.route('/skills/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def edit_skill(id):
     skill = Skill.query.get_or_404(id)
     form = SkillForm(original_name=skill.name)
@@ -583,7 +972,7 @@ def edit_skill(id):
 
 @bp.route('/skills/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def delete_skill(id):
     skill = Skill.query.get_or_404(id)
     # Delete associated ExternalTrainingSkillClaim records first
@@ -596,28 +985,9 @@ def delete_skill(id):
     return redirect(url_for('admin.manage_skills'))
 
 # Training Path Management
-import os
-import io
-from flask import render_template, redirect, url_for, flash, request, current_app, send_file, jsonify
-from flask_login import login_required, current_user
-from werkzeug.utils import secure_filename
-from app import db
-from app.admin import bp
-from app.admin.forms import UserForm, TeamForm, SpeciesForm, SkillForm, TrainingPathForm, ImportForm, AddUserToTeamForm, TrainingValidationForm, AttendeeValidationForm, CompetencyValidationForm
-from app.training.forms import TrainingSessionForm # Import TrainingSessionForm
-from app.models import User, Team, Species, Skill, TrainingPath, TrainingPathSkill, ExternalTraining, TrainingRequest, TrainingRequestStatus, ExternalTrainingStatus, Competency, TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim, TrainingSessionTutorSkill, tutor_skill_association
-from app.decorators import admin_required
-from sqlalchemy import func, extract, case
-import openpyxl # Import openpyxl
-from openpyxl.worksheet.datavalidation import DataValidation
-from openpyxl.comments import Comment
-from datetime import datetime, timedelta, timezone # Import datetime, timedelta
-from collections import defaultdict
-import json # Import json
-import re
 @bp.route('/skills/<int:skill_id>/users/<string:user_type>')
 @login_required
-@admin_required
+@permission_required('skill_manage') # Assuming viewing skill users is part of skill management
 def skill_users(skill_id, user_type):
     skill = Skill.query.get_or_404(skill_id)
     if user_type == 'competent':
@@ -637,14 +1007,14 @@ def skill_users(skill_id, user_type):
 
 @bp.route('/training_paths')
 @login_required
-@admin_required
+@permission_required('training_path_manage')
 def manage_training_paths():
     training_paths = TrainingPath.query.all()
     return render_template('admin/manage_training_paths.html', title='Manage Training Paths', training_paths=training_paths)
 
 @bp.route('/training_paths/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('training_path_manage')
 def add_training_path():
     form = TrainingPathForm()
     if form.validate_on_submit():
@@ -687,7 +1057,7 @@ def add_training_path():
 
 @bp.route('/training_paths/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('training_path_manage')
 def edit_training_path(id):
     training_path = TrainingPath.query.get_or_404(id)
     form = TrainingPathForm(original_name=training_path.name)
@@ -742,7 +1112,7 @@ def edit_training_path(id):
 
 @bp.route('/training_paths/delete/<int:id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('training_path_manage')
 def delete_training_path(id):
     training_path = TrainingPath.query.get_or_404(id)
     db.session.delete(training_path)
@@ -753,7 +1123,7 @@ def delete_training_path(id):
 # Import/Export Functionality (Placeholders)
 @bp.route('/import_export_users', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('user_manage')
 def import_export_users():
     form = ImportForm()
     form.update_existing.label.text = "Update existing users if emails match?"
@@ -840,7 +1210,7 @@ def import_export_users():
 
 @bp.route('/export_users_xlsx')
 @login_required
-@admin_required
+@permission_required('user_manage')
 def export_users_xlsx():
     users = User.query.all()
     workbook = openpyxl.Workbook()
@@ -862,7 +1232,7 @@ def export_users_xlsx():
 
 @bp.route('/download_user_import_template_xlsx')
 @login_required
-@admin_required
+@permission_required('user_manage')
 def download_user_import_template_xlsx():
     workbook = openpyxl.Workbook()
     sheet = workbook.active
@@ -892,7 +1262,7 @@ def download_user_import_template_xlsx():
 
 @bp.route('/import_export_skills', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def import_export_skills():
     form = ImportForm()
     if form.validate_on_submit():
@@ -982,7 +1352,7 @@ def import_export_skills():
     return render_template('admin/import_export_skills.html', title='Import/Export Skills', form=form)
 @bp.route('/download_skill_import_template')
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def download_skill_import_template():
     # Get data for dropdowns
     complexity_values = [c.name for c in Complexity]
@@ -1028,7 +1398,7 @@ def download_skill_import_template():
 
 @bp.route('/export_skills_xlsx')
 @login_required
-@admin_required
+@permission_required('skill_manage')
 def export_skills_xlsx():
     skills = Skill.query.all()
     workbook = openpyxl.Workbook()
@@ -1089,7 +1459,7 @@ def export_skills_xlsx():
 
 @bp.route('/training_sessions/create', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('training_session_manage')
 def create_training_session():
     form = TrainingSessionForm()
 
@@ -1228,7 +1598,7 @@ def create_training_session():
 
 @bp.route('/training_sessions')
 @login_required
-@admin_required
+@permission_required('training_session_manage')
 def manage_training_sessions():
     filter_param = request.args.get('filter')
     query = TrainingSession.query
@@ -1244,7 +1614,7 @@ def manage_training_sessions():
 
 @bp.route('/training_sessions/edit/<int:session_id>', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('training_session_manage')
 def edit_training_session(session_id):
     session = TrainingSession.query.get_or_404(session_id)
     form = TrainingSessionForm(obj=session) # Pre-populate form with session data
@@ -1256,16 +1626,7 @@ def edit_training_session(session_id):
         session.main_species = Species.query.get(request.form.get('main_species'))
         session.ethical_authorization_id = form.ethical_authorization_id.data
         session.animal_count = form.animal_count.data
-
-        if form.attachment.data:
-            filename = secure_filename(form.attachment.data.filename)
-            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'training_sessions')
-            os.makedirs(upload_folder, exist_ok=True)
-            file_path = os.path.join(upload_folder, filename)
-            form.attachment.data.save(file_path)
-            session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
-
-        session.attendees = form.attendees.data
+        db.session.add(session)
         
         # Process dynamic skill-tutor rows
         skill_ids = set()
@@ -1282,12 +1643,16 @@ def edit_training_session(session_id):
                     tutor_ids.add(int(tutor_id))
                     tutor_skill_pairs.append({'skill_id': int(skill_id), 'tutor_id': int(tutor_id)})
 
-        session.skills_covered = Skill.query.filter(Skill.id.in_(skill_ids)).all() if skill_ids else []
-        session.tutors = User.query.filter(User.id.in_(tutor_ids)).all() if tutor_ids else []
-
-        # Clear existing mappings and add new ones
-        TrainingSessionTutorSkill.query.filter_by(training_session_id=session.id).delete()
+        if skill_ids:
+            session.skills_covered = Skill.query.filter(Skill.id.in_(skill_ids)).all()
         
+        if tutor_ids:
+            session.tutors = User.query.filter(User.id.in_(tutor_ids)).all()
+
+        db.session.add(session)
+        db.session.flush() # Flush to get session.id
+
+        # Handle tutor-skill mapping
         for pair in tutor_skill_pairs:
             tutor_skill = TrainingSessionTutorSkill(
                 training_session_id=session.id,
@@ -1296,6 +1661,16 @@ def edit_training_session(session_id):
             )
             db.session.add(tutor_skill)
 
+        if form.attachment.data:
+            filename = secure_filename(form.attachment.data.filename)
+            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'training_sessions')
+            os.makedirs(upload_folder, exist_ok=True)
+            file_path = os.path.join(upload_folder, filename)
+            form.attachment.data.save(file_path)
+            session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
+
+        session.attendees = form.attendees.data
+        
         db.session.commit()
 
         flash('Session de formation mise à jour avec succès !', 'success')
@@ -1305,7 +1680,7 @@ def edit_training_session(session_id):
 
 @bp.route('/training_sessions/delete/<int:session_id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('training_session_manage')
 def delete_training_session(session_id):
     session = TrainingSession.query.get_or_404(session_id)
     db.session.delete(session)
@@ -1314,6 +1689,7 @@ def delete_training_session(session_id):
 
 @bp.route('/training_sessions/<int:session_id>', methods=['GET'])
 @login_required
+@permission_required('training_session_manage') # Assuming only admins can view all session details
 def view_training_session_details(session_id):
     session = TrainingSession.query.options(
         db.joinedload(TrainingSession.attendees),
@@ -1324,9 +1700,9 @@ def view_training_session_details(session_id):
     ).get_or_404(session_id)
 
     read_only = False
-    if not current_user.is_admin:
+    if not current_user.can('training_session_manage'): # Check for specific permission
         if current_user not in session.attendees and current_user not in session.tutors:
-            abort(403) # Not admin, not attendee, not tutor
+            abort(403) # Not authorized
         read_only = True # Attendee or tutor, but not admin, so read-only
 
     return render_template('admin/view_training_session_details.html', 
@@ -1336,19 +1712,19 @@ def view_training_session_details(session_id):
 
 @bp.route('/training_sessions/<int:session_id>/validate', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('training_session_validate')
 def validate_training_session(session_id):
     session = TrainingSession.query.options(
         db.joinedload(TrainingSession.attendees),
         db.joinedload(TrainingSession.skills_covered)
     ).get_or_404(session_id)
 
-    is_admin = current_user.is_admin
+    # is_admin = current_user.is_admin # No longer needed, use can()
     is_session_tutor = current_user in session.tutors
-    can_validate_session = is_admin or is_session_tutor
+    can_validate_session = current_user.can('training_session_validate') or is_session_tutor
 
     authorized_skills_for_current_user = set()
-    if is_admin:
+    if current_user.can('training_session_manage'): # Admins can validate all skills
         authorized_skills_for_current_user.update([skill.id for skill in session.skills_covered])
     elif is_session_tutor:
         for mapping in session.tutor_skill_mappings:
@@ -1364,7 +1740,7 @@ def validate_training_session(session_id):
         for attendee in session.attendees:
             for skill in session.skills_covered:
                 # Check if the current user is authorized to validate this skill
-                if not is_admin and skill.id not in authorized_skills_for_current_user:
+                if not current_user.can('training_session_manage') and skill.id not in authorized_skills_for_current_user:
                     continue
 
                 # Check if this competency was submitted
@@ -1468,11 +1844,11 @@ def validate_training_session(session_id):
                            attendees_data=attendees_data,
                            can_validate_session=can_validate_session,
                            authorized_skills_for_current_user=authorized_skills_for_current_user,
-                           is_admin=is_admin)
+                           is_admin=current_user.can('admin_access')) # Pass admin_access permission
 
 @bp.route('/training_requests/reject/<int:request_id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('training_request_manage')
 def reject_training_request(request_id):
     training_request = TrainingRequest.query.get_or_404(request_id)
     training_request.status = TrainingRequestStatus.REJECTED
@@ -1482,14 +1858,14 @@ def reject_training_request(request_id):
 # External Training Validation
 @bp.route('/validate_external_trainings')
 @login_required
-@admin_required
+@permission_required('external_training_validate')
 def validate_external_trainings():
     pending_external_trainings = ExternalTraining.query.filter_by(status=ExternalTrainingStatus.PENDING).all()
     return render_template('admin/validate_external_trainings.html', title='Validate External Trainings', trainings=pending_external_trainings)
 
 @bp.route('/validate_external_trainings/approve/<int:training_id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('external_training_validate')
 def approve_external_training(training_id):
     external_training = ExternalTraining.query.options(db.joinedload(ExternalTraining.skill_claims).joinedload(ExternalTrainingSkillClaim.skill)).get_or_404(training_id)
     external_training.status = ExternalTrainingStatus.APPROVED
@@ -1519,7 +1895,7 @@ def approve_external_training(training_id):
             if existing_species_ids == claim_species_ids:
                 # Update existing competency
                 existing_competency.level = skill_claim.level
-                existing_competency.evaluation_date = external_training.date
+                existing_competency.evaluation_date = datetime.now(timezone.utc)
                 if external_training.external_trainer_name:
                     existing_competency.external_evaluator_name = external_training.external_trainer_name
                     existing_competency.evaluator = None
@@ -1575,7 +1951,7 @@ def approve_external_training(training_id):
 
 @bp.route('/validate_external_trainings/reject/<int:training_id>', methods=['POST'])
 @login_required
-@admin_required
+@permission_required('external_training_validate')
 def reject_external_training(training_id):
     external_training = ExternalTraining.query.get_or_404(training_id)
     external_training.status = ExternalTrainingStatus.REJECTED
@@ -1589,7 +1965,7 @@ from collections import defaultdict
 
 @bp.route('/training_requests')
 @login_required
-@admin_required
+@permission_required('training_request_manage')
 def list_training_requests():
     pending_training_requests = TrainingRequest.query.options(
         db.joinedload(TrainingRequest.requester),
@@ -1623,7 +1999,7 @@ def list_training_requests():
 # Reports (Placeholder)
 @bp.route('/tutor_less_skills_report')
 @login_required
-@admin_required
+@permission_required('view_reports')
 def tutor_less_skills_report():
     # This will require a more complex query to find skills with no associated tutors
     skills_without_tutors = Skill.query.filter(~Skill.tutors.any()).all()
@@ -1632,7 +2008,7 @@ def tutor_less_skills_report():
 
 @bp.route('/recycling_report')
 @login_required
-@admin_required
+@permission_required('view_reports')
 def recycling_report():
     report_data = defaultdict(lambda: defaultdict(list))
     all_users = User.query.options(db.joinedload(User.competencies).joinedload(Competency.skill).joinedload(Skill.species)).all()
@@ -1670,16 +2046,36 @@ def recycling_report():
 
     return render_template('admin/recycling_report.html', title='Rapport de Recyclage', report_data=report_data)
 
+@bp.route('/continuous_training_compliance_report')
+@login_required
+@permission_required('view_reports')
+def continuous_training_compliance_report():
+    users = User.query.all()
+    report_data = []
+    for user in users:
+        report_data.append({
+            'user': user,
+            'total_hours': user.total_continuous_training_hours_6_years,
+            'live_hours': user.live_continuous_training_hours_6_years,
+            'online_hours': user.online_continuous_training_hours_6_years,
+            'required_hours': user.required_continuous_training_hours,
+            'is_compliant': user.is_continuous_training_compliant,
+            'live_ratio': user.live_training_ratio,
+            'is_live_ratio_compliant': user.is_live_training_ratio_compliant,
+            'is_at_risk_next_year': user.is_at_risk_next_year
+        })
+    return render_template('admin/continuous_training_compliance_report.html', title='Rapport de Conformité Formation Continue', report_data=report_data)
+
 @bp.route('/proposed_skills')
 @login_required
-@admin_required
+@permission_required('skill_manage') # Assuming proposed skills are managed by skill managers
 def proposed_skills():
     proposed = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).order_by(TrainingRequest.request_date.desc()).all()
     return render_template('admin/proposed_skills.html', title='Proposed Skills', proposed_skills=proposed)
 
 @bp.route('/api/training_path/<int:path_id>/skills')
 @login_required
-@admin_required
+@permission_required('training_path_manage')
 def get_training_path_skills(path_id):
     training_path = TrainingPath.query.options(db.joinedload(TrainingPath.skills_association).joinedload(TrainingPathSkill.skill)).get_or_404(path_id)
     skills_data = []
@@ -1694,7 +2090,7 @@ def get_training_path_skills(path_id):
 
 @bp.route('/api/skills_by_species/<int:species_id>')
 @login_required
-@admin_required
+@permission_required('skill_manage') # Assuming this API is used for skill management
 def get_skills_by_species(species_id):
     species = Species.query.get_or_404(species_id)
     query = Skill.query.filter(Skill.species.any(id=species.id))

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+    <div class="row">
+        <div class="col-md-6">
+            <form action="" method="post" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                    {% for error in form.name.errors %}
+                    <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control", rows=3) }}
+                    {% for error in form.description.errors %}
+                    <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.permissions.label(class="form-label") }}
+                    {{ form.permissions(class="form-control select2-multiple") }}
+                    {% for error in form.permissions.errors %}
+                    <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {{ form.submit(class="btn btn-primary") }}
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    $(document).ready(function() {
+        $('.select2-multiple').select2({
+            placeholder: "Select permissions",
+            allowClear: true
+        });
+    });
+</script>
+{% endblock %}

@@ -6,14 +6,14 @@ from app import db, mail
 from app.training import bp
 from app.training.forms import TrainingSessionForm
 from app.models import TrainingRequest, TrainingRequestStatus, TrainingSession, Competency
-from app.decorators import admin_required, team_lead_required
+from app.decorators import permission_required
 from flask_mail import Message
 from ics import Calendar, Event
 from datetime import datetime, timedelta
 
 @bp.route('/requests')
 @login_required
-@admin_required # Or a custom decorator for tutors/admins
+@permission_required('training_request_manage') # Or a custom decorator for tutors/admins
 def list_training_requests():
     training_requests = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PENDING).all()
     return render_template('training/list_training_requests.html', title='Training Requests', requests=training_requests)
@@ -119,7 +119,7 @@ def _send_session_reminders(session):
 
 @bp.route('/requests/<int:request_id>/create_session', methods=['GET', 'POST'])
 @login_required
-@admin_required # Or a custom decorator for tutors/admins
+@permission_required('training_session_manage') # Or a custom decorator for tutors/admins
 def create_training_session_from_request(request_id):
     training_request = TrainingRequest.query.get_or_404(request_id)
     form = TrainingSessionForm()
@@ -153,7 +153,7 @@ def create_training_session_from_request(request_id):
     return render_template('training/training_session_form.html', title='Create Training Session', form=form, training_request=training_request, action_url=url_for('training.create_training_session_from_request', request_id=training_request.id))
 @bp.route('/create_session_from_requests', methods=['GET', 'POST'])
 @login_required
-@admin_required
+@permission_required('training_session_manage')
 def create_session_from_requests():
     form = TrainingSessionForm()
     training_requests = [] # Initialize an empty list

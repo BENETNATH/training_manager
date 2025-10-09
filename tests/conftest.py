@@ -5,6 +5,7 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app import create_app, db
+from app.models import init_roles_and_permissions
 from config import Config
 
 class TestConfig(Config):
@@ -17,6 +18,7 @@ def app():
     app = create_app(TestConfig)
     with app.app_context():
         db.create_all()
+        init_roles_and_permissions()
         yield app
         db.session.remove()
         db.drop_all()

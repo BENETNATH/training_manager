@@ -1,9 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField, TextAreaField, IntegerField, HiddenField
-from wtforms.validators import DataRequired, ValidationError, Email, Length, Optional
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField, TextAreaField, IntegerField, HiddenField, DateTimeLocalField, FloatField # Added FloatField
+from wtforms.validators import DataRequired, ValidationError, Email, Length, Optional, NumberRange
 from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 from flask_wtf.file import FileField, FileAllowed
-from app.models import User, Team, Species, Skill, Complexity, TrainingPath
+from app.models import User, Team, Species, Skill, Complexity, TrainingPath, Role, Permission, ContinuousTrainingType, ContinuousTrainingEventStatus, UserContinuousTrainingStatus, InitialRegulatoryTrainingLevel # Added new enums and models
 from wtforms import FieldList, FormField
 from app import db
 
@@ -15,6 +15,15 @@ def get_users():
 
 def get_species():
     return Species.query.order_by(Species.name).all()
+
+def get_skills():
+    return Skill.query.order_by(Skill.name).all()
+
+def get_roles():
+    return Role.query.order_by(Role.name).all()
+
+def get_permissions():
+    return Permission.query.order_by(Permission.name).all()
 
 def get_training_paths_with_species():
     return TrainingPath.query.options(db.joinedload(TrainingPath.species)).order_by(TrainingPath.name).all()
@@ -28,9 +37,10 @@ class UserForm(FlaskForm):
     password = PasswordField('Password', validators=[Optional(), Length(min=6)])
     is_admin = BooleanField('Is Admin')
     study_level = SelectField('Study Level', choices=[('pre-BAC', 'pre-BAC')] + [(str(i), str(i)) for i in range(9)] + [('8+', '8+')], validators=[Optional()])
-    teams = QuerySelectMultipleField('Teams', query_factory=get_teams, get_label='name')
-    teams_as_lead = QuerySelectMultipleField('Led Teams', query_factory=get_teams, get_label='name')
-    assigned_training_paths = QuerySelectMultipleField('Assign Training Paths', query_factory=get_training_paths_with_species, get_label=get_training_path_label)
+    teams = QuerySelectMultipleField('Teams', query_factory=get_teams, get_label='name', allow_blank=True)
+    teams_as_lead = QuerySelectMultipleField('Led Teams', query_factory=get_teams, get_label='name', allow_blank=True)
+    assigned_training_paths = QuerySelectMultipleField('Assign Training Paths', query_factory=get_training_paths_with_species, get_label=get_training_path_label, allow_blank=True)
+    roles = QuerySelectMultipleField('Roles', query_factory=get_roles, get_label='name', allow_blank=True) # New field for roles
     submit = SubmitField('Save User')
 
     def __init__(self, original_email=None, *args, **kwargs):
@@ -45,8 +55,8 @@ class UserForm(FlaskForm):
 
 class TeamForm(FlaskForm):
     name = StringField('Team Name', validators=[DataRequired(), Length(min=2, max=64)])
-    members = QuerySelectMultipleField('Members', query_factory=get_users, get_label='full_name')
-    team_leads = QuerySelectMultipleField('Team Leads', query_factory=get_users, get_label='full_name')
+    members = QuerySelectMultipleField('Members', query_factory=get_users, get_label='full_name', allow_blank=True)
+    team_leads = QuerySelectMultipleField('Team Leads', query_factory=get_users, get_label='full_name', allow_blank=True)
     submit = SubmitField('Save Team')
 
     def __init__(self, original_name=None, *args, **kwargs):
@@ -76,14 +86,13 @@ class SpeciesForm(FlaskForm):
 class SkillForm(FlaskForm):
     name = StringField('Skill Name', validators=[DataRequired(), Length(min=2, max=128)])
     description = TextAreaField('Description', validators=[Optional()])
-    validity_period_months = IntegerField('Validity Period (Months)', validators=[Optional()])
+    validity_period_months = IntegerField('Validity Period (Months)', validators=[Optional(), NumberRange(min=1)])
     complexity = SelectField('Complexity', choices=[(c.name, c.value) for c in Complexity], validators=[DataRequired()])
     reference_urls_text = TextAreaField('Reference URLs (comma-separated)', validators=[Optional()])
     protocol_attachment = FileField('Protocol Attachment', validators=[FileAllowed(['pdf', 'doc', 'docx'], 'PDF, DOC, DOCX only!')])
     training_videos_urls_text = TextAreaField('Training Videos URLs (comma-separated)', validators=[Optional()])
     potential_external_tutors_text = TextAreaField('Potential External Tutors (comma-separated)', validators=[Optional()])
-    species = QuerySelectMultipleField('Associated Species', query_factory=get_species, get_label='name')
-
+    species = QuerySelectMultipleField('Associated Species', query_factory=get_species, get_label='name', allow_blank=True)
     submit = SubmitField('Save Skill')
 
     def __init__(self, original_name=None, *args, **kwargs):
@@ -115,11 +124,11 @@ class TrainingPathForm(FlaskForm):
 
 class ImportForm(FlaskForm):
     import_file = FileField('Select File', validators=[DataRequired(), FileAllowed(['xlsx'], 'XLSX files only!')])
-    update_existing = BooleanField('Update existing skills if names match?', default=False)
+    update_existing = BooleanField('Update existing records if names/emails match?', default=False)
     submit = SubmitField('Import')
 
 class AddUserToTeamForm(FlaskForm):
-    users = QuerySelectMultipleField('Select Users', query_factory=get_users, get_label='full_name')
+    users = QuerySelectMultipleField('Select Users', query_factory=get_users, get_label='full_name', allow_blank=False, validators=[DataRequired()])
     submit = SubmitField('Add Users to Team')
 
 class CompetencyValidationForm(FlaskForm):
@@ -136,3 +145,65 @@ class AttendeeValidationForm(FlaskForm):
 class TrainingValidationForm(FlaskForm):
     attendees = FieldList(FormField(AttendeeValidationForm))
     submit = SubmitField('Validate Competencies')
+
+class RoleForm(FlaskForm):
+    name = StringField('Role Name', validators=[DataRequired(), Length(min=2, max=64)])
+    description = TextAreaField('Description', validators=[Optional()])
+    permissions = QuerySelectMultipleField('Permissions', query_factory=get_permissions, get_label='name', allow_blank=True)
+    submit = SubmitField('Save Role')
+
+    def __init__(self, original_name=None, *args, **kwargs):
+        super(RoleForm, self).__init__(*args, **kwargs)
+        self.original_name = original_name
+
+    def validate_name(self, name):
+        if name.data != self.original_name:
+            role = Role.query.filter_by(name=self.name.data).first()
+            if role:
+                raise ValidationError('That role name is already taken. Please choose a different one.')
+
+class PermissionForm(FlaskForm):
+    name = StringField('Permission Name', validators=[DataRequired(), Length(min=2, max=64)])
+    description = TextAreaField('Description', validators=[Optional()])
+    submit = SubmitField('Save Permission')
+
+    def __init__(self, original_name=None, *args, **kwargs):
+        super(PermissionForm, self).__init__(*args, **kwargs)
+        self.original_name = original_name
+
+    def validate_name(self, name):
+        if name.data != self.original_name:
+            permission = Permission.query.filter_by(name=self.name.data).first()
+            if permission:
+                raise ValidationError('That permission name is already taken. Please choose a different one.')
+
+class AdminInitialRegulatoryTrainingForm(FlaskForm):
+    user = QuerySelectField('Utilisateur', query_factory=get_users, get_label='full_name', validators=[DataRequired()])
+    level = SelectField('Niveau de Formation Réglementaire Initiale', choices=[(level.name, level.value) for level in InitialRegulatoryTrainingLevel], validators=[DataRequired()])
+    training_date = DateTimeLocalField('Date de la Formation', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    attachment = FileField('Attestation de Formation (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
+    submit = SubmitField('Enregistrer la Formation Initiale')
+
+class ContinuousTrainingEventForm(FlaskForm):
+    title = StringField("Titre de l'événement", validators=[DataRequired(), Length(min=2, max=128)])
+    description = TextAreaField('Description', validators=[Optional()])
+    training_type = SelectField('Type de Formation', choices=[(t.name, t.value) for t in ContinuousTrainingType], validators=[DataRequired()])
+    location = StringField("Lieu (si présentiel)", validators=[Optional(), Length(max=128)])
+    event_date = DateTimeLocalField("Date et Heure de l'événement", format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    duration_hours = FloatField('Durée (heures)', validators=[DataRequired(), NumberRange(min=0)]) # Changed to DataRequired
+    attachment = FileField('Programme/Document (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), Optional()]) # Added Optional
+    submit = SubmitField("Enregistrer l'événement")
+
+class ValidateUserContinuousTrainingEntryForm(FlaskForm):
+    user_ct_id = HiddenField()
+    user_full_name = StringField('Utilisateur', render_kw={'readonly': True})
+    event_title = StringField('Événement', render_kw={'readonly': True})
+    event_date = StringField("Date de l'événement", render_kw={'readonly': True})
+    attendance_attachment_path = HiddenField()
+    validated_hours = IntegerField('Heures Validées', validators=[DataRequired(), NumberRange(min=0)])
+    status = SelectField('Statut', choices=[(s.name, s.value) for s in UserContinuousTrainingStatus], validators=[DataRequired()])
+    submit = SubmitField('Valider')
+
+class BatchValidateUserContinuousTrainingForm(FlaskForm):
+    entries = FieldList(FormField(ValidateUserContinuousTrainingEntryForm))
+    submit_batch = SubmitField('Valider la Sélection')

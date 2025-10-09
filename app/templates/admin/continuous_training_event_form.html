@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block content %}
+    <div class="container">
+        <h1 class="mt-4">{{ title }}</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <form action="" method="post" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    {{ wtf.form_field(form.title) }}
+                    {{ wtf.form_field(form.description) }}
+                    {{ wtf.form_field(form.training_type) }}
+                    {{ wtf.form_field(form.location) }}
+                    {{ wtf.form_field(form.event_date) }}
+                    {{ wtf.form_field(form.duration_hours) }}
+                    {{ wtf.form_field(form.attachment) }}
+                    {% if event and event.attachment_path %}
+                        <p>Programme actuel: <a href="{{ url_for('static', filename=event.attachment_path) }}" target="_blank">Voir</a></p>
+                    {% endif %}
+                    {{ wtf.form_field(form.submit, class="btn btn-primary") }}
+                    {% if event and event.status.name == 'PENDING' %}
+                        <button type="submit" class="btn btn-success" name="validate_event" value="true">Valider l'événement</button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}

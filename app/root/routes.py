@@ -8,5 +8,5 @@ def index():
         if current_user.is_admin:
             return redirect(url_for('admin.index'))
         else:
-            return redirect(url_for('profile.user_profile'))
+            return redirect(url_for('profile.user_profile', username=current_user.full_name))
     return redirect(url_for('auth.login'))

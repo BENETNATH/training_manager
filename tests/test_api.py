@@ -1,14 +1,22 @@
 import pytest
 from app import db
-from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, ExternalTrainingSkillClaim, Complexity, TrainingRequestStatus, ExternalTrainingStatus
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, ExternalTrainingSkillClaim, Complexity, TrainingRequestStatus, ExternalTrainingStatus, Role
 from datetime import datetime, timedelta
 import json
 from flask import url_for
 
 def create_api_user():
+    # Ensure the Admin role exists
+    admin_role = Role.query.filter_by(name='Admin').first()
+    if not admin_role:
+        admin_role = Role(name='Admin')
+        db.session.add(admin_role)
+        db.session.commit()
+
     user = User(full_name='API Test User', email='api_test@example.com', is_admin=True)
     user.set_password('api_password')
     user.generate_api_key()
+    user.roles.append(admin_role)
     db.session.add(user)
     db.session.commit()
     return user
@@ -148,7 +156,10 @@ def test_api_create_skill(client):
 def test_api_get_training_paths(client):
     user = create_api_user()
     headers = {'X-API-Key': user.api_key}
-    path = TrainingPath(name='Test Path')
+    species = Species(name='Test Species for Path')
+    db.session.add(species)
+    db.session.commit()
+    path = TrainingPath(name='Test Path', species_id=species.id)
     db.session.add(path)
     db.session.commit()
     response = client.get('/api/training_paths/', headers=headers)
@@ -323,90 +334,86 @@ def test_api_create_external_training(client):
     assert data['external_trainer_name'] == 'Trainer B'
 
 def test_submit_training_request_new(client):
-    with client.application.test_request_context():
-        user = create_api_user()
-        client.post(url_for('auth.login'), data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
+    user = create_api_user()
+    # Log in the user
+    client.post('/auth/login', data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
 
-        skill = Skill(name='New Skill for Request', complexity=Complexity.SIMPLE)
-        species = Species(name='New Species for Request')
-        db.session.add_all([skill, species])
-        db.session.commit()
+    skill = Skill(name='New Skill for Request', complexity=Complexity.SIMPLE)
+    species = Species(name='New Species for Request')
+    db.session.add_all([skill, species])
+    db.session.commit()
 
-        data = {
-            'species': species.id,
-            'skills_requested': [skill.id],
-            'submit': True
-        }
-        response = client.post('/profile/request-training', data=data)
-        assert response.status_code == 302
-        with client.session_transaction() as sess:
-            assert sess['_flashes'][0][1] == 'Your training request has been submitted!'
-        
-        request = TrainingRequest.query.filter_by(requester_id=user.id).first()
-        assert request is not None
-        assert skill in request.skills_requested
-        assert species in request.species_requested
+    data = {
+        'species': species.id,
+        'skills_requested': [skill.id],
+        'submit': True
+    }
+    response = client.post('/profile/request-training', data=data, follow_redirects=True)
+    assert response.status_code == 200 # After redirect
+    # Check for a success message in the response data
+    assert b'Request for &#39;New Skill for Request&#39; on &#39;New Species for Request&#39; created.' in response.data
+    
+    request = TrainingRequest.query.filter_by(requester_id=user.id).first()
+    assert request is not None
+    assert skill in request.skills_requested
+    assert species in request.species_requested
 
 def test_submit_training_request_duplicate(client):
-    with client.application.test_request_context():
-        user = create_api_user()
-        client.post(url_for('auth.login'), data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
+    user = create_api_user()
+    client.post('/auth/login', data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
 
-        skill = Skill(name='Duplicate Skill Request', complexity=Complexity.SIMPLE)
-        species = Species(name='Duplicate Species Request')
-        db.session.add_all([skill, species])
-        db.session.commit()
+    skill = Skill(name='Duplicate Skill Request', complexity=Complexity.SIMPLE)
+    species = Species(name='Duplicate Species Request')
+    db.session.add_all([skill, species])
+    db.session.commit()
 
-        # First request
-        request1 = TrainingRequest(requester=user, status=TrainingRequestStatus.PENDING)
-        request1.skills_requested.append(skill)
-        request1.species_requested.append(species)
-        db.session.add(request1)
-        db.session.commit()
+    # First request
+    request1 = TrainingRequest(requester=user, status=TrainingRequestStatus.PENDING)
+    request1.skills_requested.append(skill)
+    request1.species_requested.append(species)
+    db.session.add(request1)
+    db.session.commit()
 
-        data = {
-            'species': species.id,
-            'skills_requested': [skill.id],
-            'submit': True
-        }
-        response = client.post('/profile/request-training', data=data)
-        assert response.status_code == 302
-        with client.session_transaction() as sess:
-            assert sess['_flashes'][0][1] == f"You have already requested training for the skill '{skill.name}' with species '{species.name}'."
+    data = {
+        'species': species.id,
+        'skills_requested': [skill.id],
+        'submit': True
+    }
+    response = client.post('/profile/request-training', data=data, follow_redirects=True)
+    assert response.status_code == 200
+    assert f"Request for &#39;{skill.name}&#39; on &#39;{species.name}&#39; already exists and is pending.".encode('utf-8') in response.data
 
-        # Check that a new request was not created
-        requests = TrainingRequest.query.filter_by(requester_id=user.id).all()
-        assert len(requests) == 1
+    # Check that a new request was not created
+    requests = TrainingRequest.query.filter_by(requester_id=user.id).all()
+    assert len(requests) == 1
 
 def test_submit_training_request_update_species(client):
-    with client.application.test_request_context():
-        user = create_api_user()
-        client.post(url_for('auth.login'), data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
+    user = create_api_user()
+    client.post('/auth/login', data={'email': user.email, 'password': 'api_password'}, follow_redirects=True)
 
-        skill = Skill(name='Update Species Skill', complexity=Complexity.SIMPLE)
-        species1 = Species(name='Update Species 1')
-        species2 = Species(name='Update Species 2')
-        db.session.add_all([skill, species1, species2])
-        db.session.commit()
+    skill = Skill(name='Update Species Skill', complexity=Complexity.SIMPLE)
+    species1 = Species(name='Update Species 1')
+    species2 = Species(name='Update Species 2')
+    db.session.add_all([skill, species1, species2])
+    db.session.commit()
 
-        # First request
-        request1 = TrainingRequest(requester=user, status=TrainingRequestStatus.PENDING)
-        request1.skills_requested.append(skill)
-        request1.species_requested.append(species1)
-        db.session.add(request1)
-        db.session.commit()
+    # First request
+    request1 = TrainingRequest(requester=user, status=TrainingRequestStatus.PENDING)
+    request1.skills_requested.append(skill)
+    request1.species_requested.append(species1)
+    db.session.add(request1)
+    db.session.commit()
 
-        data = {
-            'species': species2.id,
-            'skills_requested': [skill.id],
-            'submit': True
-        }
-        response = client.post('/profile/request-training', data=data)
-        assert response.status_code == 302
-        with client.session_transaction() as sess:
-            assert sess['_flashes'][0][1] == f"Updated your existing training request for '{skill.name}' to include species '{species2.name}'."
+    data = {
+        'species': species2.id,
+        'skills_requested': [skill.id],
+        'submit': True
+    }
+    response = client.post('/profile/request-training', data=data, follow_redirects=True)
+    assert response.status_code == 200
+    assert f"Request for &#39;{skill.name}&#39; on &#39;{species2.name}&#39; created.".encode('utf-8') in response.data
 
-        # Check that the existing request was updated
-        request = TrainingRequest.query.filter_by(requester_id=user.id).first()
-        assert species2 in request.species_requested
-        assert len(request.species_requested) == 2
+    # Check that a new request was created, as the logic creates a new one per species
+    requests = TrainingRequest.query.filter_by(requester_id=user.id).all()
+    assert len(requests) == 2
+    assert species2 in requests[1].species_requested

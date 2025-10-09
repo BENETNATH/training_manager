@@ -2,19 +2,19 @@ from flask import render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
 from app.team import bp
 from app.models import User, Team, Competency, Skill, SkillPracticeEvent
-from app.decorators import team_lead_required
+from app.decorators import permission_required
 from datetime import datetime, timedelta
 
 @bp.route('/competencies')
 @login_required
-@team_lead_required
+@permission_required('view_team_competencies')
 def team_competencies():
     # A team lead can now lead multiple teams
     led_teams = current_user.teams_as_lead # Get all teams the user leads
 
     if not led_teams:
         flash('You are not currently leading any teams.', 'warning')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('profile.user_profile', username=current_user.full_name))
 
     all_skills = Skill.query.order_by(Skill.name).all()
     

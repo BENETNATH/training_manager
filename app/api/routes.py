@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash
 from functools import wraps # Import wraps
 import secrets # Import secrets
 from datetime import datetime, timedelta, timezone # Import datetime
+from app.decorators import permission_required # Import permission_required
 
 # API Models for marshalling
 
@@ -148,6 +149,9 @@ def token_required(f):
         if not found_user:
             api.abort(401, "Invalid API Key")
         
+        if not found_user.is_approved:
+            api.abort(403, "User account is not approved.")
+
         from flask import g
         g.current_user = found_user
         
@@ -161,8 +165,9 @@ ns_users = api.namespace('users', description='User operations')
 @ns_users.route('/search')
 class UserSearch(Resource):
     @api.marshal_list_with(user_model)
-    @api.doc(security='apikey', params={'q': 'Search query for user full name or email'})
+    @api.doc(security='apikey')
     @token_required
+    @permission_required('user_manage') # Assuming user_manage for searching all users
     def get(self):
         """Search for users by full name or email"""
         query = request.args.get('q', '')
@@ -198,6 +203,7 @@ class UserList(Resource):
     @api.marshal_list_with(user_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('user_manage')
     def get(self):
         """List all users"""
         return User.query.all()
@@ -206,6 +212,7 @@ class UserList(Resource):
     @api.marshal_with(user_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('user_manage')
     def post(self):
         """Create a new user"""
         data = api.payload
@@ -227,12 +234,16 @@ class UserResource(Resource):
     @token_required
     def get(self, id):
         """Retrieve a user by ID"""
-        return User.query.get_or_404(id)
+        from flask import g
+        if g.current_user.id == id or g.current_user.can('user_manage'):
+            return User.query.get_or_404(id)
+        api.abort(403, "You are not authorized to view this user.")
 
     @api.expect(user_model)
     @api.marshal_with(user_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('user_manage') # Assuming user_manage for updating any user
     def put(self, id):
         """Update a user by ID"""
         user = User.query.get_or_404(id)
@@ -255,6 +266,7 @@ class UserResource(Resource):
     @api.response(204, 'User deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('user_manage')
     def delete(self, id):
         """Delete a user by ID"""
         user = User.query.get_or_404(id)
@@ -267,6 +279,7 @@ class UserAvailableSkills(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey', description='List skills for which the authenticated user has a valid (not outdated) competency.')
     @token_required
+    @permission_required('self_view_profile') # Assuming a user can view their own skills
     def get(self):
         """List available skills for the authenticated user (not outdated)"""
         from flask import g
@@ -285,6 +298,7 @@ class UserDeclarePractice(Resource):
     @api.response(404, 'Skill not found')
     @api.doc(security='apikey', description='Declare a practice event for a specific skill for the authenticated user.')
     @token_required
+    @permission_required('self_declare_skill_practice') # Assuming a user can declare their own skill practice
     def post(self):
         """Declare a practice for a specific skill for the authenticated user"""
         from flask import g
@@ -315,6 +329,7 @@ class TeamList(Resource):
     @api.marshal_list_with(team_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('team_manage') # Assuming team_manage for listing all teams
     def get(self):
         """List all teams"""
         return Team.query.all()
@@ -323,6 +338,7 @@ class TeamList(Resource):
     @api.marshal_with(team_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('team_manage')
     def post(self):
         """Create a new team"""
         data = api.payload
@@ -340,6 +356,7 @@ class TeamResource(Resource):
     @api.marshal_with(team_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('team_manage') # Assuming team_manage for viewing any team
     def get(self, id):
         """Retrieve a team by ID"""
         return Team.query.get_or_404(id)
@@ -348,6 +365,7 @@ class TeamResource(Resource):
     @api.marshal_with(team_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('team_manage') # Assuming team_manage for updating any team
     def put(self, id):
         """Update a team by ID"""
         team = Team.query.get_or_404(id)
@@ -361,6 +379,7 @@ class TeamResource(Resource):
     @api.response(204, 'Team deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('team_manage')
     def delete(self, id):
         """Delete a team by ID"""
         team = Team.query.get_or_404(id)
@@ -374,6 +393,7 @@ class SpeciesList(Resource):
     @api.marshal_list_with(species_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('species_manage')
     def get(self):
         """List all species"""
         return Species.query.all()
@@ -382,6 +402,7 @@ class SpeciesList(Resource):
     @api.marshal_with(species_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('species_manage')
     def post(self):
         """Create a new species"""
         data = api.payload
@@ -397,6 +418,7 @@ class SpeciesSkills(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('species_manage') # Assuming species_manage for viewing skills by species
     def get(self, id):
         """Retrieve skills for a species by ID"""
         species = Species.query.get_or_404(id)
@@ -409,6 +431,7 @@ class SpeciesFilteredSkills(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('species_manage') # Assuming species_manage for viewing filtered skills by species
     def get(self, id):
         """Retrieve skills for a species by ID"""
         species = Species.query.get_or_404(id)
@@ -421,6 +444,7 @@ class SpeciesResource(Resource):
     @api.marshal_with(species_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('species_manage')
     def get(self, id):
         """Retrieve a species by ID"""
         return Species.query.get_or_404(id)
@@ -429,6 +453,7 @@ class SpeciesResource(Resource):
     @api.marshal_with(species_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('species_manage')
     def put(self, id):
         """Update a species by ID"""
         species = Species.query.get_or_404(id)
@@ -440,6 +465,7 @@ class SpeciesResource(Resource):
     @api.response(204, 'Species deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('species_manage')
     def delete(self, id):
         """Delete a species by ID"""
         species = Species.query.get_or_404(id)
@@ -453,6 +479,7 @@ class TrainingPathList(Resource):
     @api.marshal_list_with(training_path_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_path_manage')
     def get(self):
         """List all training paths"""
         return TrainingPath.query.all()
@@ -461,6 +488,7 @@ class TrainingPathList(Resource):
     @api.marshal_with(training_path_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_path_manage')
     def post(self):
         """Create a new training path"""
         data = api.payload
@@ -482,6 +510,7 @@ class TrainingPathResource(Resource):
     @api.marshal_with(training_path_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_path_manage')
     def get(self, id):
         """Retrieve a training path by ID"""
         return TrainingPath.query.get_or_404(id)
@@ -490,6 +519,7 @@ class TrainingPathResource(Resource):
     @api.marshal_with(training_path_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_path_manage')
     def put(self, id):
         """Update a training path by ID"""
         training_path = TrainingPath.query.get_or_404(id)
@@ -508,6 +538,7 @@ class TrainingPathResource(Resource):
     @api.response(204, 'Training Path deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_path_manage')
     def delete(self, id):
         """Delete a training path by ID"""
         training_path = TrainingPath.query.get_or_404(id)
@@ -522,6 +553,7 @@ class TrainingPathResource(Resource):
 class TrainingSessionTutorSkillMapping(Resource):
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_session_manage') # Assuming training_session_manage for viewing mappings
     def get(self, id):
         """Retrieve tutor skill mappings for a training session by ID"""
         session = TrainingSession.query.get_or_404(id)
@@ -533,6 +565,7 @@ class TrainingSessionList(Resource):
     @api.marshal_list_with(training_session_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_session_manage')
     def get(self):
         """List all training sessions"""
         return TrainingSession.query.all()
@@ -541,6 +574,7 @@ class TrainingSessionList(Resource):
     @api.marshal_with(training_session_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_session_manage')
     def post(self):
         """Create a new training session"""
         data = api.payload
@@ -571,6 +605,7 @@ class TrainingSessionResource(Resource):
     @api.marshal_with(training_session_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_session_manage')
     def get(self, id):
         """Retrieve a training session by ID"""
         return TrainingSession.query.get_or_404(id)
@@ -579,6 +614,7 @@ class TrainingSessionResource(Resource):
     @api.marshal_with(training_session_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_session_manage')
     def put(self, id):
         """Update a training session by ID"""
         session = TrainingSession.query.get_or_404(id)
@@ -604,6 +640,7 @@ class TrainingSessionResource(Resource):
     @api.response(204, 'Training Session deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_session_manage')
     def delete(self, id):
         """Delete a training session by ID"""
         session = TrainingSession.query.get_or_404(id)
@@ -617,6 +654,7 @@ class CompetencyList(Resource):
     @api.marshal_list_with(competency_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('competency_manage') # Assuming competency_manage for listing all competencies
     def get(self):
         """List all competencies"""
         return Competency.query.all()
@@ -625,6 +663,7 @@ class CompetencyList(Resource):
     @api.marshal_with(competency_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('competency_manage')
     def post(self):
         """Create a new competency"""
         data = api.payload
@@ -651,6 +690,7 @@ class CompetencyResource(Resource):
     @api.marshal_with(competency_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('competency_manage') # Assuming competency_manage for viewing any competency
     def get(self, id):
         """Retrieve a competency by ID"""
         return Competency.query.get_or_404(id)
@@ -659,6 +699,7 @@ class CompetencyResource(Resource):
     @api.marshal_with(competency_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('competency_manage') # Assuming competency_manage for updating any competency
     def put(self, id):
         """Update a competency by ID"""
         competency = Competency.query.get_or_404(id)
@@ -680,6 +721,7 @@ class CompetencyResource(Resource):
     @api.response(204, 'Competency deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('competency_manage')
     def delete(self, id):
         """Delete a competency by ID"""
         competency = Competency.query.get_or_404(id)
@@ -693,6 +735,7 @@ class SkillPracticeEventList(Resource):
     @api.marshal_list_with(skill_practice_event_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_practice_manage') # Assuming skill_practice_manage for listing all events
     def get(self):
         """List all skill practice events"""
         return SkillPracticeEvent.query.all()
@@ -701,6 +744,7 @@ class SkillPracticeEventList(Resource):
     @api.marshal_with(skill_practice_event_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_practice_manage')
     def post(self):
         """Create a new skill practice event"""
         data = api.payload
@@ -724,6 +768,7 @@ class SkillPracticeEventResource(Resource):
     @api.marshal_with(skill_practice_event_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_practice_manage') # Assuming skill_practice_manage for viewing any event
     def get(self, id):
         """Retrieve a skill practice event by ID"""
         return SkillPracticeEvent.query.get_or_404(id)
@@ -732,6 +777,7 @@ class SkillPracticeEventResource(Resource):
     @api.marshal_with(skill_practice_event_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_practice_manage') # Assuming skill_practice_manage for updating any event
     def put(self, id):
         """Update a skill practice event by ID"""
         event = SkillPracticeEvent.query.get_or_404(id)
@@ -746,6 +792,7 @@ class SkillPracticeEventResource(Resource):
     @api.response(204, 'Skill Practice Event deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_practice_manage')
     def delete(self, id):
         """Delete a skill practice event by ID"""
         event = SkillPracticeEvent.query.get_or_404(id)
@@ -759,6 +806,7 @@ class TrainingRequestList(Resource):
     @api.marshal_list_with(training_request_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_request_manage')
     def get(self):
         """List all training requests"""
         return TrainingRequest.query.all()
@@ -767,6 +815,7 @@ class TrainingRequestList(Resource):
     @api.marshal_with(training_request_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_request_manage')
     def post(self):
         """Create a new training request"""
         data = api.payload
@@ -789,6 +838,7 @@ class TrainingRequestResource(Resource):
     @api.marshal_with(training_request_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_request_manage')
     def get(self, id):
         """Retrieve a training request by ID"""
         return TrainingRequest.query.get_or_404(id)
@@ -797,6 +847,7 @@ class TrainingRequestResource(Resource):
     @api.marshal_with(training_request_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_request_manage')
     def put(self, id):
         """Update a training request by ID"""
         training_request = TrainingRequest.query.get_or_404(id)
@@ -814,6 +865,7 @@ class TrainingRequestResource(Resource):
     @api.response(204, 'Training Request deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('training_request_manage')
     def delete(self, id):
         """Delete a training request by ID"""
         training_request = TrainingRequest.query.get_or_404(id)
@@ -827,6 +879,7 @@ class ExternalTrainingList(Resource):
     @api.marshal_list_with(external_training_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('external_training_validate') # Assuming external_training_validate for listing all external trainings
     def get(self):
         """List all external trainings"""
         return ExternalTraining.query.all()
@@ -835,6 +888,7 @@ class ExternalTrainingList(Resource):
     @api.marshal_with(external_training_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('external_training_validate')
     def post(self):
         """Create a new external training"""
         data = api.payload
@@ -861,6 +915,7 @@ class ExternalTrainingResource(Resource):
     @api.marshal_with(external_training_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('external_training_validate') # Assuming external_training_validate for viewing any external training
     def get(self, id):
         """Retrieve an external training by ID"""
         return ExternalTraining.query.get_or_404(id)
@@ -869,6 +924,7 @@ class ExternalTrainingResource(Resource):
     @api.marshal_with(external_training_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('external_training_validate') # Assuming external_training_validate for updating any external training
     def put(self, id):
         """Update an external training by ID"""
         external_training = ExternalTraining.query.get_or_404(id)
@@ -890,6 +946,7 @@ class ExternalTrainingResource(Resource):
     @api.response(204, 'External Training deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('external_training_validate')
     def delete(self, id):
         """Delete an external training by ID"""
         external_training = ExternalTraining.query.get_or_404(id)
@@ -903,6 +960,7 @@ class SkillListResource(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_manage')
     def get(self):
         """List all skills"""
         return Skill.query.all()
@@ -911,6 +969,7 @@ class SkillListResource(Resource):
     @api.marshal_with(skill_model, code=201)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_manage')
     def post(self):
         """Create a new skill"""
         data = api.payload
@@ -936,6 +995,7 @@ class SkillSpecies(Resource):
     @api.doc(description='Get species for a list of skills.')
     @api.expect(skill_ids_payload)
     @token_required
+    @permission_required('skill_manage') # Assuming skill_manage for this operation
     def post(self):
         """Get species for a list of skills"""
         data = api.payload
@@ -971,6 +1031,7 @@ class SkillTutors(Resource):
     @api.doc(description='Get tutors for a list of skills.')
     @api.expect(skill_ids_payload)
     @token_required
+    @permission_required('skill_manage') # Assuming skill_manage for this operation
     def post(self):
         """Get tutors for a list of skills"""
         data = api.payload
@@ -1005,6 +1066,7 @@ class SkillTutorsForSkills(Resource):
     @api.doc(description='Get tutors who can teach all specified skills.')
     @api.expect(skill_ids_payload)
     @token_required
+    @permission_required('skill_manage') # Assuming skill_manage for this operation
     def post(self):
         """Get tutors for a list of skills"""
         data = api.payload
@@ -1048,6 +1110,7 @@ class SkillResource(Resource):
     @api.marshal_with(skill_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_manage')
     def get(self, id):
         """Retrieve a skill by ID"""
         return Skill.query.get_or_404(id)
@@ -1056,6 +1119,7 @@ class SkillResource(Resource):
     @api.marshal_with(skill_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_manage')
     def put(self, id):
         """Update a skill by ID"""
         skill = Skill.query.get_or_404(id)
@@ -1080,6 +1144,7 @@ class SkillResource(Resource):
     @api.response(204, 'Skill deleted')
     @api.doc(security='apikey')
     @token_required
+    @permission_required('skill_manage')
     def delete(self, id):
         """Delete a skill by ID"""
         skill = Skill.query.get_or_404(id)
@@ -1093,6 +1158,7 @@ class SkillResource(Resource):
 class SkillTutorsWithValidity(Resource):
     @api.doc(security='apikey', params={'training_date': 'The training date in YYYY-MM-DD format'})
     @token_required
+    @permission_required('tutor_for_skill') # Assuming tutors can view validity for their skills
     def get(self, id):
         """Retrieve tutors for a skill with their validity status"""
         skill = Skill.query.get_or_404(id)
@@ -1147,8 +1213,15 @@ class TutorSkills(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
     @token_required
+    @permission_required('tutor_for_skill') # Assuming tutors can view their own skills
     def get(self, id):
         """Retrieve skills for a tutor by ID"""
+        # Allow tutors to view their own skills without explicit permission if they are the current user
+        from flask import g
+        if g.current_user.id == id:
+            tutor = User.query.get_or_404(id)
+            return tutor.tutored_skills
+        # Otherwise, require permission
         tutor = User.query.get_or_404(id)
         return tutor.tutored_skills
 
@@ -1159,6 +1232,7 @@ class TutorValidity(Resource):
     @api.doc(description='Check if a tutor is valid for a given skill and a training date.')
     @api.expect(tutor_validity_payload)
     @token_required
+    @permission_required('tutor_for_skill') # Assuming tutors can check validity for their skills
     def post(self, id):
         """Check tutor validity"""
         data = api.payload

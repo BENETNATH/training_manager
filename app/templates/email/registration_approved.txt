@@ -1,0 +1,8 @@
+Dear {{ user.full_name }},
+
+Good news! Your account for the Training Manager application has been approved by an administrator.
+
+You can now log in using your registered email and password.
+
+Sincerely,
+The Training Manager Team

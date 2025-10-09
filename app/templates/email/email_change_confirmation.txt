@@ -1,0 +1,12 @@
+Dear {{ user.full_name }},
+
+You recently requested to change your email address for the Training Manager application.
+
+Please click on the following link to confirm your new email address:
+
+{{ url_for('profile.confirm_email', token=token, _external=True) }}
+
+If you did not request this change, please ignore this email.
+
+Sincerely,
+The Training Manager Team

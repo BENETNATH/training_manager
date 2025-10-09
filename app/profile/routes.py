@@ -1,87 +1,342 @@
 import os
 import io
 from flask import render_template, flash, redirect, url_for, current_app, request, send_file, abort, jsonify
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user, logout_user
 from werkzeug.utils import secure_filename
-import re
+from sqlalchemy import func
+import json
 from fpdf import FPDF
 from fpdf.html import HTMLMixin
-from fpdf.enums import TableBordersLayout
 from fpdf.fonts import FontFace
-from datetime import datetime, timedelta
-import json
-from sqlalchemy import func
-
-from app import db, mail, csrf
+from app import db
 from app.profile import bp
-from app.models import User, Competency, Skill, SkillPracticeEvent, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus, TrainingSession, ExternalTrainingSkillClaim, Species, tutor_skill_association
-from app.profile.forms import TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm, EditProfileForm
+from app.profile.forms import EditProfileForm, TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm, InitialRegulatoryTrainingForm, SubmitContinuousTrainingAttendanceForm, RequestContinuousTrainingEventForm
+from app.models import User, Skill, Competency, TrainingRequest, ExternalTraining, SkillPracticeEvent, Species, TrainingRequestStatus, ExternalTrainingStatus, ExternalTrainingSkillClaim, TrainingSession, tutor_skill_association, InitialRegulatoryTraining, ContinuousTrainingEvent, UserContinuousTraining, UserContinuousTrainingStatus, InitialRegulatoryTrainingLevel, ContinuousTrainingEventStatus, ContinuousTrainingType
+from app.decorators import permission_required
 
-class MyFPDF(FPDF, HTMLMixin):
-    pass
+# ... existing code ...
+
+@bp.route('/request_continuous_training_event', methods=['GET', 'POST'])
+@login_required
+@permission_required('self_request_continuous_training_event') # A new permission might be needed
+def request_continuous_training_event():
+    form = RequestContinuousTrainingEventForm()
+    if form.validate_on_submit():
+        attachment_path = None
+        if form.attachment.data:
+            filename = secure_filename(f"{current_user.id}_continuous_training_event_request_{datetime.utcnow().timestamp()}_{form.attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'continuous_training_events_requests')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attachment.data.save(os.path.join(upload_path, filename))
+            attachment_path = f"uploads/continuous_training_events_requests/{filename}"
+
+        new_event = ContinuousTrainingEvent(
+            title=form.title.data,
+            location=form.location.data,
+            training_type=ContinuousTrainingType[form.training_type.data],
+            event_date=form.event_date.data,
+            attachment_path=attachment_path,
+            description=form.notes.data, # Map notes to description
+            creator_id=current_user.id,
+            status=ContinuousTrainingEventStatus.PENDING,
+            duration_hours=0.0 # Set to 0.0 initially, to be updated by validator
+        )
+        db.session.add(new_event)
+        db.session.commit()
+
+        flash('Votre demande d\'événement de formation continue a été soumise pour validation !', 'success')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True, 'message': 'Votre demande d\'événement de formation continue a été soumise pour validation !', 'redirect_url': url_for('profile.user_profile', username=current_user.full_name)})
+        return redirect(url_for('profile.user_profile', username=current_user.full_name))
+    elif request.method == 'POST': # Validation failed for POST request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            form_html = render_template('profile/request_continuous_training_event.html', form=form)
+            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+
+    # For GET requests or non-AJAX POST with validation errors
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return render_template('profile/request_continuous_training_event.html', form=form)
+    return render_template('profile/request_continuous_training_event.html', title='Demander un Événement de Formation Continue', form=form)
+from app.email import send_email # Import send_email
+from flask import current_app # Import current_app
+from datetime import datetime, timedelta
 
 class PDFWithFooter(FPDF):
-    def __init__(self, *args, user_name, generation_date, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, orientation='P', unit='mm', format='A4', user_name="", generation_date=""):
+        super().__init__(orientation, unit, format)
         self.user_name = user_name
         self.generation_date = generation_date
 
     def footer(self):
-        # Go to 1.5 cm from bottom
         self.set_y(-15)
-        # Select Times italic 8
-        self.set_font("Times", "I", 8)
-        # Set text color to gray
-        self.set_text_color(128)
-        # Create the footer text
-        footer_text = f"{self.user_name} - Booklet extract date : {self.generation_date} - Page {self.page_no()}/{{nb}}"
-        # Print centered page number
-        self.cell(0, 10, footer_text, 0, 0, "C")
+        self.set_font('Times', 'I', 8)
+        footer_text = f'Booklet for {self.user_name} | Generated on {self.generation_date}'
+        self.cell(0, 10, footer_text, 0, 0, 'L')
+        self.cell(0, 10, 'Page ' + str(self.page_no()) + '/{nb}', 0, 0, 'R')
 
 
-@bp.route('/user/<username>')
+
+@bp.route('/submit_initial_regulatory_training', methods=['GET', 'POST'])
 @login_required
-def user_profile(username):
-    user = User.query.filter_by(full_name=username).first_or_404()
-    # Fetch competencies for the user, eager loading skill and species
-    competencies = Competency.query.filter_by(user_id=user.id).options(
-        db.joinedload(Competency.skill).joinedload(Skill.species)
-    ).all()
+@permission_required('self_edit_profile') # Users can manage their own initial training
+def submit_initial_regulatory_training():
+    form = InitialRegulatoryTrainingForm()
+    if form.validate_on_submit():
+        if current_user.initial_regulatory_training:
+            flash('Vous avez déjà enregistré une formation réglementaire initiale. Veuillez l\'éditer si nécessaire.', 'warning')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'Vous avez déjà enregistré une formation réglementaire initiale.'}), 409 # Conflict
+            return redirect(url_for('profile.edit_initial_regulatory_training'))
 
-    # Group competencies by skill for easier display
-    competencies_by_skill = defaultdict(list)
-    for comp in competencies:
-        competencies_by_skill[comp.skill].append(comp)
+        attachment_path = None
+        if form.attachment.data:
+            filename = secure_filename(f"{current_user.id}_initial_reg_training_{datetime.utcnow().timestamp()}_{form.attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'initial_regulatory_training')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attachment.data.save(os.path.join(upload_path, filename))
+            attachment_path = f"uploads/initial_regulatory_training/{filename}"
 
-    # Fetch training requests for the user
-    training_requests = TrainingRequest.query.filter_by(requester_id=user.id).order_by(TrainingRequest.request_date.desc()).all()
+        initial_training = InitialRegulatoryTraining(
+            user=current_user,
+            level=InitialRegulatoryTrainingLevel[form.level.data],
+            training_date=form.training_date.data,
+            attachment_path=attachment_path
+        )
+        db.session.add(initial_training)
+        db.session.commit()
+        flash('Formation réglementaire initiale enregistrée avec succès !', 'success')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True, 'message': 'Formation réglementaire initiale enregistrée avec succès !', 'redirect_url': url_for('profile.user_profile', username=current_user.full_name)})
+        return redirect(url_for('profile.user_profile', username=current_user.full_name))
+    elif request.method == 'POST': # Validation failed for POST request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Re-render the form with errors and return as JSON
+            form_html = render_template('profile/submit_initial_regulatory_training.html', form=form)
+            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+    
+    # For GET requests or non-AJAX POST with validation errors
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return render_template('profile/submit_initial_regulatory_training.html', form=form)
+    return render_template('profile/submit_initial_regulatory_training.html', title='Enregistrer Formation Initiale', form=form)
 
-    # Fetch external trainings for the user
-    external_trainings = ExternalTraining.query.filter_by(user_id=user.id).order_by(ExternalTraining.date.desc()).all()
+@bp.route('/edit_initial_regulatory_training', methods=['GET', 'POST'])
+@login_required
+@permission_required('self_edit_profile')
+def edit_initial_regulatory_training():
+    initial_training = current_user.initial_regulatory_training
+    if not initial_training:
+        flash('Aucune formation réglementaire initiale enregistrée. Veuillez en ajouter une.', 'info')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': 'Aucune formation réglementaire initiale enregistrée.'}), 404
+        return redirect(url_for('profile.submit_initial_regulatory_training'))
 
-    # Fetch skill practice events for the user
-    skill_practice_events = SkillPracticeEvent.query.filter_by(user_id=user.id).order_by(SkillPracticeEvent.practice_date.desc()).all()
+    form = InitialRegulatoryTrainingForm(obj=initial_training)
+    if form.validate_on_submit():
+        initial_training.level = InitialRegulatoryTrainingLevel[form.level.data]
+        initial_training.training_date = form.training_date.data
 
-    return render_template('profile/user_profile.html', user=user, competencies_by_skill=competencies_by_skill, training_requests=training_requests, external_trainings=external_trainings, skill_practice_events=skill_practice_events)
+        if form.attachment.data:
+            # Delete old attachment if exists
+            if initial_training.attachment_path:
+                old_path = os.path.join(current_app.root_path, 'static', initial_training.attachment_path)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            filename = secure_filename(f"{current_user.id}_initial_reg_training_{datetime.utcnow().timestamp()}_{form.attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'initial_regulatory_training')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attachment.data.save(os.path.join(upload_path, filename))
+            initial_training.attachment_path = f"uploads/initial_regulatory_training/{filename}"
+        
+        db.session.commit()
+        flash('Formation réglementaire initiale mise à jour avec succès !', 'success')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True, 'message': 'Formation réglementaire initiale mise à jour avec succès !', 'redirect_url': url_for('profile.user_profile', username=current_user.full_name)})
+        return redirect(url_for('profile.user_profile', username=current_user.full_name))
+    elif request.method == 'POST': # Validation failed for POST request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            form_html = render_template('profile/submit_initial_regulatory_training.html', form=form, initial_training=initial_training)
+            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+    elif request.method == 'GET':
+        form.level.data = initial_training.level.name
+        form.training_date.data = initial_training.training_date
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return render_template('profile/submit_initial_regulatory_training.html', form=form, initial_training=initial_training)
+    return render_template('profile/submit_initial_regulatory_training.html', title='Éditer Formation Initiale', form=form, initial_training=initial_training)
+
+@bp.route('/submit_continuous_training_attendance', methods=['GET', 'POST'])
+@login_required
+@permission_required('self_submit_continuous_training_attendance') # Use the new specific permission
+def submit_continuous_training_attendance():
+    form = SubmitContinuousTrainingAttendanceForm()
+
+    # Populate choices for the event field for server-side validation
+    approved_events = ContinuousTrainingEvent.query.filter_by(status=ContinuousTrainingEventStatus.APPROVED).order_by(ContinuousTrainingEvent.event_date.desc()).all()
+    form.event.choices = [(str(event.id), f"{event.title} ({event.event_date.strftime('%Y-%m-%d')}) - {event.location or 'N/A'}") for event in approved_events]
+
+    if form.validate_on_submit():
+        attendance_attachment_path = None
+        if form.attendance_attachment.data:
+            filename = secure_filename(f"{current_user.id}_continuous_training_attendance_{datetime.utcnow().timestamp()}_{form.attendance_attachment.data.filename}")
+            upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'continuous_training_attendance')
+            os.makedirs(upload_path, exist_ok=True)
+            form.attendance_attachment.data.save(os.path.join(upload_path, filename))
+            attendance_attachment_path = f"uploads/continuous_training_attendance/{filename}"
+
+        # Fetch the ContinuousTrainingEvent object using the ID from form.event.data
+        selected_event = ContinuousTrainingEvent.query.get(form.event.data)
+        if not selected_event:
+            flash('L\'événement de formation continue sélectionné est introuvable.', 'danger')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'success': False, 'message': 'L\'événement de formation continue sélectionné est introuvable.'}), 400
+            return redirect(url_for('profile.user_profile', username=current_user.full_name))
+
+        user_ct = UserContinuousTraining(
+            user=current_user,
+            event=selected_event,  # Pass the ContinuousTrainingEvent object
+            attendance_attachment_path=attendance_attachment_path,
+            status=UserContinuousTrainingStatus.PENDING
+        )
+        db.session.add(user_ct)
+        db.session.commit()
+        flash('Votre participation à la formation continue a été soumise pour validation !', 'success')
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True, 'message': 'Votre participation à la formation continue a été soumise pour validation !', 'redirect_url': url_for('profile.user_profile', username=current_user.full_name)})
+        return redirect(url_for('profile.user_profile', username=current_user.full_name))
+    elif request.method == 'POST': # Validation failed for POST request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            form_html = render_template('profile/submit_continuous_training_attendance.html', form=form)
+            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+
+    # For GET requests or non-AJAX POST with validation errors
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return render_template('profile/submit_continuous_training_attendance.html', form=form, ContinuousTrainingType=ContinuousTrainingType)
+    return render_template('profile/submit_continuous_training_attendance.html', title='Soumettre une Participation à une Formation Continue', form=form, ContinuousTrainingType=ContinuousTrainingType)
 
 @bp.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
+@permission_required('self_edit_profile')
 def edit_profile():
     form = EditProfileForm(original_email=current_user.email)
     if form.validate_on_submit():
+        # Handle password change
+        if form.password.data:
+            if not current_user.check_password(form.current_password.data):
+                flash('Incorrect current password.', 'danger')
+                return redirect(url_for('profile.edit_profile'))
+            current_user.set_password(form.password.data)
+            flash('Your password has been changed.', 'success')
+
+        # Handle email change
+        if form.new_email.data and form.new_email.data != current_user.email:
+            current_user.new_email = form.new_email.data
+            token = current_user.generate_email_confirmation_token()
+            db.session.commit()
+            send_email('[Training Manager] Confirm Your Email Change',
+                       sender=current_app.config['MAIL_USERNAME'],
+                       recipients=[current_user.new_email],
+                       text_body=render_template('email/email_change_confirmation.txt', user=current_user, token=token),
+                       html_body=render_template('email/email_change_confirmation.html', user=current_user, token=token))
+            flash('A confirmation email has been sent to your new email address. Please check your inbox to complete the change.', 'info')
+            return redirect(url_for('profile.user_profile', username=current_user.full_name))
+
         current_user.full_name = form.full_name.data
-        current_user.email = form.email.data
         current_user.study_level = form.study_level.data
         db.session.commit()
         flash('Your changes have been saved.', 'success')
         return redirect(url_for('profile.user_profile', username=current_user.full_name))
     elif request.method == 'GET':
         form.full_name.data = current_user.full_name
-        form.email.data = current_user.email
         form.study_level.data = current_user.study_level
     return render_template('profile/edit_profile.html', title='Edit Profile', form=form)
+
+@bp.route('/confirm_email/<token>')
+def confirm_email(token):
+    user = User.query.filter_by(email_confirmation_token=token).first()
+    if user and user.verify_email_confirmation_token(token):
+        user.email = user.new_email
+        user.new_email = None
+        user.email_confirmation_token = None
+        db.session.commit()
+        flash('Your email address has been updated!', 'success')
+        # Log out the user as their email (which is used for login) has changed
+        logout_user()
+        return redirect(url_for('auth.login'))
+    else:
+        flash('The email confirmation link is invalid or has expired.', 'danger')
+        return redirect(url_for('root.index'))
+
+@bp.route('/user/<username>')
+@login_required
+def user_profile(username):
+    user = User.query.filter_by(full_name=username).first_or_404()
+    db.session.refresh(user) # Refresh the user object to get latest data
+    if user.id != current_user.id and not current_user.can('user_manage'):
+        abort(403)
+    
+    # Get all competencies for the user
+    competencies = user.competencies
+
+    # Get all training paths assigned to the user
+    assigned_paths = user.assigned_training_paths
+
+    # Get all skills from the assigned training paths
+    required_skills = {skill_assoc.skill for path in assigned_paths for skill_assoc in path.skills_association}
+
+    # Get all skills the user is competent in
+    competent_skills = {comp.skill for comp in competencies}
+
+    # Determine the skills the user still needs to acquire
+    required_skills_todo = list(required_skills - competent_skills)
+
+    # Get pending training requests for the user
+    pending_training_requests_by_user = TrainingRequest.query.filter_by(requester_id=user.id, status=TrainingRequestStatus.PENDING).all()
+
+    # Get upcoming and completed training sessions for the user
+    now = datetime.utcnow()
+    upcoming_training_sessions_by_user = [sess for sess in user.attended_training_sessions if sess.start_time > now]
+    completed_training_sessions_by_user = [sess for sess in user.attended_training_sessions if sess.start_time <= now]
+
+    # Get initial regulatory training
+    initial_regulatory_training = user.initial_regulatory_training
+
+    # Get continuous training data
+    continuous_trainings_attended = user.continuous_trainings_attended.join(ContinuousTrainingEvent).filter(UserContinuousTraining.status == UserContinuousTrainingStatus.APPROVED).order_by(ContinuousTrainingEvent.event_date.desc()).all()
+    total_continuous_training_hours_6_years = user.total_continuous_training_hours_6_years
+    live_continuous_training_hours_6_years = user.live_continuous_training_hours_6_years
+    online_continuous_training_hours_6_years = user.online_continuous_training_hours_6_years
+    required_continuous_training_hours = user.required_continuous_training_hours
+    is_continuous_training_compliant = user.is_continuous_training_compliant
+    live_training_ratio = user.live_training_ratio
+    is_live_training_ratio_compliant = user.is_live_training_ratio_compliant
+    is_at_risk_next_year = user.is_at_risk_next_year
+    continuous_training_summary_by_year = user.continuous_training_summary_by_year
+
+    return render_template('profile/user_profile.html', 
+                           user=user, 
+                           competencies=competencies,
+                           required_skills_todo=required_skills_todo,
+                           pending_training_requests_by_user=pending_training_requests_by_user,
+                           upcoming_training_sessions_by_user=upcoming_training_sessions_by_user,
+                           completed_training_sessions_by_user=completed_training_sessions_by_user,
+                           initial_regulatory_training=initial_regulatory_training,
+                           continuous_trainings_attended=continuous_trainings_attended,
+                           total_continuous_training_hours_6_years=total_continuous_training_hours_6_years,
+                           live_continuous_training_hours_6_years=live_continuous_training_hours_6_years,
+                           online_continuous_training_hours_6_years=online_continuous_training_hours_6_years,
+                           required_continuous_training_hours=required_continuous_training_hours,
+                           is_continuous_training_compliant=is_continuous_training_compliant,
+                           live_training_ratio=live_training_ratio,
+                           is_live_training_ratio_compliant=is_live_training_ratio_compliant,
+                           is_at_risk_next_year=is_at_risk_next_year,
+                           continuous_training_summary_by_year=continuous_training_summary_by_year,
+                           datetime=datetime,
+                           timedelta=timedelta)
+
 @bp.route('/request-training', methods=['GET', 'POST'])
 @login_required
+@permission_required('self_submit_training_request')
 def submit_training_request():
     form = TrainingRequestForm()
 
@@ -203,6 +458,7 @@ def propose_skill():
 
 @bp.route('/submit-external-training', methods=['GET', 'POST'])
 @login_required
+@permission_required('self_submit_external_training')
 def submit_external_training():
     form = ExternalTrainingForm()
     if form.validate_on_submit():
@@ -252,6 +508,7 @@ def submit_external_training():
 
 @bp.route('/declare-practice', methods=['GET', 'POST'])
 @login_required
+@permission_required('self_declare_skill_practice')
 def declare_skill_practice():
     if request.method == 'POST':
         data = request.get_json()
@@ -349,11 +606,52 @@ def generate_api_key():
     flash(f"Your new API Key has been generated. Please store it securely, it will not be shown again: {new_key}", 'success')
     return redirect(url_for('profile.user_profile'))
 
+@bp.route('/api/continuous_training_events/search')
+@login_required
+def search_continuous_training_events():
+    query = request.args.get('q', '').strip()
+    event_type = request.args.get('type', '').strip()
+    event_date_str = request.args.get('date', '').strip()
+
+    events_query = ContinuousTrainingEvent.query.filter_by(status=ContinuousTrainingEventStatus.APPROVED)
+
+    if query:
+        events_query = events_query.filter(
+            (ContinuousTrainingEvent.title.ilike(f'%{query}%')) |
+            (ContinuousTrainingEvent.location.ilike(f'%{query}%'))
+        )
+    
+    if event_type:
+        try:
+            valid_type = ContinuousTrainingType[event_type.upper()]
+            events_query = events_query.filter_by(training_type=valid_type)
+        except KeyError:
+            pass
+
+    if event_date_str:
+        try:
+            search_date = datetime.strptime(event_date_str, '%Y-%m-%d').date()
+            events_query = events_query.filter(
+                db.func.date(ContinuousTrainingEvent.event_date) == search_date
+            )
+        except ValueError:
+            pass
+
+    events = events_query.order_by(ContinuousTrainingEvent.event_date.desc()).limit(20).all()
+
+    results = []
+    for event in events:
+        results.append({
+            'id': event.id,
+            'text': f"{event.title} ({event.event_date.strftime('%Y-%m-%d')}) - {event.location or 'N/A'}"
+        })
+    return jsonify({'results': results})
+
 @bp.route('/competency/<int:competency_id>/certificate.pdf')
 @login_required
 def generate_certificate(competency_id):
     comp = Competency.query.get_or_404(competency_id)
-    if comp.user_id != current_user.id and not current_user.is_admin:
+    if comp.user_id != current_user.id and not current_user.can('view_any_certificate'):
         abort(403)
 
     pdf = FPDF(orientation='L', unit='mm', format='A4') # Landscape A4
@@ -438,7 +736,7 @@ def generate_certificate(competency_id):
 @bp.route('/<int:user_id>/booklet.pdf')
 @login_required
 def generate_user_booklet_pdf(user_id):
-    if user_id != current_user.id and not current_user.is_admin:
+    if user_id != current_user.id and not current_user.can('view_any_booklet'):
         abort(403)
     user = User.query.get_or_404(user_id)
     
@@ -557,7 +855,7 @@ def generate_user_booklet_pdf(user_id):
 @login_required
 def delete_training_request(request_id):
     training_request = TrainingRequest.query.get_or_404(request_id)
-    if training_request.requester != current_user and not current_user.is_admin:
+    if training_request.requester != current_user and not current_user.can('training_request_manage'):
         abort(403)
     db.session.delete(training_request)
     db.session.commit()
@@ -573,7 +871,7 @@ def show_external_training(training_id):
     ).get_or_404(training_id)
 
     # Ensure the current user is either the owner of the external training or an admin
-    if external_training.user_id != current_user.id and not current_user.is_admin:
+    if external_training.user_id != current_user.id and not current_user.can('external_training_validate'):
         abort(403)
 
     return render_template('profile/view_external_training.html',

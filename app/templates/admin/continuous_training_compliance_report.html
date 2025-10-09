@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container">
+        <h1 class="mt-4">{{ title }}</h1>
+
+        {% if report_data %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Total Heures (6 ans)</th>
+                            <th>Heures Présentielles (6 ans)</th>
+                            <th>Heures En Ligne (6 ans)</th>
+                            <th>Heures Requises</th>
+                            <th>Conforme ?</th>
+                            <th>Ratio Présentiel</th>
+                            <th>Ratio Conforme ?</th>
+                            <th>À Risque Année Prochaine ?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in report_data %}
+                            <tr class="{% if not entry.is_compliant %}table-danger{% elif not entry.is_live_ratio_compliant %}table-warning{% elif entry.is_at_risk_next_year %}table-info{% endif %}">
+                                <td><a href="{{ url_for('profile.user_profile', username=entry.user.full_name) }}">{{ entry.user.full_name }}</a></td>
+                                <td>{{ "%.2f"|format(entry.total_hours) }}</td>
+                                <td>{{ "%.2f"|format(entry.live_hours) }}</td>
+                                <td>{{ "%.2f"|format(entry.online_hours) }}</td>
+                                <td>{{ "%.2f"|format(entry.required_hours) }}</td>
+                                <td>
+                                    {% if entry.is_compliant %}
+                                        <span class="badge badge-success">Oui</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">Non</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.2f"|format(entry.live_ratio * 100) }}%</td>
+                                <td>
+                                    {% if entry.is_live_ratio_compliant %}
+                                        <span class="badge badge-success">Oui</span>
+                                    {% else %}
+                                        <span class="badge badge-warning">Non</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if entry.is_at_risk_next_year %}
+                                        <span class="badge badge-info">Oui</span>
+                                    {% else %}
+                                        <span class="badge badge-success">Non</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>Aucune donnée de conformité de formation continue disponible.</p>
+        {% endif %}
+    </div>
+{% endblock %}

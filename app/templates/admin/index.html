@@ -22,6 +22,22 @@
         </div>
 
         <div class="col-lg-3 col-md-6 mb-4">
+            <a href="{{ url_for('admin.pending_users') }}" class="card border-left-primary shadow h-100 py-2 text-decoration-none">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Utilisateurs en Attente d'Approbation</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pending_user_approvals_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-4">
             <a href="{{ url_for('admin.tutor_less_skills_report') }}" class="card border-left-warning shadow h-100 py-2 text-decoration-none">
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
@@ -117,6 +133,59 @@
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-lightbulb fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-danger shadow">
+                <div class="card-body">
+                    <h5 class="card-title">Validations FC en Attente</h5>
+                    <p class="card-text display-4">{{ pending_continuous_training_validations_count }}</p>
+                    <a href="{{ url_for('admin.validate_continuous_trainings') }}" class="text-white stretched-link">Valider les présences</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-secondary shadow">
+                <div class="card-body">
+                    <h5 class="card-title">Demandes Événements FC en Attente</h5>
+                    <p class="card-text display-4">{{ pending_continuous_event_requests_count }}</p>
+                    <a href="{{ url_for('admin.manage_continuous_training_events') }}" class="text-white stretched-link">Gérer les événements</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- New card for Continuous Training Compliance Report -->
+        <div class="col-lg-3 col-md-6 mb-4">
+            <a href="{{ url_for('admin.continuous_training_compliance_report') }}" class="card border-left-primary shadow h-100 py-2 text-decoration-none">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Rapport Conformité FC</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800"><i class="fas fa-chart-line"></i></div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- New card for Managing Continuous Training Events -->
+        <div class="col-lg-3 col-md-6 mb-4">
+            <a href="{{ url_for('admin.manage_continuous_training_events') }}" class="card border-left-info shadow h-100 py-2 text-decoration-none">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Gérer Événements FC</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800"><i class="fas fa-calendar-plus"></i></div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
                         </div>
                     </div>
                 </div>

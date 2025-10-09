@@ -1,0 +1,12 @@
+Dear Administrator,
+
+A new user has registered on the Training Manager application and is awaiting your approval.
+
+User Details:
+Full Name: {{ user.full_name }}
+Email: {{ user.email }}
+
+Please log in to the administration panel to review and approve or reject this registration.
+
+Sincerely,
+The Training Manager Team

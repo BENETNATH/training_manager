@@ -1,0 +1,13 @@
+{% import "bootstrap/wtf.html" as wtf %}
+
+<div class="container-fluid">
+    <form action="" method="post" enctype="multipart/form-data" id="initial-regulatory-training-form">
+        {{ form.hidden_tag() }}
+        {{ wtf.form_field(form.level) }}
+        {{ wtf.form_field(form.training_date) }}
+        {{ wtf.form_field(form.attachment) }}
+        {% if initial_training and initial_training.attachment_path %}
+            <p>Attestation actuelle: <a href="{{ url_for('static', filename=initial_training.attachment_path) }}" target="_blank">Voir</a></p>
+        {% endif %}
+    </form>
+</div>

@@ -4,6 +4,7 @@ flask-migrate
 flask-login
 flask-babel
 flask-restx
+flask-bootstrap
 marshmallow
 psycopg2-binary
 PyMySQL
@@ -18,3 +19,4 @@ WTForms-SQLAlchemy
 email_validator
 Faker
 fpdf2
+requests

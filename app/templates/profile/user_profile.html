@@ -35,6 +35,15 @@
                 <button class="btn btn-info mb-2 action-btn" data-action-url="{{ url_for('profile.declare_skill_practice') }}" data-modal-title="Déclarer une Pratique" id="declare-practice-btn"><i class="fas fa-running"></i> Déclarer une Pratique</button>
                 <button class="btn btn-dark mb-2 action-btn" data-action-url="{{ url_for('profile.generate_user_booklet_pdf', user_id=user.id) }}" id="generate-booklet-btn"><i class="fas fa-file-pdf"></i> Livret PDF</button>
 
+                <!-- New buttons for Initial Regulatory Training and Continuous Training Attendance -->
+                {% if not initial_regulatory_training %}
+                <button class="btn btn-success mb-2 action-btn" data-action-url="{{ url_for('profile.submit_initial_regulatory_training') }}" data-modal-title="Enregistrer Formation Initiale" id="submit-initial-reg-training-btn"><i class="fas fa-graduation-cap"></i> Enregistrer Formation Initiale</button>
+                {% else %}
+                <button class="btn btn-warning mb-2 action-btn" data-action-url="{{ url_for('profile.edit_initial_regulatory_training') }}" data-modal-title="Éditer Formation Initiale" id="edit-initial-reg-training-btn"><i class="fas fa-edit"></i> Éditer Formation Initiale</button>
+                {% endif %}
+                <button class="btn btn-primary mb-2 action-btn" data-action-url="{{ url_for('profile.submit_continuous_training_attendance') }}" data-modal-title="Déclarer Présence Formation Continue" id="submit-continuous-training-attendance-btn"><i class="fas fa-calendar-check"></i> Déclarer Présence FC</button>
+                <button class="btn btn-secondary mb-2 action-btn" data-action-url="{{ url_for('profile.request_continuous_training_event') }}" data-modal-title="Demander un Événement de Formation Continue" id="request-continuous-training-event-btn"><i class="fas fa-calendar-plus"></i> Demander Événement FC</button>
+
                 <!-- Actions Secondaires (Menu déroulant) -->
                 <div class="btn-group mb-2">
                     <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -48,6 +57,107 @@
                     </ul>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Initial Regulatory Training Section -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white">Formation Réglementaire Initiale</div>
+        <div class="card-body">
+            {% if initial_regulatory_training %}
+                <p><strong>Niveau:</strong> {{ initial_regulatory_training.level.value }}</p>
+                <p><strong>Date de Formation:</strong> {{ initial_regulatory_training.training_date.strftime('%Y-%m-%d') }}</p>
+                {% if initial_regulatory_training.attachment_path %}
+                    <p><strong>Attestation:</strong> <a href="{{ url_for('static', filename=initial_regulatory_training.attachment_path) }}" target="_blank">Voir l'attestation</a></p>
+                {% else %}
+                    <p><strong>Attestation:</strong> Non fournie</p>
+                {% endif %}
+            {% else %}
+                <p>Aucune formation réglementaire initiale enregistrée.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Continuous Training Summary -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white">Formation Continue (Derniers {{ user.CONTINUOUS_TRAINING_YEARS_WINDOW }} ans)</div>
+        <div class="card-body">
+            <p><strong>Total Heures Validées:</strong> {{ "%.2f"|format(total_continuous_training_hours_6_years) }} / {{ "%.2f"|format(required_continuous_training_hours) }} heures requises</p>
+            <p><strong>Heures en Présentiel:</strong> {{ "%.2f"|format(live_continuous_training_hours_6_years) }} heures</p>
+            <p><strong>Heures en Ligne:</strong> {{ "%.2f"|format(online_continuous_training_hours_6_years) }} heures</p>
+            <p><strong>Ratio Présentiel:</strong> {{ "%.2f"|format(live_training_ratio * 100) }}% (Recommandé: {{ "%.0f"|format(user.MIN_LIVE_TRAINING_RATIO * 100) }}%)</p>
+
+            <p><strong>Statut de Conformité:</strong>
+                {% if is_continuous_training_compliant %}
+                    <span class="badge bg-success">Conforme</span>
+                {% else %}
+                    <span class="badge bg-danger">Non Conforme</span>
+                {% endif %}
+            </p>
+            <p><strong>Conformité Ratio Présentiel:</strong>
+                {% if is_live_training_ratio_compliant %}
+                    <span class="badge bg-success">Conforme</span>
+                {% else %}
+                    <span class="badge bg-warning">Non Conforme (Moins de {{ "%.0f"|format(user.MIN_LIVE_TRAINING_RATIO * 100) }}% en présentiel)</span>
+                {% endif %}
+            </p>
+            <p><strong>Risque pour l'année prochaine:</strong>
+                {% if is_at_risk_next_year %}
+                    <span class="badge bg-warning">À risque (Moins de 2.5 jours sur les 5 dernières années)</span>
+                {% else %}
+                    <span class="badge bg-info">Faible risque</span>
+                {% endif %}
+            </p>
+
+            <h5 class="mt-4">Détail par Année:</h5>
+            <ul class="list-group list-group-flush mb-3">
+                {% for year, hours in continuous_training_summary_by_year.items() %}
+                    <li class="list-group-item"><strong>{{ year }}:</strong> {{ "%.2f"|format(hours) }} heures</li>
+                {% endfor %}
+            </ul>
+
+            <h5 class="mt-4">Formations Continues Validées:</h5>
+            {% if continuous_trainings_attended %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Titre</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Heures Validées</th>
+                                <th scope="col">Attestation</th>
+                                <th scope="col">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ct in continuous_trainings_attended %}
+                                {% set six_years_ago = datetime.utcnow() - timedelta(days=user.CONTINUOUS_TRAINING_YEARS_WINDOW * 365.25) %}
+                                <tr class="{% if ct.event.event_date < six_years_ago %}table-secondary{% endif %}">
+                                    <td>{{ ct.event.title }}</td>
+                                    <td>{{ ct.event.event_date.strftime('%Y-%m-%d') }}
+                                        {% if ct.event.event_date < six_years_ago %}
+                                            <span class="badge bg-secondary ms-2">Archivé</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ ct.event.training_type.value }}</td>
+                                    <td>{{ "%.2f"|format(ct.validated_hours) }}</td>
+                                    <td>
+                                        {% if ct.attendance_attachment_path %}
+                                            <a href="{{ url_for('static', filename=ct.attendance_attachment_path) }}" target="_blank">Voir</a>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="badge bg-success">{{ ct.status.value }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Aucune formation continue validée pour le moment.</p>
+            {% endif %}
         </div>
     </div>
 
@@ -480,8 +590,6 @@ $(document).ready(function() {
 
                         if (!$sel.hasClass('level-select')) {
                             opts.minimumResultsForSearch = 0;
-                        } else {
-                            opts.minimumResultsForSearch = Infinity;
                         }
 
                         if ($sel.attr('id').includes('-skill')) {

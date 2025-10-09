@@ -1,9 +1,20 @@
 from flask_wtf import FlaskForm
-from wtforms import SubmitField, SelectMultipleField, TextAreaField, StringField, DateTimeLocalField, SelectField, BooleanField, FieldList, FormField
-from wtforms.validators import DataRequired, Optional, Length
+from wtforms import SubmitField, SelectMultipleField, TextAreaField, StringField, DateTimeLocalField, SelectField, BooleanField, FieldList, FormField, PasswordField # Added PasswordField, StringField, SelectField, SubmitField
+from wtforms.validators import DataRequired, Optional, Length, EqualTo, Email, ValidationError # Added EqualTo, Email, ValidationError
 from wtforms_sqlalchemy.fields import QuerySelectMultipleField, QuerySelectField
 from flask_wtf.file import FileField, FileAllowed
-from app.models import Skill, User, Species, ExternalTrainingSkillClaim # Added ExternalTrainingSkillClaim
+from app.models import Skill, User, Species, ExternalTrainingSkillClaim, InitialRegulatoryTrainingLevel, ContinuousTrainingEvent, ContinuousTrainingType # Added new models and enums, including ContinuousTrainingType
+
+# ... existing form definitions ...
+
+class RequestContinuousTrainingEventForm(FlaskForm):
+    title = StringField('Titre de l\'événement', validators=[DataRequired(), Length(min=2, max=255)])
+    location = StringField('Lieu', validators=[Optional(), Length(max=255)])
+    training_type = SelectField('Type de Formation', choices=[(tag.name, tag.value) for tag in ContinuousTrainingType], validators=[DataRequired()])
+    event_date = DateTimeLocalField('Date de l\'événement', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    attachment = FileField('Programme/Attestation (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), Optional()])
+    notes = TextAreaField('Notes additionnelles', validators=[Optional()], render_kw={"rows": 3})
+    submit = SubmitField('Soumettre la Demande d\'Événement')
 
 def get_skills():
     return Skill.query.order_by(Skill.name).all()
@@ -14,10 +25,24 @@ def get_species():
 def get_users():
     return User.query.order_by(User.full_name).all()
 
+def get_continuous_training_events():
+    return ContinuousTrainingEvent.query.order_by(ContinuousTrainingEvent.event_date.desc()).all()
+
 class TrainingRequestForm(FlaskForm):
     species = QuerySelectMultipleField('Species', query_factory=get_species, get_label='name', validators=[DataRequired()])
     skills_requested = QuerySelectMultipleField('Skills Requested', query_factory=get_skills, get_label='name', validators=[DataRequired()])
     submit = SubmitField('Submit Training Request')
+
+class InitialRegulatoryTrainingForm(FlaskForm):
+    level = SelectField('Niveau de Formation Réglementaire Initiale', choices=[(level.name, level.value) for level in InitialRegulatoryTrainingLevel], validators=[DataRequired()])
+    training_date = DateTimeLocalField('Date de la Formation', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    attachment = FileField('Attestation de Formation (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
+    submit = SubmitField('Enregistrer la Formation Initiale')
+
+class SubmitContinuousTrainingAttendanceForm(FlaskForm):
+    event = SelectField('Événement de Formation Continue', validators=[DataRequired()]) # Changed to SelectField
+    attendance_attachment = FileField('Attestation de Présence (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
+    submit = SubmitField('Déclarer ma Présence')
 
 class ExternalTrainingSkillClaimForm(FlaskForm):
     skill = QuerySelectField('Skill', query_factory=get_skills, get_label='name', validators=[DataRequired()])
@@ -47,19 +72,36 @@ class ExternalTrainingForm(FlaskForm):
 
 class EditProfileForm(FlaskForm):
     full_name = StringField('Full Name', validators=[DataRequired(), Length(min=2, max=120)])
-    email = StringField('Email', validators=[DataRequired(), Email()])
     study_level = SelectField('Study Level', choices=[('pre-BAC', 'pre-BAC')] + [(str(i), str(i)) for i in range(9)] + [('8+', '8+')], validators=[Optional()])
+    
+    # For email change
+    new_email = StringField('New Email', validators=[Optional(), Email()])
+
+    # For password change
+    current_password = PasswordField('Current Password', validators=[Optional()])
+    password = PasswordField('New Password', validators=[Optional(), Length(min=6)])
+    password2 = PasswordField(
+        'Repeat New Password', validators=[Optional(), EqualTo('password', message='Passwords must match.')])
+
     submit = SubmitField('Save Changes')
 
     def __init__(self, original_email=None, *args, **kwargs):
         super(EditProfileForm, self).__init__(*args, **kwargs)
         self.original_email = original_email
 
-    def validate_email(self, email):
-        if email.data != self.original_email:
-            user = User.query.filter_by(email=self.email.data).first()
+    def validate_new_email(self, new_email):
+        if new_email.data and new_email.data != self.original_email:
+            user = User.query.filter_by(email=new_email.data).first()
             if user:
                 raise ValidationError('That email is already registered. Please use a different email address.')
+
+    def validate_current_password(self, current_password):
+        # Only validate current password if a new password is provided
+        if self.password.data and not current_password.data:
+            raise ValidationError('Please enter your current password to change it.')
+        # If current password is provided, but no new password, it's also an error
+        if current_password.data and not self.password.data:
+            raise ValidationError('Please enter a new password if you provide your current password.')
 
 
 

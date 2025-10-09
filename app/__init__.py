@@ -8,6 +8,7 @@ from flask_babel import Babel, lazy_gettext as _l
 import os
 import importlib.resources
 from flask_mail import Mail
+from flask_bootstrap import Bootstrap # Import Flask-Bootstrap
 from dotenv import load_dotenv # Import load_dotenv
 
 db = SQLAlchemy()
@@ -18,6 +19,7 @@ login.login_view = 'auth.login'
 login.login_message = _l('Please log in to access this page.')
 babel = Babel()
 mail = Mail()
+bootstrap = Bootstrap() # Initialize Flask-Bootstrap
 
 from app.api import api # Import the api object from app.api
 from app.models import User # Import User model
@@ -58,6 +60,7 @@ def create_app(config_class=Config):
     csrf.init_app(app)
     babel.init_app(app, locale_selector=get_locale)
     mail.init_app(app)
+    bootstrap.init_app(app) # Initialize Flask-Bootstrap with the app
 
     from app.models import Skill # Import Skill model here
 
@@ -96,6 +99,24 @@ def create_app(config_class=Config):
     app.register_blueprint(api_bp, url_prefix='/api')
     csrf.exempt(api_bp)
 
+    with app.app_context():
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if not inspector.has_table("user"):
+            db.create_all()
+            print("Database tables created.")
+            # Initialize roles and permissions
+            from app.models import init_roles_and_permissions
+            init_roles_and_permissions()
+            print("Roles and permissions initialized.")
 
+        if User.query.first() is None:
+            admin_email = os.environ.get('ADMIN_EMAIL')
+            admin_password = os.environ.get('ADMIN_PASSWORD')
+            if admin_email and admin_password:
+                User.create_admin_user(admin_email, admin_password)
+                print("Admin user created.")
+            else:
+                print("Admin user not created. ADMIN_EMAIL and ADMIN_PASSWORD not set.")
 
     return app

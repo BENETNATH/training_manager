@@ -1,0 +1,13 @@
+{% import "bootstrap/wtf.html" as wtf %}
+
+<div class="container-fluid">
+    <form action="" method="post" enctype="multipart/form-data" id="request-continuous-training-event-form">
+        {{ form.hidden_tag() }}
+        {{ wtf.form_field(form.title) }}
+        {{ wtf.form_field(form.location) }}
+        {{ wtf.form_field(form.training_type) }}
+        {{ wtf.form_field(form.event_date) }}
+        {{ wtf.form_field(form.attachment) }}
+        {{ wtf.form_field(form.notes) }}
+    </form>
+</div>

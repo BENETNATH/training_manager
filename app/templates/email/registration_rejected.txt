@@ -1,0 +1,8 @@
+Dear {{ user.full_name }},
+
+We regret to inform you that your registration for the Training Manager application has been rejected by an administrator.
+
+If you believe this is a mistake or would like more information, please contact the administration.
+
+Sincerely,
+The Training Manager Team

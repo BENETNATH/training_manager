@@ -17,7 +17,7 @@
   <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container">
-        <a class="navbar-brand" href="{% if current_user.is_authenticated and current_user.is_admin %}{{ url_for('admin.index') }}{% elif current_user.is_authenticated %}{{ url_for('root.index') }}{% else %}{{ url_for('auth.login') }}{% endif %}">Training Manager</a>
+        <a class="navbar-brand" href="{% if current_user.is_authenticated and current_user.can('admin_access') %}{{ url_for('admin.index') }}{% elif current_user.is_authenticated %}{{ url_for('root.index') }}{% else %}{{ url_for('auth.login') }}{% endif %}">Training Manager</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
         </button>
@@ -31,23 +31,25 @@
               <a class="nav-link" href="{{ url_for('profile.skills_list') }}">Skills</a>
             </li>
 
-            {% if current_user.is_admin %}
+            {% if current_user.can('admin_access') %}
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 Admin
               </a>
               <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
-                <li><a class="dropdown-item" href="{{ url_for('admin.index') }}">Dashboard</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">Users</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin.manage_teams') }}">Teams</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin.manage_skills') }}">Skills</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin.manage_species') }}">Species</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin.manage_training_paths') }}">Training Paths</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('admin.manage_training_sessions') }}">Training Sessions</a></li>
+                {% if current_user.can('admin_access') %}<li><a class="dropdown-item" href="{{ url_for('admin.index') }}">Dashboard</a></li>{% endif %}
+                {% if current_user.can('user_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">Users</a></li>{% endif %}
+                {% if current_user.can('team_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_teams') }}">Teams</a></li>{% endif %}
+                {% if current_user.can('skill_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_skills') }}">Skills</a></li>{% endif %}
+                {% if current_user.can('species_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_species') }}">Species</a></li>{% endif %}
+                {% if current_user.can('training_path_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_training_paths') }}">Training Paths</a></li>{% endif %}
+                {% if current_user.can('training_session_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_training_sessions') }}">Training Sessions</a></li>{% endif %}
+                {% if current_user.can('role_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_roles') }}">Roles</a></li>{% endif %}
+                {% if current_user.can('permission_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_permissions') }}">Permissions</a></li>{% endif %}
               </ul>
             </li>
             {% endif %}
-            {% if current_user.teams_as_lead %}
+            {% if current_user.can('view_team_competencies') %}
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('team.team_competencies') }}">Team</a>
             </li>
@@ -60,6 +62,9 @@
               <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
             </li>
             {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('profile.edit_profile') }}">Edit Profile</a>
+            </li>
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
             </li>
