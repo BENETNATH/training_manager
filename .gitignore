@@ -212,4 +212,4 @@ GEMINI.md
 app/static/uploads/*
 *.out
 test_app_access*
-*.log?
+*.log.*
