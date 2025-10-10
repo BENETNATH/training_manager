@@ -11,7 +11,7 @@ from app.models import User
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('profile.user_profile'))
+        return redirect(url_for('dashboard.user_profile'))
     form = RegistrationForm()
     if form.validate_on_submit():
         user = User(full_name=form.full_name.data, email=form.email.data)
@@ -45,7 +45,7 @@ def login():
         if current_user.is_admin:
             return redirect(url_for('admin.index'))
         else:
-            return redirect(url_for('profile.user_profile', username=current_user.full_name))
+            return redirect(url_for('dashboard.user_profile', username=current_user.full_name))
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
@@ -61,7 +61,7 @@ def login():
             if current_user.is_admin:
                 next_page = url_for('admin.index')
             else:
-                next_page = url_for('profile.user_profile', username=current_user.full_name)
+                next_page = url_for('dashboard.user_profile', username=current_user.full_name)
         return redirect(next_page)
     return render_template('auth/login.html', title='Sign In', form=form)
 
@@ -71,6 +71,6 @@ def logout():
     if current_user.is_admin:
         redirect_url = url_for('admin.index')
     else:
-        redirect_url = url_for('profile.user_profile')
+        redirect_url = url_for('dashboard.user_profile')
     logout_user()
     return redirect(redirect_url)

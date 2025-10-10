@@ -37,10 +37,10 @@ class UserForm(FlaskForm):
     password = PasswordField('Password', validators=[Optional(), Length(min=6)])
     is_admin = BooleanField('Is Admin')
     study_level = SelectField('Study Level', choices=[('pre-BAC', 'pre-BAC')] + [(str(i), str(i)) for i in range(9)] + [('8+', '8+')], validators=[Optional()])
-    teams = QuerySelectMultipleField('Teams', query_factory=get_teams, get_label='name', allow_blank=True)
-    teams_as_lead = QuerySelectMultipleField('Led Teams', query_factory=get_teams, get_label='name', allow_blank=True)
-    assigned_training_paths = QuerySelectMultipleField('Assign Training Paths', query_factory=get_training_paths_with_species, get_label=get_training_path_label, allow_blank=True)
-    roles = QuerySelectMultipleField('Roles', query_factory=get_roles, get_label='name', allow_blank=True) # New field for roles
+    teams = QuerySelectMultipleField('Teams', query_factory=get_teams, get_label='name')
+    teams_as_lead = QuerySelectMultipleField('Led Teams', query_factory=get_teams, get_label='name')
+    assigned_training_paths = QuerySelectMultipleField('Assign Training Paths', query_factory=get_training_paths_with_species, get_label=get_training_path_label)
+    roles = QuerySelectMultipleField('Roles', query_factory=get_roles, get_label='name')
     submit = SubmitField('Save User')
 
     def __init__(self, original_email=None, *args, **kwargs):
@@ -55,8 +55,8 @@ class UserForm(FlaskForm):
 
 class TeamForm(FlaskForm):
     name = StringField('Team Name', validators=[DataRequired(), Length(min=2, max=64)])
-    members = QuerySelectMultipleField('Members', query_factory=get_users, get_label='full_name', allow_blank=True)
-    team_leads = QuerySelectMultipleField('Team Leads', query_factory=get_users, get_label='full_name', allow_blank=True)
+    members = QuerySelectMultipleField('Members', query_factory=get_users, get_label='full_name')
+    team_leads = QuerySelectMultipleField('Team Leads', query_factory=get_users, get_label='full_name')
     submit = SubmitField('Save Team')
 
     def __init__(self, original_name=None, *args, **kwargs):
@@ -92,7 +92,7 @@ class SkillForm(FlaskForm):
     protocol_attachment = FileField('Protocol Attachment', validators=[FileAllowed(['pdf', 'doc', 'docx'], 'PDF, DOC, DOCX only!')])
     training_videos_urls_text = TextAreaField('Training Videos URLs (comma-separated)', validators=[Optional()])
     potential_external_tutors_text = TextAreaField('Potential External Tutors (comma-separated)', validators=[Optional()])
-    species = QuerySelectMultipleField('Associated Species', query_factory=get_species, get_label='name', allow_blank=True)
+    species = QuerySelectMultipleField('Associated Species', query_factory=get_species, get_label='name')
     submit = SubmitField('Save Skill')
 
     def __init__(self, original_name=None, *args, **kwargs):
@@ -149,7 +149,7 @@ class TrainingValidationForm(FlaskForm):
 class RoleForm(FlaskForm):
     name = StringField('Role Name', validators=[DataRequired(), Length(min=2, max=64)])
     description = TextAreaField('Description', validators=[Optional()])
-    permissions = QuerySelectMultipleField('Permissions', query_factory=get_permissions, get_label='name', allow_blank=True)
+    permissions = QuerySelectMultipleField('Permissions', query_factory=get_permissions, get_label='name')
     submit = SubmitField('Save Role')
 
     def __init__(self, original_name=None, *args, **kwargs):
@@ -200,7 +200,7 @@ class ValidateUserContinuousTrainingEntryForm(FlaskForm):
     event_title = StringField('Événement', render_kw={'readonly': True})
     event_date = StringField("Date de l'événement", render_kw={'readonly': True})
     attendance_attachment_path = HiddenField()
-    validated_hours = IntegerField('Heures Validées', validators=[DataRequired(), NumberRange(min=0)])
+    validated_hours = FloatField('Heures Validées', validators=[DataRequired(), NumberRange(min=0)])
     status = SelectField('Statut', choices=[(s.name, s.value) for s in UserContinuousTrainingStatus], validators=[DataRequired()])
     submit = SubmitField('Valider')
 

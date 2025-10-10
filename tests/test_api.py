@@ -351,7 +351,7 @@ def test_submit_training_request_new(client):
     response = client.post('/profile/request-training', data=data, follow_redirects=True)
     assert response.status_code == 200 # After redirect
     # Check for a success message in the response data
-    assert b'Request for &#39;New Skill for Request&#39; on &#39;New Species for Request&#39; created.' in response.data
+    assert b'Request for "New Skill for Request" on "New Species for Request" created.' in response.data
     
     request = TrainingRequest.query.filter_by(requester_id=user.id).first()
     assert request is not None
@@ -381,7 +381,7 @@ def test_submit_training_request_duplicate(client):
     }
     response = client.post('/profile/request-training', data=data, follow_redirects=True)
     assert response.status_code == 200
-    assert f"Request for &#39;{skill.name}&#39; on &#39;{species.name}&#39; already exists and is pending.".encode('utf-8') in response.data
+    assert f"Request for "{skill.name}" on "{species.name}" already exists and is pending.".encode('utf-8') in response.data
 
     # Check that a new request was not created
     requests = TrainingRequest.query.filter_by(requester_id=user.id).all()
@@ -411,7 +411,7 @@ def test_submit_training_request_update_species(client):
     }
     response = client.post('/profile/request-training', data=data, follow_redirects=True)
     assert response.status_code == 200
-    assert f"Request for &#39;{skill.name}&#39; on &#39;{species2.name}&#39; created.".encode('utf-8') in response.data
+    assert f"Request for "{skill.name}" on "{species2.name}" created.".encode('utf-8') in response.data
 
     # Check that a new request was created, as the logic creates a new one per species
     requests = TrainingRequest.query.filter_by(requester_id=user.id).all()

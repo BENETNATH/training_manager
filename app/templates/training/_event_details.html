@@ -1,0 +1,18 @@
+<div class="container-fluid">
+    <h5 class="mb-3">Détails de l'Événement de Formation Continue</h5>
+    {% if event %}
+        <p><strong>Titre:</strong> {{ event.title }}</p>
+        <p><strong>Type:</strong> {{ event.training_type.value }}</p>
+        <p><strong>Date:</strong> {{ event.event_date.strftime('%Y-%m-%d %H:%M') }}</p>
+        <p><strong>Lieu:</strong> {{ event.location or 'N/A' }}</p>
+        <p><strong>Durée (heures):</strong> {{ "%.2f"|format(event.duration_hours) }}</p>
+        <p><strong>Description:</strong> {{ event.description or 'N/A' }}</p>
+        {% if event.attachment_path %}
+            <p><strong>Programme:</strong> <a href="{{ url_for('static', filename=event.attachment_path) }}" target="_blank">Voir <i class="fas fa-paperclip"></i></a></p>
+        {% endif %}
+        <p><strong>Créé par:</strong> {{ event.creator.full_name }}</p>
+        <p><strong>Statut:</strong> <span class="badge bg-{{ 'success' if event.status == ContinuousTrainingEventStatus.APPROVED else 'warning' }}">{{ event.status.value }}</span></p>
+    {% else %}
+        <p>Aucun détail d'événement disponible.</p>
+    {% endif %}
+</div>

@@ -1,125 +1,83 @@
-{% if form.errors %}
-    <div class="alert alert-danger">
-        {% for field, error_list in form.errors.items() %}
-            {% for error in error_list %}
-                <span>{{ error }}</span><br>
+<div class="modal-body">
+    <form id="external-training-form" method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.external_trainer_name.label(class="form-label") }}
+            {{ form.external_trainer_name(class="form-control") }}
+            {% for error in form.external_trainer_name.errors %}
+                <span class="text-danger">{{ error }}</span>
             {% endfor %}
-        {% endfor %}
-    </div>
-{% endif %}
+        </div>
+        <div class="mb-3">
+            {{ form.date.label(class="form-label") }}
+            {{ form.date(class="form-control") }}
+            {% for error in form.date.errors %}
+                <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
 
-    <div class="mb-3">
-        {{ form.external_trainer_name.label(class="form-label") }}
-        {{ form.external_trainer_name(class="form-control") }}
-        {% if form.external_trainer_name.errors %}
-            <div class="alert alert-danger mt-1">
-                {% for error in form.external_trainer_name.errors %}
-                    <span>{{ error }}</span>
-                {% endfor %}
-            </div>
-        {% endif %}
-    </div>
-
-
-    <div class="mb-3">
-        {{ form.date.label(class="form-label") }}
-        {{ form.date(class="form-control") }}
-        {% if form.date.errors %}
-            <div class="alert alert-danger mt-1">
-                {% for error in form.date.errors %}
-                    <span>{{ error }}</span>
-                {% endfor %}
-            </div>
-        {% endif %}
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Skills Claimed</label>
+        <h5 class="mt-4">Compétences Acquises</h5>
         <div id="skill-claims-container">
-            {% for skill_claim_entry in form.skill_claims %}
+            {% for skill_claim_form in form.skill_claims %}
                 <div class="card mb-2 p-2 skill-claim-entry">
                     <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
-                        <h6 class="mb-0">Skill Claim #<span class="skill-claim-number">{{ loop.index }}</span></h6>
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Remove</button>
+                        <h6 class="mb-0">Compétence #<span class="skill-claim-number">{{ loop.index }}</span></h6>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Supprimer</button>
                     </div>
                     <div class="card-body p-2">
                         <div class="row g-2">
                             <div class="col-12">
-                                {{ skill_claim_entry.skill.label(class="form-label visually-hidden") }}
-                                {{ skill_claim_entry.skill(class="form-control form-control-sm", placeholder="Select Skill") }}
-                                {% if skill_claim_entry.skill.errors %}
-                                    <div class="alert alert-danger mt-1">
-                                        {% for error in skill_claim_entry.skill.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+                                {{ skill_claim_form.skill.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_form.skill(class="form-control form-control-sm") }}
+                                {% for error in skill_claim_form.skill.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
                             </div>
                             <div class="col-md-3 mt-2">
-                                {{ skill_claim_entry.species_claimed.label(class="form-label visually-hidden") }}
-                                {{ skill_claim_entry.species_claimed(class="form-control form-control-sm species-select", multiple="multiple",
-       placeholder="Select Species") }}
-                                {% if skill_claim_entry.species_claimed.errors %}
-                                    <div class="alert alert-danger mt-1">
-                                        {% for error in skill_claim_entry.species_claimed.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+                                {{ skill_claim_form.species_claimed.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_form.species_claimed(class="form-control form-control-sm species-select", multiple="multiple") }}
+                                {% for error in skill_claim_form.species_claimed.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
                             </div>
                             <div class="col-md-3 mt-2">
-                                {{ skill_claim_entry.level.label(class="form-label visually-hidden") }}
-                                {{ skill_claim_entry.level(class="form-control form-control-sm level-select", placeholder="Level") }}
-                                {% if skill_claim_entry.level.errors %}
-                                    <div class="alert alert-danger mt-1">
-                                        {% for error in skill_claim_entry.level.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+                                {{ skill_claim_form.level.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_form.level(class="form-control form-control-sm level-select") }}
+                                {% for error in skill_claim_form.level.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
                             </div>
                             <div class="col-md-3 mt-2">
-                                {{ skill_claim_entry.practice_date.label(class="form-label visually-hidden") }}
-                                {{ skill_claim_entry.practice_date(class="form-control form-control-sm", placeholder="Last Practice Date") }}
-                                {% if skill_claim_entry.practice_date.errors %}
-                                    <div class="alert alert-danger mt-1">
-                                        {% for error in skill_claim_entry.practice_date.errors %}
-                                            <span>{{ error }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+                                {{ skill_claim_form.practice_date.label(class="form-label visually-hidden") }}
+                                {{ skill_claim_form.practice_date(class="form-control form-control-sm") }}
+                                {% for error in skill_claim_form.practice_date.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
                             </div>
                             <div class="col-md-3 mt-2 d-flex align-items-end">
                                 <div class="form-check form-switch">
-                                    {{ skill_claim_entry.wants_to_be_tutor(class="form-check-input tutor-checkbox") }}
-                                    {{ skill_claim_entry.wants_to_be_tutor.label(class="form-check-label") }}
-                                    {% if skill_claim_entry.wants_to_be_tutor.errors %}
-                                        <div class="alert alert-danger mt-1">
-                                            {% for error in skill_claim_entry.wants_to_be_tutor.errors %}
-                                                <span>{{ error }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
+                                    {{ skill_claim_form.wants_to_be_tutor(class="form-check-input tutor-checkbox") }}
+                                    {{ skill_claim_form.wants_to_be_tutor.label(class="form-check-label") }}
+                                    {% for error in skill_claim_form.wants_to_be_tutor.errors %}
+                                        <span class="text-danger">{{ error }}</span>
+                                    {% endfor %}
                                 </div>
-                            </div>                        </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             {% endfor %}
         </div>
-        <button type="button" class="btn btn-primary mt-2" id="add-skill-claim">Add Another Skill</button>
-    </div>
+        <button type="button" class="btn btn-primary mt-2" id="add-skill-claim">Ajouter une autre compétence</button>
 
-    <div class="mb-3">
-        {{ form.attachment.label(class="form-label") }}
-        {{ form.attachment(class="form-control") }}
-        {% if form.attachment.errors %}
-            <div class="alert alert-danger mt-1">
-                {% for error in form.attachment.errors %}
-                    <span>{{ error }}</span>
-                {% endfor %}
-            </div>
-        {% endif %}
-    </div>
-
-    <input type="hidden" id="all-skills-data" value="{{ all_skills_json | e }}">
-    <input type="hidden" id="all-species-data" value="{{ all_species_json | e }}">
+        <div class="mb-3 mt-4">
+            {{ form.attachment.label(class="form-label") }}
+            {{ form.attachment(class="form-control") }}
+            {% for error in form.attachment.errors %}
+                <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
+        <input type="hidden" id="all-skills-data" value="{{ all_skills_json }}">
+        <input type="hidden" id="all-species-data" value="{{ all_species_json }}">
+    </form>
+</div>

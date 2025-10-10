@@ -14,7 +14,7 @@ def team_competencies():
 
     if not led_teams:
         flash('You are not currently leading any teams.', 'warning')
-        return redirect(url_for('profile.user_profile', username=current_user.full_name))
+        return redirect(url_for('dashboard.user_profile', username=current_user.full_name))
 
     all_skills = Skill.query.order_by(Skill.name).all()
     

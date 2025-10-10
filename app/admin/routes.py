@@ -23,8 +23,66 @@ from app.email import send_email # Import send_email
 @login_required
 @permission_required('continuous_training_manage')
 def manage_continuous_training_events():
-    events = ContinuousTrainingEvent.query.order_by(ContinuousTrainingEvent.event_date.desc()).all()
-    return render_template('admin/manage_continuous_training_events.html', title='Gérer les Événements de Formation Continue', events=events)
+    status_filter = request.args.get('status', '', type=str)
+    
+    query = db.session.query(
+        ContinuousTrainingEvent,
+        func.count(case((UserContinuousTraining.status == UserContinuousTrainingStatus.APPROVED, UserContinuousTraining.id), else_=None)).label('approved_attendees_count')
+    ).outerjoin(UserContinuousTraining, ContinuousTrainingEvent.id == UserContinuousTraining.event_id)
+
+    if status_filter:
+        query = query.filter(ContinuousTrainingEvent.status == ContinuousTrainingEventStatus[status_filter])
+
+    events_with_attendee_count = query.group_by(ContinuousTrainingEvent.id).order_by(ContinuousTrainingEvent.event_date.desc()).all()
+    
+    statuses = [s.name for s in ContinuousTrainingEventStatus]
+    
+    return render_template('admin/manage_continuous_training_events.html', 
+                           title='Gérer les Événements de Formation Continue', 
+                           events=events_with_attendee_count, # Pass events with attendee count
+                           statuses=statuses,
+                           current_status=status_filter)
+
+@bp.route('/continuous_training_events/<int:event_id>/attendees')
+@login_required
+@permission_required('continuous_training_manage')
+def get_continuous_training_event_attendees(event_id):
+    event = ContinuousTrainingEvent.query.get_or_404(event_id)
+    attendees = []
+    for user_ct in event.user_attendances.filter_by(status=UserContinuousTrainingStatus.APPROVED).all():
+        attendees.append({
+            'id': user_ct.user.id,
+            'full_name': user_ct.user.full_name,
+            'email': user_ct.user.email,
+            'validated_hours': user_ct.validated_hours
+        })
+    return jsonify(attendees)
+
+@bp.route('/continuous_training_events/validate_quick/<int:event_id>', methods=['POST'])
+@login_required
+@permission_required('continuous_training_manage') # Assuming this permission allows validation
+def validate_quick_continuous_training_event(event_id):
+    event = ContinuousTrainingEvent.query.get_or_404(event_id)
+
+    # Check if all required info is present
+    # Required fields: title, training_type, event_date, duration_hours
+    if event.title and event.training_type and event.event_date and event.duration_hours is not None: # Check for None for duration_hours
+        event.status = ContinuousTrainingEventStatus.APPROVED
+        event.validator = current_user
+        db.session.add(event)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Event approved successfully!'})
+    else:
+        return jsonify({'success': False, 'message': 'Missing information, please edit the event.', 'redirect_to_edit': url_for('admin.edit_continuous_training_event', event_id=event.id)})
+
+@bp.route('/continuous_training_events/<int:event_id>/remove_attendee/<int:user_id>', methods=['POST'])
+@login_required
+@permission_required('continuous_training_manage') # Assuming this permission allows managing attendees
+def remove_continuous_training_attendee(event_id, user_id):
+    user_ct = UserContinuousTraining.query.filter_by(event_id=event_id, user_id=user_id).first_or_404()
+    db.session.delete(user_ct)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Attendee removed successfully!'})
 
 @bp.route('/continuous_training_events/add', methods=['GET', 'POST'])
 @login_required
@@ -282,12 +340,19 @@ def single_validate_continuous_training(user_ct_id):
 @login_required
 @permission_required('continuous_training_validate')
 def reject_continuous_training(user_ct_id):
+    print(f"Rejecting user_ct_id: {user_ct_id}")
     user_ct = UserContinuousTraining.query.get_or_404(user_ct_id)
+    print(f"UserContinuousTraining found: {user_ct}")
     user_ct.status = UserContinuousTrainingStatus.REJECTED
     user_ct.validated_by = current_user
     user_ct.validation_date = datetime.utcnow()
     db.session.add(user_ct)
     db.session.commit()
+    print(f"UserContinuousTraining {user_ct_id} status updated to REJECTED")
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        print("Returning JSON response")
+        return jsonify({'success': True, 'message': 'Continuous training rejected successfully!'})
+    print("Returning redirect response")
     flash('Formation continue rejetée avec succès !', 'info')
     return redirect(url_for('admin.validate_continuous_trainings'))
 
@@ -334,10 +399,35 @@ def index():
         db.joinedload(TrainingRequest.requester),
         db.joinedload(TrainingRequest.skills_requested),
         db.joinedload(TrainingRequest.species_requested)
-    ).filter_by(status=TrainingRequestStatus.PENDING).all()
+    )
     teams = Team.query.all()
 
-    return render_template('admin/index.html',
+    all_continuous_events = (db.session.query(
+        ContinuousTrainingEvent,
+        func.count(case((UserContinuousTraining.status == UserContinuousTrainingStatus.APPROVED, UserContinuousTraining.id), else_=None)).label('approved_attendees_count')
+    )
+    .outerjoin(UserContinuousTraining, ContinuousTrainingEvent.id == UserContinuousTraining.event_id)
+    .group_by(ContinuousTrainingEvent.id)
+    .order_by(ContinuousTrainingEvent.event_date.desc())
+    .all())
+
+    # Data for the validation table
+    validation_form = BatchValidateUserContinuousTrainingForm()
+    pending_user_cts = UserContinuousTraining.query.filter_by(status=UserContinuousTrainingStatus.PENDING).all()
+    
+    for user_ct in pending_user_cts:
+        entry_form = ValidateUserContinuousTrainingEntryForm()
+        entry_form.user_ct_id = user_ct.id
+        entry_form.user_full_name = user_ct.user.full_name
+        entry_form.event_title = user_ct.event.title
+        entry_form.event_date = user_ct.event.event_date.strftime('%Y-%m-%d')
+        entry_form.attendance_attachment_path = user_ct.attendance_attachment_path
+        entry_form.validated_hours = user_ct.event.duration_hours
+        entry_form.status = user_ct.status.name # Set the current status
+        validation_form.entries.append_entry(entry_form)
+
+
+    return render_template('admin/admin_dashboard.html',
                            title='Admin Dashboard',
                            pending_requests_count=pending_requests_count,
                            pending_external_trainings_count=pending_external_trainings_count,
@@ -354,15 +444,11 @@ def index():
                            pending_training_requests=pending_training_requests,
                            users_needing_recycling=users_needing_recycling,
                            teams=teams,
-                           recycling_map=recycling_map)
+                           recycling_map=recycling_map,
+                           all_continuous_events=all_continuous_events,
+                           validation_form=validation_form,
+                           pending_user_cts=pending_user_cts)
 
-# User Management
-@bp.route('/users')
-@login_required
-@permission_required('user_manage')
-def manage_users():
-    users = User.query.all()
-    return render_template('admin/manage_users.html', title='Manage Users', users=users)
 
 @bp.route('/pending_users')
 @login_required
@@ -387,10 +473,8 @@ def approve_user(user_id):
     send_email('[Training Manager] Account Approved',
                sender=current_app.config['MAIL_USERNAME'],
                recipients=[user.email],
-               text_body=render_template('email/registration_approved.txt', user=user),
-               html_body=render_template('email/registration_approved.html', user=user))
-
-    return redirect(url_for('admin.pending_users'))
+               text_body=render_template('email/registration_approved.txt', user=user)),
+    return redirect(url_for('admin.edit_user', id=user_id))
 
 @bp.route('/reject_user/<int:user_id>', methods=['POST'])
 @login_required
@@ -408,7 +492,7 @@ def reject_user(user_id):
                text_body=render_template('email/registration_rejected.txt', user=user),
                html_body=render_template('email/registration_rejected.html', user=user))
 
-    return redirect(url_for('admin.pending_users'))
+    return redirect(url_for('admin.edit_user', id=user_id))
 
 @bp.route('/teams')
 @login_required
@@ -830,8 +914,9 @@ def manage_skills():
         skills_query = skills_query.having(func.count(func.distinct(case(((Competency.needs_recycling == True), Competency.user_id), else_=None))) > 0)
 
     skills_data = skills_query.order_by(Skill.name).all()
+    form = ImportForm() # Instantiate the form
 
-    return render_template('admin/manage_skills.html', title='Manage Skills', skills_data=skills_data, needs_recycling=needs_recycling, skill_name=skill_name)
+    return render_template('admin/import_export_skills.html', title='Manage Skills', skills_data=skills_data, needs_recycling=needs_recycling, skill_name=skill_name, form=form)
 
 @bp.route('/api/skills')
 @login_required
@@ -2086,19 +2171,4 @@ def get_training_path_skills(path_id):
             'description': tps.skill.description,
             'species': training_path.species.name # Use the species from TrainingPath
         })
-    return jsonify(skills_data)
-
-@bp.route('/api/skills_by_species/<int:species_id>')
-@login_required
-@permission_required('skill_manage') # Assuming this API is used for skill management
-def get_skills_by_species(species_id):
-    species = Species.query.get_or_404(species_id)
-    query = Skill.query.filter(Skill.species.any(id=species.id))
-
-    search = request.args.get('q', '')
-    if search:
-        query = query.filter(Skill.name.ilike(f'%{search}%'))
-
-    skills = query.order_by(Skill.name).all()
-    skills_data = [{'id': s.id, 'text': s.name} for s in skills]
     return jsonify(skills_data)

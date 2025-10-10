@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 from app import db, mail
 from app.training import bp
 from app.training.forms import TrainingSessionForm
-from app.models import TrainingRequest, TrainingRequestStatus, TrainingSession, Competency
+from app.models import TrainingRequest, TrainingRequestStatus, TrainingSession, Competency, ContinuousTrainingEvent, ContinuousTrainingEventStatus
 from app.decorators import permission_required
 from flask_mail import Message
 from ics import Calendar, Event
@@ -66,12 +66,24 @@ def _create_session_object_from_form(form):
 def _handle_session_attachment(form, session):
     """Helper to manage file uploads for a TrainingSession."""
     if form.attachment.data:
-        filename = secure_filename(form.attachment.data.filename)
-        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'training_sessions')
+        content_type = "training_session"
+        current_utc = datetime.utcnow()
+        year = current_utc.year
+        month = current_utc.month
+        # Assuming the creator of the session is the current_user
+        user_id = current_user.id
+        session_title_slug = secure_filename(session.title.lower().replace(' ', '_'))[:50] # Slugify title, limit length
+        timestamp = int(current_utc.timestamp())
+        original_filename = secure_filename(form.attachment.data.filename)
+        file_extension = os.path.splitext(original_filename)[1]
+
+        upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', content_type, str(year), str(month), str(user_id))
         os.makedirs(upload_folder, exist_ok=True)
-        file_path = os.path.join(upload_folder, filename)
+
+        new_filename = f"{user_id}_{content_type}_{session_title_slug}_{timestamp}{file_extension}"
+        file_path = os.path.join(upload_folder, new_filename)
         form.attachment.data.save(file_path)
-        session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
+        session.attachment_path = os.path.join('uploads', content_type, str(year), str(month), str(user_id), new_filename)
 
 def _create_session_competencies(session):
     """Helper to create competency records for attendees of a TrainingSession."""
@@ -226,12 +238,23 @@ def create_session_from_requests():
             )
 
             if form.attachment.data:
-                filename = secure_filename(form.attachment.data.filename)
-                upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'training_sessions')
+                content_type = "training_session"
+                current_utc = datetime.utcnow()
+                year = current_utc.year
+                month = current_utc.month
+                user_id = current_user.id # Assuming the creator of the session is the current_user
+                session_title_slug = secure_filename(session.title.lower().replace(' ', '_'))[:50] # Slugify title, limit length
+                timestamp = int(current_utc.timestamp())
+                original_filename = secure_filename(form.attachment.data.filename)
+                file_extension = os.path.splitext(original_filename)[1]
+
+                upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', content_type, str(year), str(month), str(user_id))
                 os.makedirs(upload_folder, exist_ok=True)
-                file_path = os.path.join(upload_folder, filename)
+
+                new_filename = f"{user_id}_{content_type}_{session_title_slug}_{timestamp}{file_extension}"
+                file_path = os.path.join(upload_folder, new_filename)
                 form.attachment.data.save(file_path)
-                session.attachment_path = os.path.join('uploads', 'training_sessions', filename)
+                session.attachment_path = os.path.join('uploads', content_type, str(year), str(month), str(user_id), new_filename)
 
             session.attendees = form.attendees.data
             session.skills_covered = form.skills_covered.data
@@ -328,3 +351,14 @@ def create_session_from_requests():
 
 # Placeholder for actual email templates
 # I will create these later if needed, for now, they are just referenced.
+
+@bp.route('/event/<int:event_id>/details')
+@login_required
+def show_continuous_training_event_details(event_id):
+    """
+    Provides the details for a continuous training event,
+    intended to be loaded into a modal.
+    """
+    event = ContinuousTrainingEvent.query.get_or_404(event_id)
+    # Any user can view the details of an approved event
+    return render_template('training/_event_details.html', event=event, ContinuousTrainingEventStatus=ContinuousTrainingEventStatus)

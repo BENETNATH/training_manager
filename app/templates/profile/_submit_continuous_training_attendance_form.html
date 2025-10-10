@@ -1,0 +1,31 @@
+<form method="POST" enctype="multipart/form-data" id="modal-action-form" action="{{ url_for('dashboard.submit_continuous_training_attendance') }}">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.event.label(class="form-label") }}
+        {{ form.event(class="form-control") }}
+        {% for error in form.event.errors %}
+            <span class="text-danger">{{ error }}</span>
+        {% endfor %}
+    </div>
+    <div class="mb-3">
+        {{ form.attendance_attachment.label(class="form-label") }}
+        {{ form.attendance_attachment(class="form-control") }}
+        {% for error in form.attendance_attachment.errors %}
+            <span class="text-danger">{{ error }}</span>
+        {% endfor %}
+    </div>
+</form>
+<hr>
+<p>Can't find your event?</p>
+<button type="button" class="btn btn-outline-primary action-btn" data-action-url="{{ url_for('dashboard.request_continuous_training_event') }}" data-modal-title="Request a Continuous Training Event"><i class="fas fa-plus-circle"></i> Request Event Creation</button>
+
+<script>
+    $(document).ready(function() {
+        $('#event').select2({
+            placeholder: "Select an event",
+            allowClear: true,
+            width: '100%',
+            dropdownParent: $('#action-modal') // Ensure Select2 dropdown renders correctly in modal
+        });
+    });
+</script>

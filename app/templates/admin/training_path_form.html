@@ -95,9 +95,9 @@ $(document).ready(function() {
             url: function() {
                 const selectedSpeciesId = speciesSelect.val();
                 if (selectedSpeciesId) {
-                    return "{{ url_for('admin.get_skills_by_species', species_id=0) }}".replace('0', selectedSpeciesId);
+                    return `/api/species/${selectedSpeciesId}/skills`;
                 } else {
-                    return "{{ url_for('admin.api_skills') }}"; // Fallback to all skills if no species selected
+                    return "{{ url_for('api.skills_skill_list_resource') }}";
                 }
             },
             dataType: 'json',
@@ -129,7 +129,7 @@ $(document).ready(function() {
         }
 
         // Update the URL for skillSelect's AJAX calls
-        skillSelectData.options.set('ajax.url', "{{ url_for('admin.get_skills_by_species', species_id=0) }}".replace('0', speciesId));
+        skillSelectData.options.set('ajax.url', `/api/species/${speciesId}/skills`);
         
         // Clear current selection and options, then trigger a re-fetch
         skillSelect.val(null).trigger('change'); // Clear selected value

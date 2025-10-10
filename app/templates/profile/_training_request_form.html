@@ -1,107 +1,29 @@
-{{ form.hidden_tag() }}
-{{ form.hidden_tag() }}
-
-<div class="mb-3">
-    {{ form.species.label(class="form-label") }}
-    {{ form.species(class="form-control", id="species-select") }}
-    {% if form.species.errors %}
-        <div class="alert alert-danger mt-1">
+<div class="modal-body">
+    <form id="training-request-form" method="POST">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.species.label(class="form-label") }}
+            {{ form.species(class="form-control") }}
             {% for error in form.species.errors %}
-                <span>{{ error }}</span>
+                <span class="text-danger">{{ error }}</span>
             {% endfor %}
         </div>
-    {% endif %}
-</div>
-
-<div class="mb-3">
-    {{ form.skills_requested.label(class="form-label") }}
-    {{ form.skills_requested(class="form-control", id="skills-requested-select", multiple="multiple") }}
-    {% if form.skills_requested.errors %}
-        <div class="alert alert-danger mt-1">
+        <div class="mb-3">
+            {{ form.skills_requested.label(class="form-label") }}
+            {{ form.skills_requested(class="form-control") }}
             {% for error in form.skills_requested.errors %}
-                <span>{{ error }}</span>
+                <span class="text-danger">{{ error }}</span>
             {% endfor %}
         </div>
-    {% endif %}
+        <div class="mb-3">
+            {{ form.justification.label(class="form-label") }}
+            {{ form.justification(class="form-control") }}
+            {% for error in form.justification.errors %}
+                <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+
+        <input type="hidden" id="api_key" value="{{ api_key }}">
+    </form>
 </div>
-
-{% for field in form if field.widget.input_type != 'hidden' and field.type != 'CSRFTokenField' and field.type != 'SubmitField' and field.name != 'species' and field.name != 'skills_requested' %}
-    <div class="mb-3">
-        {{ field.label(class="form-label") }}
-        {{ field(class="form-control") }}
-        {% if field.errors %}
-            <div class="alert alert-danger mt-1">
-                {% for error in field.errors %}
-                    <span>{{ error }}</span>
-                {% endfor %}
-            </div>
-        {% endif %}
-    </div>
-{% endfor %}
-
-<script>
-    $(document).ready(function() {
-        // Initialize Select2 for species
-        $('#species-select').select2({
-            placeholder: "Select a species",
-            allowClear: true,
-            dropdownParent: $('#action-modal'), // Assuming this is loaded in a modal
-            width: '100%'
-        });
-
-        // Initialize Select2 for skills_requested (multiple selection)
-        $('#skills-requested-select').select2({
-            placeholder: "Select skills",
-            allowClear: true,
-            multiple: true,
-            dropdownParent: $('#action-modal'), // Assuming this is loaded in a modal
-            width: '100%'
-        });
-
-        // Function to load skills based on selected species
-        function loadSkillsForSpecies(speciesId) {
-            var skillsSelect = $('#skills-requested-select');
-            skillsSelect.empty(); // Clear existing options
-
-            if (speciesId) {
-                // Make AJAX call to fetch skills for the selected species
-                fetch(`/api/species/${speciesId}/filtered_skills`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-API-Key': '{{ api_key }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (Array.isArray(data)) {
-                        data.forEach(skill => {
-                            var option = new Option(skill.name, skill.id, false, false);
-                            skillsSelect.append(option);
-                        });
-                    } else {
-                        console.error('API response is not an array:', data);
-                    }
-                    skillsSelect.trigger('change'); // Notify Select2 of changes
-                })
-                .catch(error => {
-                    console.error('Error fetching skills:', error);
-                    skillsSelect.trigger('change');
-                });
-            } else {
-                skillsSelect.trigger('change'); // Clear skills if no species selected
-            }
-        }
-
-        // Event listener for species selection change
-        $('#species-select').on('change', function() {
-            var speciesId = $(this).val();
-            loadSkillsForSpecies(speciesId);
-        });
-
-        // Initial load of skills if a species is already selected (e.g., on form re-render after validation error)
-        var initialSpeciesId = $('#species-select').val();
-        if (initialSpeciesId) {
-            loadSkillsForSpecies(initialSpeciesId);
-        }
-    });
-</script>

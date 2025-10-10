@@ -1,5 +1,5 @@
-{{ form.hidden_tag() }}
-{% for field in form %}
+<input type="hidden" name="csrf_token" id="csrf_token_user_form" value="{{ form.csrf_token._value() }}">
+{% for field in form if field.widget.input_type != 'hidden' and field.type != 'CSRFTokenField' and field.type != 'SubmitField' %}
     {% if field.widget.input_type == 'checkbox' %}
         <div class="form-check mb-3">
             {{ field(class="form-check-input") }}

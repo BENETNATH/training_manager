@@ -64,7 +64,7 @@
             {% endif %}
 
             {% if read_only %}
-            <a href="{{ url_for('profile.user_profile') }}" class="btn btn-secondary mt-3">Retour au profil</a>
+            <a href="{{ url_for('dashboard.user_profile') }}" class="btn btn-secondary mt-3">Retour au profil</a>
             {% else %}
             <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary mt-3">Retour à la liste des sessions</a>
             {% endif %}

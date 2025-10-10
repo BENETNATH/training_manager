@@ -1,118 +1,40 @@
-<div class="table-responsive">
-    <table class="table table-hover table-striped" id="practice-table">
-        <thead>
-            <tr>
-                <th>Skill</th>
-                <th>Species</th>
-                <th>Current Level</th>
-                <th>New Level</th>
-                <th>Latest Practice Date</th>
-                <th>Tutor</th> <!-- NEW HEADER -->
-            </tr>
-        </thead>
-        <tbody>
-            {% for comp in competencies %}
-            <tr data-competency-id="{{ comp.competency_id }}">
-                <td>{{ comp.skill_name }}</td>
-                <td>
-                    {% for s in comp.species %}
-                    <span class="badge bg-secondary me-1">{{ s.name }}</span>
-                    {% endfor %}
-                </td>
-                <td>{{ comp.current_level }}</td>
-                <td>
-                    <select class="form-select form-select-sm level-select" name="level-{{ comp.competency_id }}">
-                        <option value="">No Change</option>
-                        <option value="Novice" {% if comp.current_level == 'Novice' %}selected{% endif %}>Novice</option>
-                        <option value="Intermediate" {% if comp.current_level == 'Intermediate' %}selected{% endif %}>Intermediate</option>
-                        <option value="Expert" {% if comp.current_level == 'Expert' %}selected{% endif %}>Expert</option>
-                    </select>
-                </td>
-                <td>
-                    <input type="datetime-local" class="form-control form-control-sm practice-date-input"
-                        name="practice_date-{{ comp.competency_id }}"
-                        value="{{ comp.latest_practice_date if comp.latest_practice_date else '' }}">
-                </td>
-                <td> <!-- NEW TD FOR TUTOR CHECKBOX -->
-                    <div class="form-check form-switch">
-                        <input class="form-check-input tutor-checkbox" type="checkbox" id="tutor-switch-{{ comp.competency_id }}"
-                               data-competency-id="{{ comp.competency_id }}"
-                               data-initial-is-tutor="{{ 'true' if comp.is_tutor else 'false' }}"
-                               {% if comp.is_tutor %}checked{% endif %}>
-                        <label class="form-check-label" for="tutor-switch-{{ comp.competency_id }}"></label>
+<div class="modal-body">
+    <form id="modal-action-form" method="POST">
+        <div id="competencies-container">
+            {% if competencies %}
+                {% for comp in competencies %}
+                <div class="card mb-2 p-2 competency-entry {% if comp.needs_recycling %}bg-danger-subtle{% endif %}" data-competency-id="{{ comp.competency_id }}">
+                    <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
+                        <h6 class="mb-0">{{ comp.skill_name }} {% if comp.species %}({% for s in comp.species %}{{ s.name }}{% if not loop.last %}, {% endif %}{% endfor %}){% endif %}</h6>
                     </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    <div class="card-body p-2">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label for="level-{{ comp.competency_id }}" class="form-label form-label-sm">Current level: {{ comp.current_level }}</label>
+                                <select class="form-select form-select-sm" id="level-{{ comp.competency_id }}" name="level-{{ comp.competency_id }}">
+                                    <option value="">Change level (optional)</option>
+                                    <option value="Novice" {% if comp.current_level == 'Novice' %}selected{% endif %}>Novice</option>
+                                    <option value="Intermediate" {% if comp.current_level == 'Intermediate' %}selected{% endif %}>Intermediate</option>
+                                    <option value="Expert" {% if comp.current_level == 'Expert' %}selected{% endif %}>Expert</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="practice_date-{{ comp.competency_id }}" class="form-label form-label-sm">Date of last practice (optional)</label>
+                                <input type="datetime-local" class="form-control form-control-sm" id="practice_date-{{ comp.competency_id }}" name="practice_date-{{ comp.competency_id }}" value="{{ comp.latest_practice_date }}" step="1">
+                            </div>
+                            <div class="col-12 mt-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input tutor-checkbox" type="checkbox" id="tutor-{{ comp.competency_id }}" name="tutor-{{ comp.competency_id }}" {% if comp.is_tutor %}checked{% endif %}>
+                                    <label class="form-check-label" for="tutor-{{ comp.competency_id }}">I want to be a tutor for this skill</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No competencies to declare.</p>
+            {% endif %}
+        </div>
+    </form>
 </div>
-
-<script>
-    $(document).ready(function() {
-        // Initialize Select2 for level selects
-        $('.level-select').select2({
-            placeholder: "Select Level",
-            allowClear: true,
-            dropdownParent: $('#action-modal'),
-            width: '100%',
-            minimumResultsForSearch: Infinity // Hide search box for small lists
-        });
-
-        // Function to collect data from the table
-        window.collectPracticeData = function() {
-            const practiceData = [];
-            $('#practice-table tbody tr').each(function() {
-                const row = $(this);
-                const competencyId = row.data('competency-id');
-                const newLevel = row.find('.level-select').val();
-                const practiceDate = row.find('.practice-date-input').val();
-                const initialIsTutor = row.find('.tutor-checkbox').data('initial-is-tutor') === 'true';
-                const wantsToBeTutor = row.find('.tutor-checkbox').is(':checked');
-
-                // Only include if there's a change or a new practice date or tutor status change
-                if (newLevel || practiceDate || (wantsToBeTutor !== initialIsTutor)) {
-                    practiceData.push({
-                        competency_id: competencyId,
-                        level: newLevel === "" ? null : newLevel, // Send null if "No Change"
-                        practice_date: practiceDate === "" ? null : practiceDate,
-                        wants_to_be_tutor: wantsToBeTutor // NEW: Include tutor status
-                    });
-                }
-            });
-            return practiceData;
-        };
-
-        // Override the default form submission for this modal
-        $('#submit-action-form-btn').off('click').on('click', function(e) {
-            e.preventDefault();
-            const dataToSend = window.collectPracticeData();
-            const actionUrl = "{{ url_for('profile.declare_skill_practice') }}";
-            const csrfToken = $('meta[name=csrf-token]').attr('content');
-
-            fetch(actionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify(dataToSend)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message || 'Pratiques mises à jour avec succès !');
-                    actionModal.hide();
-                    location.reload();
-                } else {
-                    alert(data.message || 'Erreur lors de la mise à jour des pratiques.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
-            });
-        });
-    });
-</script>

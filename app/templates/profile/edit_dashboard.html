@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Modifier le Profil</h1>
+
+    <div class="row">
+        <!-- Column 1: General Information & Password -->
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Informations Générales</h6>
+                </div>
+                <div class="card-body">
+                    <form action="" method="post">
+                        {{ form.hidden_tag() }} <!-- Handles CSRF token and other hidden fields -->
+
+                        <div class="mb-3">
+                            {{ form.full_name.label(class="form-label") }}
+                            {{ form.full_name(class="form-control") }}
+                            {% for error in form.full_name.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.study_level.label(class="form-label") }}
+                            {{ form.study_level(class="form-control") }}
+                            {% for error in form.study_level.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.new_email.label(class="form-label") }}
+                            {{ form.new_email(class="form-control") }}
+                            {% for error in form.new_email.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <hr>
+                        <h6 class="mt-4">Changer le Mot de Passe</h6>
+                        <div class="mb-3">
+                            {{ form.current_password.label(class="form-label") }}
+                            {{ form.current_password(class="form-control") }}
+                            {% for error in form.current_password.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control") }}
+                            {% for error in form.password.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.password2.label(class="form-label") }}
+                            {{ form.password2(class="form-control") }}
+                            {% for error in form.password2.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column 2: Initial Training & API Key -->
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Formation Réglementaire Initiale</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" id="initial_training_csrf_token" value="{{ initial_training_form.csrf_token.data }}">
+                        <div class="mb-3">
+                            {{ initial_training_form.level.label(class="form-label") }}
+                            {{ initial_training_form.level(class="form-control") }}
+                            {% for error in initial_training_form.level.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            {{ initial_training_form.training_date.label(class="form-label") }}
+                            {{ initial_training_form.training_date(class="form-control") }}
+                            {% for error in initial_training_form.training_date.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            {{ initial_training_form.attachment.label(class="form-label") }}
+                            {{ initial_training_form.attachment(class="form-control") }}
+                            {% for error in initial_training_form.attachment.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                            {% if initial_training and initial_training.attachment_path %}
+                                <p class="mt-2">Fichier actuel: <a href="{{ url_for('static', filename=initial_training.attachment_path) }}" target="_blank">Voir l'attestation</a></p>
+                            {% endif %}
+                        </div>
+                        {{ initial_training_form.submit(class="btn btn-primary", id="submit_initial_training") }}
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Gestion de la Clé API</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="api-key-display" class="form-label">Votre Clé API</label>
+                        <div class="input-group">
+                            <input type="text" id="api-key-display" class="form-control" value="{{ api_key }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="copy-api-key-btn" title="Copier la clé API">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <small class="form-text text-muted">Cette clé est utilisée pour accéder à l'API. Gardez-la secrète.</small>
+                    </div>
+                    <button type="button" class="btn btn-warning" id="regenerate-api-key-btn">Regénérer la Clé API</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -25,10 +25,10 @@
           <ul class="navbar-nav me-auto">
             {% if current_user.is_authenticated %}
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('profile.user_profile', username=current_user.full_name) }}">Mon Profil</a>
+              <a class="nav-link" href="{{ url_for('root.personal_dashboard_redirect') }}">Mon Espace Personnel</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('profile.skills_list') }}">Skills</a>
+              <a class="nav-link" href="{{ url_for('dashboard.skills_list') }}">Skills</a>
             </li>
 
             {% if current_user.can('admin_access') %}
@@ -38,9 +38,6 @@
               </a>
               <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
                 {% if current_user.can('admin_access') %}<li><a class="dropdown-item" href="{{ url_for('admin.index') }}">Dashboard</a></li>{% endif %}
-                {% if current_user.can('user_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_users') }}">Users</a></li>{% endif %}
-                {% if current_user.can('team_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_teams') }}">Teams</a></li>{% endif %}
-                {% if current_user.can('skill_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_skills') }}">Skills</a></li>{% endif %}
                 {% if current_user.can('species_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_species') }}">Species</a></li>{% endif %}
                 {% if current_user.can('training_path_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_training_paths') }}">Training Paths</a></li>{% endif %}
                 {% if current_user.can('training_session_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_training_sessions') }}">Training Sessions</a></li>{% endif %}
@@ -63,7 +60,7 @@
             </li>
             {% else %}
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('profile.edit_profile') }}">Edit Profile</a>
+              <a class="nav-link" href="{{ url_for('dashboard.edit_profile') }}">Edit Profile</a>
             </li>
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
@@ -82,14 +79,36 @@
             {% endfor %}
         {% endif %}
         {% endwith %}
-        {% block content %}{% endblock %}
-    </div>
+    {% block content %}{% endblock %}
 
+    {% block modals %}
+    <!-- Generic Modal for Actions -->
+    <div class="modal fade" id="action-modal" tabindex="-1" aria-labelledby="action-modal-label">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="action-modal-label"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Content will be loaded here via AJAX -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary" id="submit-action-form-btn">Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.12.1/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    {% block modals %}{% endblock %}{% block scripts %}{% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% endblock %}
   </body>
 </html>

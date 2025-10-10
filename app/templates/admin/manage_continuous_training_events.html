@@ -8,9 +8,21 @@
             <a href="{{ url_for('admin.add_continuous_training_event') }}" class="btn btn-primary">Ajouter un Événement de Formation Continue</a>
         </p>
 
+        <div class="row mb-1">
+            <div class="col-md-3">
+                <select id="status-filter" class="form-select">
+                    <option value="">All Statuses</option>
+                    {% for status in statuses %}
+                    <option value="{{ status }}" {% if status == current_status %}selected{% endif %}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
         {% if events %}
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                
+                <table class="table table-striped table-hover" id="events-table">
                     <thead>
                         <tr>
                             <th>Titre</th>
@@ -21,11 +33,12 @@
                             <th>Créateur</th>
                             <th>Statut</th>
                             <th>Attachement</th>
+                            <th>Participants Approuvés</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for event in events %}
+                        {% for event, approved_attendees_count in events %}
                             <tr>
                                 <td>{{ event.title }}</td>
                                 <td>{{ event.training_type.value }}</td>
@@ -33,17 +46,33 @@
                                 <td>{{ event.event_date.strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>{{ event.duration_hours }}</td>
                                 <td>{{ event.creator.full_name }}</td>
-                                <td>{{ event.status.value }}</td>
+                                <td>
+                                    {% if event.status.name == 'PENDING' %}
+                                        <span class="badge bg-warning">En Attente</span>
+                                    {% elif event.status.name == 'APPROVED' %}
+                                        <span class="badge bg-success">Approuvé</span>
+                                    {% elif event.status.name == 'REJECTED' %}
+                                        <span class="badge bg-danger">Rejeté</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if event.attachment_path %}
-                                        <a href="{{ url_for('static', filename=event.attachment_path) }}" target="_blank">Voir</a>
+                                        <a href="{{ url_for('static', filename=event.attachment_path) }}" target="_blank"><i class="fa fa-paperclip"></i></a>
                                     {% else %}
                                         N/A
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <a href="{{ url_for('admin.edit_continuous_training_event', event_id=event.id) }}" class="btn btn-sm btn-warning">Éditer</a>
-                                    <button type="button" class="btn btn-sm btn-danger delete-ct-event-btn" data-id="{{ event.id }}">Supprimer</button>
+                                    <a href="#" class="attendees-count-link" data-event-id="{{ event.id }}" data-bs-toggle="modal" data-bs-target="#attendeesModal">{{ approved_attendees_count }}</a>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        {% if event.status.name == 'PENDING' %}
+                                        <button type="button" class="btn btn-sm btn-success quick-validate-btn" data-id="{{ event.id }}" title="Valider rapidement"><i class="fas fa-check"></i></button>
+                                        {% endif %}
+                                        <a href="{{ url_for('admin.edit_continuous_training_event', event_id=event.id) }}" class="btn btn-sm btn-warning" title="Éditer"><i class="fa fa-edit"></i></a>
+                                        <button type="button" class="btn btn-sm btn-danger delete-ct-event-btn" data-id="{{ event.id }}" title="Supprimer"><i class="fa fa-trash"></i></button>
+                                    </div>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -76,18 +105,55 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            let eventToDeleteId = null;
+    <!-- Attendees Modal -->
+    <div class="modal fade" id="attendeesModal" tabindex="-1" aria-labelledby="attendeesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="attendeesModalLabel">Approved Attendees for Event: <span id="event-title-in-modal"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <ul id="attendees-list" class="list-group">
+                        <!-- Attendees will be loaded here -->
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            document.querySelectorAll('.delete-ct-event-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    eventToDeleteId = this.dataset.id;
-                    $('#deleteConfirmationModal').modal('show');
-                });
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+    <script>
+        $(document).ready(function() {
+            var table = $('#events-table').DataTable();
+
+            $('#search-input').on('keyup', function() {
+                table.search(this.value).draw();
             });
 
-            document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            $('#status-filter').on('change', function() {
+                var status = this.value;
+                let url = "{{ url_for('admin.manage_continuous_training_events') }}";
+                if (status) {
+                    url += `?status=${status}`;
+                }
+                window.location.href = url;
+            });
+
+            let eventToDeleteId = null;
+
+            $('.delete-ct-event-btn').on('click', function() {
+                eventToDeleteId = this.dataset.id;
+                $('#deleteConfirmationModal').modal('show');
+            });
+
+            $('#confirmDeleteBtn').on('click', function() {
                 if (eventToDeleteId) {
                     fetch(`/admin/continuous_training_events/delete/${eventToDeleteId}`, {
                         method: 'POST',
@@ -99,7 +165,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            location.reload(); // Reload the page to reflect changes
+                            location.reload();
                         } else {
                             alert('Erreur lors de la suppression: ' + data.message);
                         }
@@ -112,6 +178,136 @@
                         $('#deleteConfirmationModal').modal('hide');
                     });
                 }
+            });
+
+            // Handle attendees count link click
+            $(document).on('click', '.attendees-count-link', function() {
+                const eventId = $(this).data('event-id');
+                const eventTitle = $(this).closest('tr').find('td:first').text(); // Get event title from the first column
+
+                $('#event-title-in-modal').text(eventTitle);
+                $('#attendees-list').empty(); // Clear previous attendees
+
+                fetch(`/admin/continuous_training_events/${eventId}/attendees`)
+                    .then(response => response.json())
+                    .then(attendees => {
+                        if (attendees.length > 0) {
+                            attendees.forEach(attendee => {
+                                $('#attendees-list').append(`
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        ${attendee.full_name} (${attendee.email}) - ${attendee.validated_hours} hours
+                                        <button type="button" class="btn btn-sm btn-danger remove-attendee-btn" data-event-id="${eventId}" data-user-id="${attendee.id}" title="Remove Attendee">
+                                            <i class="fa fa-times"></i>
+                                        </button>
+                                    </li>
+                                `);
+                            });
+                        } else {
+                            $('#attendees-list').append('<li class="list-group-item">No approved attendees for this event.</li>');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching attendees:', error);
+                        $('#attendees-list').append('<li class="list-group-item text-danger">Error loading attendees.</li>');
+                    });
+            });
+
+            // Handle remove attendee button click
+            $(document).on('click', '.remove-attendee-btn', function() {
+                const eventId = $(this).data('event-id');
+                const userId = $(this).data('user-id');
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                if (confirm('Are you sure you want to remove this attendee from the event?')) {
+                    fetch(`/admin/continuous_training_events/${eventId}/remove_attendee/${userId}`, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': csrfToken
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            // Reload the attendees list in the modal
+                            $(this).closest('.modal').modal('hide'); // Hide current modal
+                            // Trigger the attendees-count-link click again to refresh the list
+                            $(`a.attendees-count-link[data-event-id="${eventId}"]`).trigger('click');
+                        } else {
+                            alert('Error removing attendee: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error removing attendee:', error);
+                        alert('An error occurred while removing the attendee.');
+                    });
+                }
+            });
+        });
+    </script>
+            // Handle quick validate button click
+            $(document).on('click', '.quick-validate-btn', function() {
+                const eventId = $(this).data('id');
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                fetch(`/admin/continuous_training_events/validate_quick/${eventId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                        if (data.redirect_to_edit) {
+                            window.location.href = data.redirect_to_edit;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during quick validation:', error);
+                    alert('Une erreur est survenue lors de la validation rapide.');
+                });
+            });
+            // Handle quick validate button click
+            $(document).on('click', '.quick-validate-btn', function() {
+                const eventId = $(this).data('id');
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                fetch(`/admin/continuous_training_events/validate_quick/${eventId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                        if (data.redirect_to_edit) {
+                            window.location.href = data.redirect_to_edit;
+                        } else {
+                            // If no redirect, just show the alert
+                            // This case should ideally not happen if backend always provides redirect_to_edit on failure
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during quick validation:', error);
+                    alert('Une erreur est survenue lors de la validation rapide.');
+                });
             });
         });
     </script>

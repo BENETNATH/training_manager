@@ -1,8 +1,12 @@
-{{ form.hidden_tag() }}
+<input type="hidden" name="csrf_token" id="csrf_token_skill_form" value="{{ form.csrf_token._value() }}">
 {% for field in form if field.widget.input_type != 'hidden' and field.type != 'CSRFTokenField' and field.type != 'SubmitField' %}
     <div class="mb-3">
         {{ field.label(class="form-label") }}
-        {{ field(class="form-control") }}
+        {% if field.name == 'name' %}
+            {{ field(class="form-control", id="skill_name_modal") }}
+        {% else %}
+            {{ field(class="form-control") }}
+        {% endif %}
         {% if field.errors %}
             <div class="alert alert-danger mt-1">
                 {% for error in field.errors %}

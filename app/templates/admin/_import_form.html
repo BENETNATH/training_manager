@@ -1,5 +1,5 @@
 <form action="{{ action_url }}" method="post" enctype="multipart/form-data" novalidate>
-    {{ form.hidden_tag() }}
+    <input type="hidden" name="csrf_token" id="csrf_token_import_form" value="{{ form.csrf_token._value() }}">
     <p>
         Téléversez un fichier Excel (XLSX). Assurez-vous qu'il respecte le format du modèle.
         <a href="{{ template_url }}" download>Télécharger le modèle</a>

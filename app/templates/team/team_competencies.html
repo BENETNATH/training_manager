@@ -57,8 +57,8 @@
                                 </td>
                             {% endfor %}
                             <td>
-                                <a href="{{ url_for('profile.user_profile', user_id=member.id) }}" target="_blank" class="btn btn-sm btn-primary" title="Voir le profil"><i class="fas fa-user"></i></a>
-                                <a href="{{ url_for('profile.generate_user_booklet_pdf', user_id=member.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer Livret PDF"><i class="fas fa-file-pdf"></i></a>
+                                <a href="{{ url_for('dashboard.user_profile', username=member.full_name) }}" target="_blank" class="btn btn-sm btn-primary" title="Voir le profil"><i class="fas fa-user"></i></a>
+                                <a href="{{ url_for('dashboard.generate_user_booklet_pdf', user_id=member.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer Livret PDF"><i class="fas fa-file-pdf"></i></a>
                             </td>
                         </tr>
                     {% endfor %}
@@ -70,7 +70,7 @@
     {% endif %}
     {% endfor %}
 
-    <a href="{{ url_for('profile.user_profile') }}" class="btn btn-secondary mt-3">Retour au Dashboard</a>
+    <a href="{{ url_for('dashboard.user_profile', username=current_user.full_name) }}" class="btn btn-secondary mt-3">Retour au Dashboard</a>
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {

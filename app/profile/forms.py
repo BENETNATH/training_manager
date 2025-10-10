@@ -29,8 +29,16 @@ def get_continuous_training_events():
     return ContinuousTrainingEvent.query.order_by(ContinuousTrainingEvent.event_date.desc()).all()
 
 class TrainingRequestForm(FlaskForm):
-    species = QuerySelectMultipleField('Species', query_factory=get_species, get_label='name', validators=[DataRequired()])
+    species = QuerySelectField('Species', 
+                               query_factory=get_species, 
+                               get_label='name', 
+                               allow_blank=True, 
+                               blank_text='-- Select a Species --', 
+                               validators=[DataRequired()])
     skills_requested = QuerySelectMultipleField('Skills Requested', query_factory=get_skills, get_label='name', validators=[DataRequired()])
+    justification = TextAreaField('Justification', validators=[DataRequired(), Length(min=10, max=500)], render_kw={"rows": 3})
+    preferred_date = DateTimeLocalField('Preferred Date (Optional)', format='%Y-%m-%dT%H:%M', validators=[Optional()])
+    justification = TextAreaField('Justification', validators=[DataRequired(), Length(min=10, max=500)], render_kw={"rows": 3})
     submit = SubmitField('Submit Training Request')
 
 class InitialRegulatoryTrainingForm(FlaskForm):

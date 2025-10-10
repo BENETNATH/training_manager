@@ -1,5 +1,5 @@
 from flask import redirect, url_for
-from flask_login import current_user
+from flask_login import current_user, login_required
 from app.root import bp
 
 @bp.route('/')
@@ -8,5 +8,10 @@ def index():
         if current_user.is_admin:
             return redirect(url_for('admin.index'))
         else:
-            return redirect(url_for('profile.user_profile', username=current_user.full_name))
+            return redirect(url_for('dashboard.dashboard_home'))
     return redirect(url_for('auth.login'))
+
+@bp.route('/personal_dashboard') # New route
+@login_required # Ensure only logged-in users can access this
+def personal_dashboard_redirect():
+    return redirect(url_for('dashboard.dashboard_home'))

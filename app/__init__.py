@@ -1,4 +1,5 @@
-from flask import Flask, request, g, current_app
+from flask import Flask, request, g, current_app, session, redirect, url_for
+from flask_login import current_user
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -17,6 +18,12 @@ login = LoginManager()
 csrf = CSRFProtect()
 login.login_view = 'auth.login'
 login.login_message = _l('Please log in to access this page.')
+
+@login.unauthorized_handler
+def unauthorized():
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': False, 'message': 'Unauthorized: Please log in.'}), 401
+    return redirect(url_for('auth.login'))
 babel = Babel()
 mail = Mail()
 bootstrap = Bootstrap() # Initialize Flask-Bootstrap
@@ -83,8 +90,7 @@ def create_app(config_class=Config):
     from app.root import routes # Import routes to register them with the blueprint
     app.register_blueprint(root_bp)
 
-    from app.profile import bp as profile_bp
-    app.register_blueprint(profile_bp, url_prefix='/profile')
+
 
     from app.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/admin')
@@ -98,6 +104,9 @@ def create_app(config_class=Config):
     from app.api import bp as api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
     csrf.exempt(api_bp)
+
+    from app.dashboard import bp as dashboard_bp
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 
     with app.app_context():
         from sqlalchemy import inspect

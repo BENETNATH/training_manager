@@ -1,75 +1,107 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Available Skills</h1>
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <form>
-                <div class="input-group">
-                    <input type="text" class="form-control" id="skillSearch" placeholder="Search for a skill..." value="{{ skill_name or '' }}">
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">{{ title }}</h1>
+
+    <div class="card shadow mb-3">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Proposer une Nouvelle Compétence</h6>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('dashboard.propose_skill') }}">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control") }}
+                    {% for error in form.name.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
                 </div>
+                <div class="mb-3">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control") }}
+                    {% for error in form.description.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                {{ form.submit(class="btn btn-primary") }}
             </form>
         </div>
     </div>
 
-    <table class="table table-striped" id="skillsTable">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Species</th>
-                <th>Users with Skill</th>
-                <th>Tutors</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for skill, user_count, tutor_count in skills_data %}
-                <tr>
-                    <td>{{ skill.name }}</td>
-                    <td>{{ skill.description }}</td>
-                    <td>
-                        {% for species in skill.species %}
-                            {{ species.name }}{% if not loop.last %}, {% endif %}
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Liste des Compétences</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="skillsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Compétence</th>
+                            <th>Description</th>
+                            <th>Espèces Associées</th>
+                            <th>Période de Validité (mois)</th>
+                            <th>Utilisateurs Compétents</th>
+                            <th>Tuteurs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for skill, user_count, tutor_count in skills_data %}
+                        <tr>
+                            <td>{{ skill.name }}</td>
+                            <td>{{ skill.description or 'N/A' }}</td>
+                            <td>
+                                {% if skill.species %}
+                                    {% for species in skill.species %}
+                                        <span class="badge bg-info me-1">{{ species.name }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ skill.validity_period_months or 'Illimitée' }}</td>
+                            <td>{{ user_count }}</td>
+                            <td>{{ tutor_count }}</td>
+                        </tr>
                         {% endfor %}
-                    </td>
-                    <td>{{ user_count }}</td>
-                    <td>{{ tutor_count }}</td>
-                </tr>
-            {% else %}
-                <tr>
-                    <td colspan="5">No skills found.</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.getElementById('skillSearch');
-        const table = document.getElementById('skillsTable');
-        const tableBody = table.getElementsByTagName('tbody')[0];
-        const rows = tableBody.getElementsByTagName('tr');
-
-        searchInput.addEventListener('keyup', function(event) {
-            const filter = searchInput.value.toLowerCase();
-            for (let i = 0; i < rows.length; i++) {
-                let cells = rows[i].getElementsByTagName('td');
-                let found = false;
-                for (let j = 0; j < cells.length; j++) {
-                    if (cells[j]) {
-                        if (cells[j].innerHTML.toLowerCase().indexOf(filter) > -1) {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if (found) {
-                    rows[i].style.display = '';
-                } else {
-                    rows[i].style.display = 'none';
+    $(document).ready(function() {
+        $('#skillsTable').DataTable({
+            "language": {
+                "sEmptyTable":     "Aucune donnée disponible dans le tableau",
+                "sInfo":           "Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments",
+                "sInfoEmpty":      "Affichage de l'élément 0 à 0 sur 0 élément",
+                "sInfoFiltered":   "(filtré de _MAX_ éléments au total)",
+                "sInfoPostFix":    "",
+                "sInfoThousands":  ",",
+                "sLengthMenu":     "Afficher _MENU_ éléments",
+                "sLoadingRecords": "Chargement...",
+                "sProcessing":     "Traitement...",
+                "sSearch":         "Rechercher :",
+                "sZeroRecords":    "Aucun élément correspondant trouvé",
+                "oPaginate": {
+                    "sFirst":    "Premier",
+                    "sLast":     "Dernier",
+                    "sNext":     "Suivant",
+                    "sPrevious": "Précédent"
+                },
+                "oAria": {
+                    "sSortAscending":  ": activer pour trier la colonne par ordre croissant",
+                    "sSortDescending": ": activer pour trier la colonne par ordre décroissant"
                 }
             }
         });

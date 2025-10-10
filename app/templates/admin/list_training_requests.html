@@ -31,6 +31,7 @@
                                     <th>ID</th>
                                     <th>Demandeur</th>
                                     <th>Compétences Demandées</th>
+                                    <th>Justification</th>
                                     <th>Date de Demande</th>
                                     <th>Actions</th>
                                 </tr>
@@ -45,6 +46,9 @@
                                         {% for skill in req.skills_requested %}
                                             <span class="badge bg-info">{{ skill.name }}</span>
                                         {% endfor %}
+                                    </td>
+                                    <td>
+                                        {{ req.justification }}
                                     </td>
                                     <td>{{ req.request_date.strftime('%Y-%m-%d') }}</td>
                                     <td>

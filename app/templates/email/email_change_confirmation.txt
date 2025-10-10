@@ -4,7 +4,7 @@ You recently requested to change your email address for the Training Manager app
 
 Please click on the following link to confirm your new email address:
 
-{{ url_for('profile.confirm_email', token=token, _external=True) }}
+{{ url_for('dashboard.confirm_email', token=token, _external=True) }}
 
 If you did not request this change, please ignore this email.
 

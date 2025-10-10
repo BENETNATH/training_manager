@@ -19,7 +19,7 @@ def admin_required(f):
         if not current_user.can('admin_access'):
             if current_user.is_authenticated:
                 flash('You do not have permission to access the admin dashboard.', 'danger')
-                return redirect(url_for('profile.user_profile', username=current_user.full_name))
+                return redirect(url_for('dashboard.user_profile', username=current_user.full_name))
             else:
                 # This case should ideally be handled by @login_required, but as a fallback
                 abort(403) # Or redirect to login

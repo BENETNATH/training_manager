@@ -5,6 +5,8 @@ from flask_login import UserMixin
 import enum
 import secrets
 import os
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
+from sqlalchemy import select, func, case
 
 # Many-to-Many relationship tables
 role_permission_association = db.Table('role_permission_association',
@@ -182,7 +184,7 @@ class User(UserMixin, db.Model):
         if training_type:
             query = query.filter(ContinuousTrainingEvent.training_type == training_type)
         
-        total_hours = query.with_entities(db.func.sum(UserContinuousTraining.validated_hours)).scalar()
+        total_hours = query.with_entities(db.func.sum(UserContinuousTraining.validated_hours.cast(db.Float))).scalar()
         return total_hours if total_hours is not None else 0.0
 
     @property
@@ -310,8 +312,8 @@ def init_roles_and_permissions():
         {'name': 'external_training_validate', 'description': 'Validate external trainings.'},
         {'name': 'training_session_validate', 'description': 'Validate competencies for training sessions.'},
         {'name': 'view_reports', 'description': 'View various application reports.'},
-        {'name': 'self_edit_profile', 'description': 'Edit own user profile.'},
-        {'name': 'self_view_profile', 'description': 'View own user profile.'},
+        {'name': 'self_edit_profile', 'description': 'Edit own user dashboard.'},
+        {'name': 'self_view_profile', 'description': 'View own user dashboard.'},
         {'name': 'self_declare_skill_practice', 'description': 'Declare own skill practice events.'},
         {'name': 'self_submit_training_request', 'description': 'Submit own training requests.'},
         {'name': 'self_submit_external_training', 'description': 'Submit own external training records.'},
@@ -583,7 +585,8 @@ class TrainingRequest(db.Model):
     requester_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     request_date = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     status = db.Column(db.Enum(TrainingRequestStatus), default=TrainingRequestStatus.PENDING, nullable=False)
-    notes = db.Column(db.Text, nullable=True)
+    justification = db.Column(db.Text, nullable=True)
+    preferred_date = db.Column(db.DateTime, nullable=True)
 
     requester = db.relationship('User', back_populates='training_requests')
     skills_requested = db.relationship('Skill', secondary=training_request_skills_requested, back_populates='training_requests_for_skill')

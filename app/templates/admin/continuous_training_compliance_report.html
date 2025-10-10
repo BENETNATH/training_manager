@@ -23,7 +23,7 @@
                     <tbody>
                         {% for entry in report_data %}
                             <tr class="{% if not entry.is_compliant %}table-danger{% elif not entry.is_live_ratio_compliant %}table-warning{% elif entry.is_at_risk_next_year %}table-info{% endif %}">
-                                <td><a href="{{ url_for('profile.user_profile', username=entry.user.full_name) }}">{{ entry.user.full_name }}</a></td>
+                                <td><a href="{{ url_for('dashboard.user_profile', username=entry.user.full_name) }}">{{ entry.user.full_name }}</a></td>
                                 <td>{{ "%.2f"|format(entry.total_hours) }}</td>
                                 <td>{{ "%.2f"|format(entry.live_hours) }}</td>
                                 <td>{{ "%.2f"|format(entry.online_hours) }}</td>

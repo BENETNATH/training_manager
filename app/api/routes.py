@@ -1,5 +1,6 @@
 from flask import jsonify, request
 from flask_restx import Resource, fields
+from flask_login import login_required, current_user
 from app.api import api
 from app import db
 from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, Complexity, TrainingRequestStatus, ExternalTrainingStatus, TrainingSessionTutorSkill
@@ -417,8 +418,7 @@ class SpeciesList(Resource):
 class SpeciesSkills(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
-    @token_required
-    @permission_required('species_manage') # Assuming species_manage for viewing skills by species
+    @login_required
     def get(self, id):
         """Retrieve skills for a species by ID"""
         species = Species.query.get_or_404(id)
