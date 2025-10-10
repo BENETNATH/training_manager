@@ -13,7 +13,8 @@
                     <thead>
                         <tr>
                             <th>Demandeur</th>
-                            <th>Proposition</th>
+                            <th>Nom de la Compétence</th>
+                            <th>Description</th>
                             <th>Date</th>
                             <th>Actions</th>
                         </tr>
@@ -21,8 +22,9 @@
                     <tbody>
                         {% for proposal in proposed_skills %}
                         <tr id="proposal-row-{{ proposal.id }}">
-                            <td>{{ proposal.requester.full_name }}</td>
-                            <td>{{ proposal.notes }}</td>
+                            <td>{{ proposal.requester_full_name }}</td>
+                            <td>{{ proposal.skill_name }}</td>
+                            <td>{{ proposal.skill_description }}</td>
                             <td>{{ proposal.request_date.strftime('%Y-%m-%d') }}</td>
                             <td>
                                 <a href="{{ url_for('admin.add_skill', from_proposal=proposal.id) }}" class="btn btn-success btn-sm">Approuver</a>

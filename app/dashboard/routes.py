@@ -562,10 +562,8 @@ def propose_skill():
         # Create a TrainingRequest with a special status for proposed skills
         req = TrainingRequest(
             requester=current_user,
-            status=TrainingRequestStatus.PROPOSED_SKILL
-            # TODO: Decide where to store proposed skill name and description now that 'notes' is removed.
-            # For now, this information will not be stored with the TrainingRequest.
-        )
+            status=TrainingRequestStatus.PROPOSED_SKILL,
+            justification=f"Proposed Skill: {form.name.data} - Description: {form.description.data}")
         db.session.add(req)
         db.session.commit()
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

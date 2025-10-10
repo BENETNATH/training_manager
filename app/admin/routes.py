@@ -941,7 +941,7 @@ def add_skill():
         proposal_to_delete = TrainingRequest.query.get_or_404(proposal_id)
         if request.method == 'GET':
             # Regex to extract name and description
-            match = re.match(r"Proposed Skill: (.*) - Description: (.*)", proposal_to_delete.notes)
+            match = re.match(r"Proposed Skill: (.*) - Description: (.*)", proposal_to_delete.justification)
             if match:
                 form.name.data = match.group(1)
                 form.description.data = match.group(2)
@@ -2155,8 +2155,30 @@ def continuous_training_compliance_report():
 @login_required
 @permission_required('skill_manage') # Assuming proposed skills are managed by skill managers
 def proposed_skills():
-    proposed = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).order_by(TrainingRequest.request_date.desc()).all()
-    return render_template('admin/proposed_skills.html', title='Proposed Skills', proposed_skills=proposed)
+    proposed_requests = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).order_by(TrainingRequest.request_date.desc()).all()
+    
+    # Prepare data for the template, extracting name and description
+    proposed_skills_data = []
+    for proposal in proposed_requests:
+        skill_name = "N/A"
+        skill_description = "N/A"
+        
+        if proposal.justification:
+            match = re.match(r"Proposed Skill: (.*) - Description: (.*)", proposal.justification)
+            if match:
+                skill_name = match.group(1)
+                skill_description = match.group(2)
+        
+        proposed_skills_data.append({
+            'id': proposal.id,
+            'requester_full_name': proposal.requester.full_name,
+            'notes': proposal.justification, # Keep original justification for reference if needed
+            'request_date': proposal.request_date,
+            'skill_name': skill_name,
+            'skill_description': skill_description
+        })
+
+    return render_template('admin/proposed_skills.html', title='Proposed Skills', proposed_skills=proposed_skills_data)
 
 @bp.route('/api/training_path/<int:path_id>/skills')
 @login_required
