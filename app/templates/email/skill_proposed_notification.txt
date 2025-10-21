@@ -1,0 +1,7 @@
+Dear Validator,
+A new skill has been proposed by {{ user.full_name }}:
+Skill Name: {{ skill_name }}
+Description: {{ skill_description }}
+Please review and approve/reject it in the admin panel.
+Regards,
+The Training Manager Team

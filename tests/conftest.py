@@ -8,6 +8,8 @@ from app import create_app, db
 from app.models import init_roles_and_permissions
 from config import Config
 
+import logging
+
 class TestConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
@@ -17,6 +19,12 @@ class TestConfig(Config):
 def app():
     app = create_app(TestConfig)
     with app.app_context():
+        # Configure logging for tests
+        logging.basicConfig(level=logging.ERROR, stream=sys.stderr)
+        app.logger.handlers = [] # Clear existing handlers
+        app.logger.addHandler(logging.StreamHandler(sys.stderr))
+        app.logger.setLevel(logging.ERROR)
+
         db.create_all()
         init_roles_and_permissions()
         yield app

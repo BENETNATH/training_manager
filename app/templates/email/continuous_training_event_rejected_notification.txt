@@ -1,0 +1,9 @@
+Dear {{ user.full_name }},
+Your requested continuous training event "{{ event_title }}" has been rejected.
+Event Title: {{ event_title }}
+Description: {{ event_description }}
+Date: {{ event_date }}
+Reason for Rejection: {{ rejection_reason }}
+Please contact an administrator for more details.
+Regards,
+The Training Manager Team

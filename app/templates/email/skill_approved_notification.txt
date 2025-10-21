@@ -1,0 +1,5 @@
+Dear {{ user.full_name }},
+Your proposed skill "{{ skill_name }}" has been approved!
+You can now find it in the list of available skills.
+Regards,
+The Training Manager Team

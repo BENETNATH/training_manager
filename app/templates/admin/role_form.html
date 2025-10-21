@@ -4,7 +4,7 @@
 {% block content %}
     <h1>{{ title }}</h1>
     <div class="row">
-        <div class="col-md-6">
+        <div class="col-md-8">
             <form action="" method="post" novalidate>
                 {{ form.hidden_tag() }}
                 <div class="mb-3">
@@ -21,13 +21,33 @@
                     <span class="text-danger">{{ error }}</span>
                     {% endfor %}
                 </div>
+
                 <div class="mb-3">
-                    {{ form.permissions.label(class="form-label") }}
-                    {{ form.permissions(class="form-control select2-multiple") }}
-                    {% for error in form.permissions.errors %}
-                    <span class="text-danger">{{ error }}</span>
+                    <label class="form-label">Permissions</label>
+                    {% for category, permissions in grouped_permissions.items() %}
+                        <div class="card mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">{{ category }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% for permission in permissions %}
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="permissions" id="permission-{{ permission.id }}" value="{{ permission.id }}" {% if permission.id in selected_permissions %}checked{% endif %}>
+                                                <label class="form-check-label" for="permission-{{ permission.id }}">
+                                                    <strong>{{ permission.name }}</strong>
+                                                    <br><small class="text-muted">{{ permission.description }}</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
                     {% endfor %}
                 </div>
+
                 {{ form.submit(class="btn btn-primary") }}
             </form>
         </div>
@@ -37,11 +57,6 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    $(document).ready(function() {
-        $('.select2-multiple').select2({
-            placeholder: "Select permissions",
-            allowClear: true
-        });
-    });
+    // No longer need select2 for permissions as they are checkboxes
 </script>
 {% endblock %}

@@ -18,7 +18,17 @@ $(document).ready(function() {
 
     // Only initialize DataTable if the table exists (i.e., user has permission)
     if ($('#users-table').length) {
-        $('#users-table').DataTable({ language: frenchLanguage });
+        $('#users-table').DataTable({
+            language: frenchLanguage,
+            columns: [
+                null, // Nom complet
+                null, // Email
+                null, // Équipe
+                { "orderable": false, "searchable": false }, // Rôles
+                { "orderable": true, "searchable": false }, // CT Status (sortable by data-order, not searchable)
+                { "orderable": false, "searchable": false }  // Actions
+            ]
+        });
     }
     if ($('#skills-table').length) {
         $('#skills-table').DataTable({ language: frenchLanguage });
@@ -161,38 +171,6 @@ $(document).ready(function() {
         });
     }
 
-    // API Key Management
-    $(document).on('click', '#copy-api-key-btn', function() {
-        var apiKeyInput = document.getElementById('api-key-display');
-        apiKeyInput.select();
-        apiKeyInput.setSelectionRange(0, 99999); // For mobile devices
-        document.execCommand('copy');
-        alert('Clé API copiée dans le presse-papiers !');
-    });
 
-    $(document).on('click', '#regenerate-api-key-btn', function() {
-        if (confirm('Voulez-vous vraiment générer une nouvelle clé API ? L\'ancienne sera invalidée et la nouvelle ne sera affichée qu\'une seule fois.')) {
-            fetch("{{ url_for('dashboard.regenerate_api_key') }}", {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': $('meta[name=csrf-token]').attr('content')
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    $('#api-key-display').val(data.api_key);
-                    alert('Nouvelle clé API générée avec succès ! Veuillez la noter : ' + data.api_key);
-                } else {
-                    alert('Erreur lors de la génération de la clé API.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
-            });
-        }
-    });
 
 });

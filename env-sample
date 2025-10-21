@@ -1,20 +1,68 @@
 # Flask App Configuration
+# A strong, random secret key is CRUCIAL for security.
+# Used for session management, CSRF protection, and other security-related functions.
+# GENERATE A NEW, LONG, RANDOM STRING FOR PRODUCTION!
 SECRET_KEY=your_super_secret_key_here
+
+# Flask Debug Mode
+# Set to 'True' for development to enable debug features (e.g., reloader, debugger).
+# Set to 'False' for production for security and performance.
 FLASK_DEBUG=True
 
+# Logging Level
+# Set the logging level for the application.
+# Possible values: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# For development, INFO or DEBUG is usually appropriate.
+# For production, WARNING or ERROR is often preferred to reduce log volume.
+LOG_LEVEL=INFO
+
+# Session Cookie Settings for Security
+# These settings control how the session cookie behaves in the browser.
+
+# SESSION_COOKIE_SECURE:
+#   - True (Production/HTTPS): Cookie will ONLY be sent over HTTPS connections.
+#     CRITICAL for security in production.
+#   - False (Development/HTTP): Cookie can be sent over HTTP connections.
+#     Necessary for local development if not using HTTPS.
+#     NEVER set to False in production.
+SESSION_COOKIE_SECURE=False
+
+# SESSION_COOKIE_HTTPONLY:
+#   - True (Both): Prevents client-side JavaScript from accessing the cookie.
+#     A security best practice to mitigate Cross-Site Scripting (XSS) attacks.
+#     ALWAYS set to True.
+SESSION_COOKIE_HTTPONLY=True
+
+# SESSION_COOKIE_SAMESITE:
+#   - 'Lax' or 'Strict' (Production): Provides protection against Cross-Site Request Forgery (CSRF) attacks.
+#     'Lax' is a good balance for most applications. 'Strict' offers stronger protection but can
+#     break some legitimate cross-site navigations.
+#   - None (Development): Disables SameSite protection. May be necessary for certain development setups
+#     or if experiencing issues with redirects/flash messages in development.
+#     NEVER set to None in production.
+SESSION_COOKIE_SAMESITE=None
+
 # Database Configuration (Example for SQLite)
-# DATABASE_URL="sqlite:///instance/app.db"
+# Uncomment and configure one of the DATABASE_URL options.
+# For SQLite, ensure the path is absolute or relative to the project root.
+DATABASE_URL="sqlite:///instance/app.db"
 
 # Database Configuration (Example for MySQL/MariaDB)
-DATABASE_URL="mysql+pymysql://user:password@hostname/db_name"
+# DATABASE_URL="mysql+pymysql://user:password@hostname/db_name"
 
 # Admin User Configuration
+# These are used to create an initial admin user if no users exist in the database.
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=a_strong_password_here
 
 # Email Configuration (Example for a generic SMTP server)
+# Used for sending emails (e.g., new user registrations, password resets).
 MAIL_SERVER=smtp.example.com
 MAIL_PORT=587
 MAIL_USE_TLS=True
 MAIL_USERNAME=your_email@example.com
 MAIL_PASSWORD=your_email_password
+
+# ADMIN_EMAILS: Comma-separated list of email addresses for admin notifications.
+# Example: ADMIN_EMAILS=admin1@example.com,admin2@example.com
+ADMIN_EMAILS=admin@example.com

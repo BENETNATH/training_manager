@@ -59,7 +59,7 @@ class ExternalTrainingSkillClaimForm(FlaskForm):
     wants_to_be_tutor = BooleanField('Want to be tutor ?')
     practice_date = DateTimeLocalField('Date of Latest Practice', format='%Y-%m-%dT%H:%M', validators=[Optional()])
 
-from wtforms.validators import DataRequired, Optional, Length, ValidationError, Email
+
 
 
 class ExternalTrainingForm(FlaskForm):

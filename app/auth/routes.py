@@ -41,36 +41,59 @@ def register():
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
+    
     if current_user.is_authenticated and current_user.is_approved:
+        # Log: Already authenticated user trying to access login page
+        current_app.logger.info(f"User {current_user.email} (ID: {current_user.id}) attempted to access login page while already authenticated.")
         if current_user.is_admin:
             return redirect(url_for('admin.index'))
         else:
             return redirect(url_for('dashboard.user_profile', username=current_user.full_name))
     form = LoginForm()
-    if form.validate_on_submit():
+    if request.method == 'POST':
+        # First, check if the user exists to prioritize the "invalid credentials" message
+        # if the user is not registered.
         user = User.query.filter_by(email=form.email.data).first()
-        if user is None or not user.check_password(form.password.data):
-            flash('Invalid username or password')
+        if user is None:
+            flash('Invalid username or password', 'danger')
             return redirect(url_for('auth.login'))
-        if not user.is_approved:
-            flash('Your account is awaiting administrator approval.')
-            return redirect(url_for('auth.login'))
-        login_user(user, remember=form.remember_me.data)
-        next_page = request.args.get('next')
-        if not next_page or urlparse(next_page).netloc != '':
-            if current_user.is_admin:
-                next_page = url_for('admin.index')
+
+        # If user exists, then proceed with form validation, including CSRF.
+        if form.validate_on_submit():
+            if not user.check_password(form.password.data):
+                flash('Invalid username or password', 'danger')
+                return redirect(url_for('auth.login'))
+            if not user.is_approved:
+                flash('Your account is awaiting administrator approval.', 'danger')
+                return redirect(url_for('auth.login'))
+            login_user(user, remember=form.remember_me.data)
+            next_page = request.args.get('next')
+            if not next_page or urlparse(next_page).netloc != '':
+                if current_user.is_admin:
+                    next_page = url_for('admin.index')
+                else:
+                    next_page = url_for('dashboard.user_profile', username=current_user.full_name)
+            return redirect(next_page)
+        else:
+            # If form validation fails (e.g., CSRF, or other field errors)
+            if 'csrf_token' in form.errors:
+                flash('CSRF token missing or incorrect. Please try again.', 'danger')
             else:
-                next_page = url_for('dashboard.user_profile', username=current_user.full_name)
-        return redirect(next_page)
+                # Other form validation errors (e.g., empty fields) - these should be rare if user exists
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        flash(f'{form[field].label.text}: {error}', 'danger')
+    
     return render_template('auth/login.html', title='Sign In', form=form)
 
 @bp.route('/logout')
 @login_required
 def logout():
+    # Log: Successful logout attempt
+    current_app.logger.info(f"User {current_user.email} (ID: {current_user.id}) successfully logged out.")
     if current_user.is_admin:
         redirect_url = url_for('admin.index')
     else:
-        redirect_url = url_for('dashboard.user_profile')
+        redirect_url = url_for('auth.login')
     logout_user()
     return redirect(redirect_url)

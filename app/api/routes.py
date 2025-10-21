@@ -1,9 +1,10 @@
-from flask import jsonify, request
+from flask import jsonify, request, current_app, url_for
 from flask_restx import Resource, fields
 from flask_login import login_required, current_user
 from app.api import api
 from app import db
-from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, Complexity, TrainingRequestStatus, ExternalTrainingStatus, TrainingSessionTutorSkill
+from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, Complexity, TrainingRequestStatus, ExternalTrainingStatus, TrainingSessionTutorSkill, UserContinuousTraining, UserContinuousTrainingStatus, ContinuousTrainingEvent, ContinuousTrainingEventStatus, UserDismissedNotification
+from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 from functools import wraps # Import wraps
 import secrets # Import secrets
@@ -138,6 +139,7 @@ def token_required(f):
     def decorated(*args, **kwargs):
         api_key = request.headers.get('X-API-Key')
         if not api_key:
+            current_app.logger.warning(f"API Key missing for API access from IP: {request.remote_addr}.")
             api.abort(401, "API Key is missing")
         
         users_with_keys = User.query.filter(User.api_key.isnot(None)).all()
@@ -148,9 +150,11 @@ def token_required(f):
                 break
 
         if not found_user:
+            current_app.logger.warning(f"Invalid API Key provided for API access from IP: {request.remote_addr}. Key: {api_key[:5]}...")
             api.abort(401, "Invalid API Key")
         
         if not found_user.is_approved:
+            current_app.logger.warning(f"Unapproved user (ID: {found_user.id}) attempted API access with valid API Key from IP: {request.remote_addr}.")
             api.abort(403, "User account is not approved.")
 
         from flask import g
@@ -314,7 +318,7 @@ class UserDeclarePractice(Resource):
 
         practice_event = SkillPracticeEvent(
             user=user,
-            practice_date=datetime.utcnow(),
+            practice_date=datetime.now(timezone.utc),
             notes=notes
         )
         practice_event.skills.append(skill) # Assuming SkillPracticeEvent has a 'skills' relationship
@@ -418,7 +422,7 @@ class SpeciesList(Resource):
 class SpeciesSkills(Resource):
     @api.marshal_list_with(skill_model)
     @api.doc(security='apikey')
-    @login_required
+    @token_required
     def get(self, id):
         """Retrieve skills for a species by ID"""
         species = Species.query.get_or_404(id)
@@ -667,11 +671,15 @@ class CompetencyList(Resource):
     def post(self):
         """Create a new competency"""
         data = api.payload
+        training_session_obj = TrainingSession(title='Test Session', start_time=datetime.now(timezone.utc), end_time=datetime.now(timezone.utc) + timedelta(hours=1))
+        db.session.add(training_session_obj)
+        db.session.flush() # Flush to get an ID for the training_session_obj before committing competency
+
         competency = Competency(
             user_id=data['user_id'],
             skill_id=data['skill_id'],
             level=data.get('level'),
-            session = TrainingSession(title='Test Session', start_time=datetime.now(timezone.utc), end_time=datetime.now(timezone.utc) + timedelta(hours=1)),
+            training_session=training_session_obj,
             certificate_path=data.get('certificate_path')
         )
         if 'evaluator_id' in data:
@@ -750,7 +758,7 @@ class SkillPracticeEventList(Resource):
         data = api.payload
         event = SkillPracticeEvent(
             user_id=data['user_id'],
-            practice_date=datetime.fromisoformat(data['practice_date']) if 'practice_date' in data else datetime.utcnow(),
+            practice_date=datetime.fromisoformat(data['practice_date']) if 'practice_date' in data else datetime.now(timezone.utc),
             notes=data.get('notes')
         )
         for skill_id in data['skill_ids']:
@@ -821,7 +829,7 @@ class TrainingRequestList(Resource):
         data = api.payload
         training_request = TrainingRequest(
             requester_id=data['requester_id'],
-            request_date=datetime.fromisoformat(data['request_date']) if 'request_date' in data else datetime.utcnow(),
+            request_date=datetime.fromisoformat(data['request_date']) if 'request_date' in data else datetime.now(timezone.utc),
             status=TrainingRequestStatus[data['status'].upper()] if 'status' in data else TrainingRequestStatus.PENDING
         )
         if 'skills_requested_ids' in data:
@@ -895,7 +903,7 @@ class ExternalTrainingList(Resource):
         external_training = ExternalTraining(
             user_id=data['user_id'],
             external_trainer_name=data.get('external_trainer_name'),
-            date=datetime.fromisoformat(data['date']) if 'date' in data else datetime.utcnow(),
+            date=datetime.fromisoformat(data['date']) if 'date' in data else datetime.now(timezone.utc),
             attachment_path=data.get('attachment_path'),
             status=ExternalTrainingStatus[data['status'].upper()] if 'status' in data else ExternalTrainingStatus.PENDING
         )
@@ -1256,6 +1264,207 @@ class TutorValidity(Resource):
         return jsonify({'is_valid': True, 'message': 'Tutor is valid.'})
 
         return jsonify({'is_valid': True, 'message': 'Tutor is valid.'})
+
+# Notifications Endpoint
+@api.route('/notifications/summary')
+class NotificationSummary(Resource):
+    @api.doc(security='apikey', description='Retrieve a summary of pending actions for the authenticated user.')
+    @login_required
+    def get(self):
+            notifications = []
+            total_count = 0
+
+            # Get dismissed notifications for the current user
+            dismissed_notifications = {d.notification_type for d in current_user.dismissed_notifications}
+
+            current_app.logger.debug(f"NotificationSummary for user {current_user.id}: is_admin={current_user.is_admin}, roles={[r.name for r in current_user.roles]}, can_user_manage={current_user.can('user_manage')}, dismissed_notifications={dismissed_notifications}")
+            # Admin-focused notifications
+            if current_user.can('user_manage') and 'user_approvals' not in dismissed_notifications:
+                pending_user_approvals_count = User.query.filter_by(is_approved=False).count()
+                if pending_user_approvals_count > 0:
+                    notifications.append({
+                        'type': 'user_approvals',
+                        'title': 'New User Approvals',
+                        'count': pending_user_approvals_count,
+                        'url': url_for('admin.pending_users')
+                    })
+                    total_count += pending_user_approvals_count
+
+            if current_user.can('training_request_manage') and 'training_requests' not in dismissed_notifications:
+                pending_requests_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PENDING).count()
+                if pending_requests_count > 0:
+                    notifications.append({
+                        'type': 'training_requests',
+                        'title': 'Pending Training Requests',
+                        'count': pending_requests_count,
+                        'url': url_for('admin.list_training_requests')
+                    })
+                    total_count += pending_requests_count
+
+            if current_user.can('external_training_validate') and 'external_trainings' not in dismissed_notifications:
+                pending_external_trainings_count = ExternalTraining.query.filter_by(status=ExternalTrainingStatus.PENDING).count()
+                if pending_external_trainings_count > 0:
+                    notifications.append({
+                        'type': 'external_trainings',
+                        'title': 'Pending External Training Validations',
+                        'count': pending_external_trainings_count,
+                        'url': url_for('admin.validate_external_trainings')
+                    })
+                    total_count += pending_external_trainings_count
+
+            if current_user.can('continuous_training_validate') and 'continuous_training_validations' not in dismissed_notifications:
+                pending_continuous_training_validations_count = UserContinuousTraining.query.filter_by(status=UserContinuousTrainingStatus.PENDING).count()
+                if pending_continuous_training_validations_count > 0:
+                    notifications.append({
+                        'type': 'continuous_training_validations',
+                        'title': 'Pending Continuous Training Validations',
+                        'count': pending_continuous_training_validations_count,
+                        'url': url_for('admin.validate_continuous_trainings')
+                    })
+                    total_count += pending_continuous_training_validations_count
+    
+            if current_user.can('continuous_training_manage') and 'continuous_event_requests' not in dismissed_notifications:
+                pending_continuous_event_requests_count = ContinuousTrainingEvent.query.filter_by(status=ContinuousTrainingEventStatus.PENDING).count()
+                if pending_continuous_event_requests_count > 0:
+                    notifications.append({
+                        'type': 'continuous_event_requests',
+                        'title': 'Pending Continuous Event Requests',
+                        'count': pending_continuous_event_requests_count,
+                        'url': url_for('admin.manage_continuous_training_events', status='PENDING')
+                    })
+                    total_count += pending_continuous_event_requests_count
+    
+            if current_user.can('skill_manage') and 'proposed_skills' not in dismissed_notifications:
+                proposed_skills_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).count()
+                if proposed_skills_count > 0:
+                    notifications.append({
+                        'type': 'proposed_skills',
+                        'title': 'Proposed Skills',
+                        'count': proposed_skills_count,
+                        'url': url_for('admin.proposed_skills')
+                    })
+                    total_count += proposed_skills_count
+    
+            if current_user.can('skill_manage') and 'skills_without_tutors' not in dismissed_notifications:
+                skills_without_tutors_count = Skill.query.filter(~Skill.tutors.any()).count()
+                if skills_without_tutors_count > 0:
+                    notifications.append({
+                        'type': 'skills_without_tutors',
+                        'title': 'Skills Without Tutors',
+                        'count': skills_without_tutors_count,
+                        'url': url_for('admin.tutor_less_skills_report')
+                    })
+                    total_count += skills_without_tutors_count
+    
+            if current_user.can('training_session_manage') and 'sessions_to_finalize' not in dismissed_notifications:
+                sessions_to_be_finalized_count = TrainingSession.query.filter(
+                    TrainingSession.start_time < datetime.now(timezone.utc),
+                    TrainingSession.status != 'Realized'
+                ).count()
+                if sessions_to_be_finalized_count > 0:
+                    notifications.append({
+                        'type': 'sessions_to_finalize',
+                        'title': 'Sessions to Finalize',
+                        'count': sessions_to_be_finalized_count,
+                        'url': url_for('admin.manage_training_sessions', filter='to_be_finalized')
+                    })
+                    total_count += sessions_to_be_finalized_count
+    
+            # User-focused notifications
+            if current_user.is_authenticated:
+                # Skills needing recycling
+                if 'skills_needing_recycling' not in dismissed_notifications:
+                    skills_needing_recycling_count = 0
+                    for comp in current_user.competencies:
+                        if comp.needs_recycling:
+                            skills_needing_recycling_count += 1
+                
+                    if skills_needing_recycling_count > 0:
+                        url = url_for('dashboard.dashboard_home')
+                        if current_user.can('view_reports'):
+                            url = url_for('admin.recycling_report')
+                        
+                        notifications.append({
+                            'type': 'skills_needing_recycling',
+                            'title': 'Skills Needing Recycling',
+                            'count': skills_needing_recycling_count,
+                            'url': url
+                        })
+                        total_count += skills_needing_recycling_count
+                
+                # Upcoming training sessions
+                if 'upcoming_sessions' not in dismissed_notifications:
+                    now = datetime.now(timezone.utc)
+                    upcoming_training_sessions_count = TrainingSession.query.join(TrainingSession.attendees).filter(User.id == current_user.id, TrainingSession.start_time > now).count()
+                    if upcoming_training_sessions_count > 0:
+                        notifications.append({
+                            'type': 'upcoming_sessions',
+                            'title': 'Upcoming Training Sessions',
+                            'count': upcoming_training_sessions_count,
+                            'url': url_for('dashboard.dashboard_home') # Or a dedicated page for upcoming sessions
+                        })
+                        total_count += upcoming_training_sessions_count
+                
+                # Pending training requests by user
+                if 'user_pending_training_requests' not in dismissed_notifications:
+                    user_pending_training_requests_count = TrainingRequest.query.filter_by(requester_id=current_user.id, status=TrainingRequestStatus.PENDING).count()
+                    if user_pending_training_requests_count > 0:
+                        notifications.append({
+                            'type': 'user_pending_training_requests',
+                            'title': 'Your Pending Training Requests',
+                            'count': user_pending_training_requests_count,
+                            'url': url_for('dashboard.dashboard_home') # Or a dedicated page for user's requests
+                        })
+                        total_count += user_pending_training_requests_count
+                
+                # Pending external trainings by user
+                if 'user_pending_external_trainings' not in dismissed_notifications:
+                    user_pending_external_trainings_count = current_user.external_trainings.filter_by(status=ExternalTrainingStatus.PENDING).count()
+                    if user_pending_external_trainings_count > 0:
+                        notifications.append({
+                            'type': 'user_pending_external_trainings',
+                            'title': 'Your Pending External Trainings',
+                            'count': user_pending_external_trainings_count,
+                            'url': url_for('dashboard.dashboard_home') # Or a dedicated page for user's external trainings
+                        })
+                        total_count += user_pending_external_trainings_count
+    
+            return jsonify({'total_count': total_count, 'notifications': notifications})
+@api.route('/notifications/dismiss')
+class NotificationDismiss(Resource):
+    @api.doc(security='apikey', description='Dismiss a notification for the authenticated user.')
+    @api.expect(api.model('DismissNotification', {'notification_type': fields.String(required=True, description='Type of notification to dismiss'), 'notification_url': fields.String(required=False, description='URL associated with the notification')}))
+    @login_required
+    def post(self):
+        data = api.payload
+        notification_type = data.get('notification_type')
+        notification_url = data.get('notification_url')
+
+        if not notification_type:
+            api.abort(400, "Notification type is required.")
+
+        # Record the dismissal
+        dismissal = UserDismissedNotification.query.filter_by(
+            user_id=current_user.id,
+            notification_type=notification_type
+        ).first()
+
+        if dismissal:
+            # Update existing dismissal record
+            dismissal.dismissed_at = datetime.now(timezone.utc)
+            dismissal.notification_url = notification_url # Update URL as well
+        else:
+            # Create new dismissal record
+            dismissal = UserDismissedNotification(
+                user_id=current_user.id,
+                notification_type=notification_type,
+                notification_url=notification_url,
+                dismissed_at=datetime.now(timezone.utc)
+            )
+            db.session.add(dismissal)
+        
+        db.session.commit()
+        return {'message': f'Notification type {notification_type} dismissed successfully.'}, 200
 
 # Register namespaces
 api.add_namespace(ns_users)

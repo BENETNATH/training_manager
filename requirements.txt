@@ -20,3 +20,5 @@ email_validator
 Faker
 fpdf2
 requests
+Flask-Limiter
+Pylint

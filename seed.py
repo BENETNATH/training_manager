@@ -2,9 +2,11 @@ import os
 from dotenv import load_dotenv
 from app import create_app, db
 from app.models import (
-    User, Team, Species, Skill, TrainingPath, TrainingSession, Competency,
-    SkillPracticeEvent, TrainingRequest, ExternalTraining, ExternalTrainingSkillClaim,
-    Complexity, TrainingRequestStatus, ExternalTrainingStatus
+    User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent,
+    TrainingRequest, ExternalTraining, Role, Permission, InitialRegulatoryTrainingLevel,
+    InitialRegulatoryTraining, ContinuousTrainingType, ContinuousTrainingEvent,
+    ContinuousTrainingEventStatus, UserContinuousTrainingStatus, UserContinuousTraining,
+    Complexity, TrainingRequestStatus, ExternalTrainingStatus, init_roles_and_permissions
 )
 from werkzeug.security import generate_password_hash
 from faker import Faker

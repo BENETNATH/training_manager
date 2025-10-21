@@ -1,7 +1,7 @@
 import pytest
 from app import db
 from app.models import User, Team, Species, Skill, TrainingPath, TrainingSession, Competency, SkillPracticeEvent, TrainingRequest, ExternalTraining, ExternalTrainingSkillClaim, Complexity, TrainingRequestStatus, ExternalTrainingStatus, Role
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from flask import url_for
 
@@ -13,7 +13,7 @@ def create_api_user():
         db.session.add(admin_role)
         db.session.commit()
 
-    user = User(full_name='API Test User', email='api_test@example.com', is_admin=True)
+    user = User(full_name='API Test User', email='api_test@example.com', is_admin=True, is_approved=True)
     user.set_password('api_password')
     user.generate_api_key()
     user.roles.append(admin_role)
@@ -168,19 +168,21 @@ def test_api_get_training_paths(client):
     assert len(data) > 0
     assert data[0]['name'] == 'Test Path'
 
-def test_api_create_training_path(client):
-    user = create_api_user()
-    headers = {'X-API-Key': user.api_key}
-    path_data = {'name': 'New API Path'}
-    response = client.post('/api/training_paths/', headers=headers, json=path_data)
-    assert response.status_code == 201
-    data = json.loads(response.data)
-    assert data['name'] == 'New API Path'
-
+    def test_api_create_training_path(client):
+        user = create_api_user()
+        headers = {'X-API-Key': user.api_key}
+        species = Species(name='Test Species for New Path')
+        db.session.add(species)
+        db.session.commit()
+        path_data = {'name': 'New API Path', 'species_id': species.id}
+        response = client.post('/api/training_paths/', headers=headers, json=path_data)
+        assert response.status_code == 201
+        data = json.loads(response.data)
+        assert data['name'] == 'New API Path'
 def test_api_get_training_sessions(client):
     user = create_api_user()
     headers = {'X-API-Key': user.api_key}
-    session = TrainingSession(title='Test Session', start_time=datetime.utcnow(), end_time=datetime.utcnow() + timedelta(hours=1))
+    session = TrainingSession(title='Test Session', start_time=datetime.now(timezone.utc), end_time=datetime.now(timezone.utc) + timedelta(hours=1))
     db.session.add(session)
     db.session.commit()
     response = client.get('/api/training_sessions/', headers=headers)
@@ -194,8 +196,8 @@ def test_api_create_training_session(client):
     headers = {'X-API-Key': user.api_key}
     session_data = {
         'title': 'New API Session',
-        'start_time': datetime.utcnow().isoformat(),
-        'end_time': (datetime.utcnow() + timedelta(hours=1)).isoformat()
+        'start_time': datetime.now(timezone.utc).isoformat(),
+        'end_time': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     }
     response = client.post('/api/training_sessions/', headers=headers, json=session_data)
     assert response.status_code == 201
@@ -258,7 +260,7 @@ def test_api_create_skill_practice_event(client):
     event_data = {
         'user_id': user.id,
         'skill_ids': [skill.id],
-        'practice_date': datetime.utcnow().isoformat(),
+        'practice_date': datetime.now(timezone.utc).isoformat(),
         'notes': 'Practiced well'
     }
     response = client.post('/api/skill_practice_events/', headers=headers, json=event_data)
@@ -304,7 +306,7 @@ def test_api_get_external_trainings(client):
     skill = Skill(name='External Training Skill', complexity=Complexity.SIMPLE)
     db.session.add(skill)
     db.session.commit()
-    external_training = ExternalTraining(user=user, external_trainer_name='Trainer A', date=datetime.utcnow(), status=ExternalTrainingStatus.PENDING)
+    external_training = ExternalTraining(user=user, external_trainer_name='Trainer A', date=datetime.now(timezone.utc), status=ExternalTrainingStatus.PENDING)
     claim = ExternalTrainingSkillClaim(skill=skill, level='Novice')
     external_training.skill_claims.append(claim)
     db.session.add(external_training)
@@ -324,7 +326,7 @@ def test_api_create_external_training(client):
     external_training_data = {
         'user_id': user.id,
         'external_trainer_name': 'Trainer B',
-        'date': datetime.utcnow().isoformat(),
+        'date': datetime.now(timezone.utc).isoformat(),
         'status': 'PENDING',
         'skill_claims': [{'skill_id': skill.id, 'level': 'Expert'}]
     }
@@ -348,10 +350,12 @@ def test_submit_training_request_new(client):
         'skills_requested': [skill.id],
         'submit': True
     }
-    response = client.post('/profile/request-training', data=data, follow_redirects=True)
-    assert response.status_code == 200 # After redirect
-    # Check for a success message in the response data
-    assert b'Request for "New Skill for Request" on "New Species for Request" created.' in response.data
+    response = client.post('/dashboard/request-training', data=data, headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert response.status_code == 200
+    response_data = json.loads(response.data)
+    if not response_data['success']:
+        print(f"DEBUG: API call failed. Message: {response_data.get('message')}, Traceback: {response_data.get('traceback')}")
+    assert response_data['success'] is True
     
     request = TrainingRequest.query.filter_by(requester_id=user.id).first()
     assert request is not None
@@ -379,9 +383,13 @@ def test_submit_training_request_duplicate(client):
         'skills_requested': [skill.id],
         'submit': True
     }
-    response = client.post('/profile/request-training', data=data, follow_redirects=True)
+    response = client.post('/dashboard/request-training', data=data, headers={'X-Requested-With': 'XMLHttpRequest'})
     assert response.status_code == 200
-    assert f"Request for "{skill.name}" on "{species.name}" already exists and is pending.".encode('utf-8') in response.data
+    response_data = json.loads(response.data)
+    if not response_data['success']:
+        print(f"DEBUG: API call failed. Message: {response_data.get('message')}, Traceback: {response_data.get('traceback')}")
+    assert response_data['success'] is True
+    assert response_data['message'] == f'Request for "{skill.name}" on "{species.name}" already exists and is pending.'
 
     # Check that a new request was not created
     requests = TrainingRequest.query.filter_by(requester_id=user.id).all()
@@ -409,9 +417,13 @@ def test_submit_training_request_update_species(client):
         'skills_requested': [skill.id],
         'submit': True
     }
-    response = client.post('/profile/request-training', data=data, follow_redirects=True)
+    response = client.post('/dashboard/request-training', data=data, headers={'X-Requested-With': 'XMLHttpRequest'})
     assert response.status_code == 200
-    assert f"Request for "{skill.name}" on "{species2.name}" created.".encode('utf-8') in response.data
+    response_data = json.loads(response.data)
+    if not response_data['success']:
+        print(f"DEBUG: API call failed. Message: {response_data.get('message')}, Traceback: {response_data.get('traceback')}")
+    assert response_data['success'] is True
+    assert response_data['message'] == f'Request for "{skill.name}" on "{species2.name}" created.'
 
     # Check that a new request was created, as the logic creates a new one per species
     requests = TrainingRequest.query.filter_by(requester_id=user.id).all()

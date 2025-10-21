@@ -3,20 +3,28 @@ import io
 from flask import render_template, flash, redirect, url_for, current_app, request, send_file, abort, jsonify
 from flask_login import login_required, current_user, logout_user
 from werkzeug.utils import secure_filename
-from sqlalchemy import func
-import json
+from sqlalchemy import func, extract, case
+import traceback # Import traceback
 from fpdf import FPDF
 from fpdf.html import HTMLMixin
-from fpdf.fonts import FontFace
 from app import db
-from app.dashboard import bp
-from app.profile.forms import EditProfileForm, TrainingRequestForm, ExternalTrainingForm, ProposeSkillForm, InitialRegulatoryTrainingForm, SubmitContinuousTrainingAttendanceForm, RequestContinuousTrainingEventForm
-from app.models import User, Skill, Competency, TrainingRequest, ExternalTraining, SkillPracticeEvent, Species, TrainingRequestStatus, ExternalTrainingStatus, ExternalTrainingSkillClaim, TrainingSession, tutor_skill_association, InitialRegulatoryTraining, ContinuousTrainingEvent, UserContinuousTraining, UserContinuousTrainingStatus, InitialRegulatoryTrainingLevel, ContinuousTrainingEventStatus, ContinuousTrainingType, training_session_attendees
 from app.decorators import permission_required
 from app.email import send_email
-from datetime import datetime, timedelta, timezone
+from app.dashboard import bp
+from app.models import (
+    User, TrainingRequest, TrainingRequestStatus, ExternalTraining, ExternalTrainingStatus,
+    UserContinuousTraining, UserContinuousTrainingStatus, ContinuousTrainingEvent,
+    ContinuousTrainingEventStatus, Skill, ContinuousTrainingType, Competency, Role, Permission,
+    InitialRegulatoryTraining, InitialRegulatoryTrainingLevel, SkillPracticeEvent, Species,
+    UserDismissedNotification, tutor_skill_association, TrainingSession, ExternalTrainingSkillClaim,
+    training_session_attendees
+)
+from app.profile.forms import (
+    RequestContinuousTrainingEventForm, SubmitContinuousTrainingAttendanceForm, EditProfileForm,
+    InitialRegulatoryTrainingForm, ProposeSkillForm, ExternalTrainingForm, ExternalTrainingSkillClaimForm
+)
 from collections import defaultdict
-from sqlalchemy import func, extract, case
+from datetime import datetime, timezone
 
 class PDFWithFooter(FPDF):
     def __init__(self, orientation='P', unit='mm', format='A4', user_name='', generation_date=''):
@@ -30,6 +38,166 @@ class PDFWithFooter(FPDF):
         footer_text = f'Generated for {self.user_name} on {self.generation_date}'
         self.cell(0, 10, footer_text, 0, 0, 'L')
         self.cell(0, 10, 'Page %s/{nb}' % self.page_no(), 0, 0, 'R')
+
+def get_notification_summary_for_user(user):
+    notifications = []
+    total_count = 0
+
+    # Get dismissed notifications for the current user
+    dismissed_notifications = {d.notification_type for d in user.dismissed_notifications}
+
+    # Admin-focused notifications
+    if user.can('user_manage') and 'user_approvals' not in dismissed_notifications:
+        pending_user_approvals_count = User.query.filter_by(is_approved=False).count()
+        if pending_user_approvals_count > 0:
+            notifications.append({
+                'type': 'user_approvals',
+                'title': 'New User Approvals',
+                'count': pending_user_approvals_count,
+                'url': url_for('admin.pending_users')
+            })
+            total_count += pending_user_approvals_count
+
+    if user.can('training_request_manage') and 'training_requests' not in dismissed_notifications:
+        pending_requests_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PENDING).count()
+        if pending_requests_count > 0:
+            notifications.append({
+                'type': 'training_requests',
+                'title': 'Pending Training Requests',
+                'count': pending_requests_count,
+                'url': url_for('admin.list_training_requests')
+            })
+            total_count += pending_requests_count
+
+    if user.can('external_training_validate') and 'external_trainings' not in dismissed_notifications:
+        pending_external_trainings_count = ExternalTraining.query.filter_by(status=ExternalTrainingStatus.PENDING).count()
+        if pending_external_trainings_count > 0:
+            notifications.append({
+                'type': 'external_trainings',
+                'title': 'Pending External Training Validations',
+                'count': pending_external_trainings_count,
+                'url': url_for('admin.validate_external_trainings')
+            })
+            total_count += pending_external_trainings_count
+
+    if user.can('continuous_training_validate') and 'continuous_training_validations' not in dismissed_notifications:
+        pending_continuous_training_validations_count = UserContinuousTraining.query.filter_by(status=UserContinuousTrainingStatus.PENDING).count()
+        if pending_continuous_training_validations_count > 0:
+            notifications.append({
+                'type': 'continuous_training_validations',
+                'title': 'Pending Continuous Training Validations',
+                'count': pending_continuous_training_validations_count,
+                'url': url_for('admin.validate_continuous_trainings')
+            })
+            total_count += pending_continuous_training_validations_count
+
+    if user.can('continuous_training_manage') and 'continuous_event_requests' not in dismissed_notifications:
+        pending_continuous_event_requests_count = ContinuousTrainingEvent.query.filter_by(status=ContinuousTrainingEventStatus.PENDING).count()
+        if pending_continuous_event_requests_count > 0:
+            notifications.append({
+                'type': 'continuous_event_requests',
+                'title': 'Pending Continuous Event Requests',
+                'count': pending_continuous_event_requests_count,
+                'url': url_for('admin.manage_continuous_training_events', status='PENDING')
+            })
+            total_count += pending_continuous_event_requests_count
+
+    if user.can('skill_manage') and 'proposed_skills' not in dismissed_notifications:
+        proposed_skills_count = TrainingRequest.query.filter_by(status=TrainingRequestStatus.PROPOSED_SKILL).count()
+        if proposed_skills_count > 0:
+            notifications.append({
+                'type': 'proposed_skills',
+                'title': 'Proposed Skills',
+                'count': proposed_skills_count,
+                'url': url_for('admin.proposed_skills')
+            })
+            total_count += proposed_skills_count
+
+    if user.can('skill_manage') and 'skills_without_tutors' not in dismissed_notifications:
+        skills_without_tutors_count = Skill.query.filter(~Skill.tutors.any()).count()
+        if skills_without_tutors_count > 0:
+            notifications.append({
+                'type': 'skills_without_tutors',
+                'title': 'Skills Without Tutors',
+                'count': skills_without_tutors_count,
+                'url': url_for('admin.tutor_less_skills_report')
+            })
+            total_count += skills_without_tutors_count
+
+    if user.can('training_session_manage') and 'sessions_to_finalize' not in dismissed_notifications:
+        sessions_to_be_finalized_count = TrainingSession.query.filter(
+            TrainingSession.start_time < datetime.now(timezone.utc),
+            TrainingSession.status != 'Realized'
+        ).count()
+        if sessions_to_be_finalized_count > 0:
+            notifications.append({
+                'type': 'sessions_to_finalize',
+                'title': 'Sessions to Finalize',
+                'count': sessions_to_be_finalized_count,
+                'url': url_for('admin.manage_training_sessions', filter='to_be_finalized')
+            })
+            total_count += sessions_to_be_finalized_count
+
+    # User-focused notifications
+    if user.is_authenticated:
+        # Skills needing recycling
+        if 'skills_needing_recycling' not in dismissed_notifications:
+            skills_needing_recycling_count = 0
+            for comp in user.competencies:
+                if comp.needs_recycling:
+                    skills_needing_recycling_count += 1
+
+            if skills_needing_recycling_count > 0:
+                url = url_for('dashboard.dashboard_home')
+                if user.can('view_reports'):
+                    url = url_for('admin.recycling_report')
+                
+                notifications.append({
+                    'type': 'skills_needing_recycling',
+                    'title': 'Skills Needing Recycling',
+                    'count': skills_needing_recycling_count,
+                    'url': url
+                })
+                total_count += skills_needing_recycling_count
+
+        # Upcoming training sessions
+        if 'upcoming_sessions' not in dismissed_notifications:
+            now = datetime.now(timezone.utc)
+            upcoming_training_sessions_count = TrainingSession.query.join(TrainingSession.attendees).filter(User.id == user.id, TrainingSession.start_time > now).count()
+            if upcoming_training_sessions_count > 0:
+                notifications.append({
+                    'type': 'upcoming_sessions',
+                    'title': 'Upcoming Training Sessions',
+                    'count': upcoming_training_sessions_count,
+                    'url': url_for('dashboard.dashboard_home') # Or a dedicated page for upcoming sessions
+                })
+                total_count += upcoming_training_sessions_count
+
+        # Pending training requests by user
+        if 'user_pending_training_requests' not in dismissed_notifications:
+            user_pending_training_requests_count = TrainingRequest.query.filter_by(requester_id=user.id, status=TrainingRequestStatus.PENDING).count()
+            if user_pending_training_requests_count > 0:
+                notifications.append({
+                    'type': 'user_pending_training_requests',
+                    'title': 'Your Pending Training Requests',
+                    'count': user_pending_training_requests_count,
+                    'url': url_for('dashboard.dashboard_home') # Or a dedicated page for user's requests
+                })
+                total_count += user_pending_training_requests_count
+
+        # Pending external trainings by user
+        if 'user_pending_external_trainings' not in dismissed_notifications:
+            user_pending_external_trainings_count = user.external_trainings.filter_by(status=ExternalTrainingStatus.PENDING).count()
+            if user_pending_external_trainings_count > 0:
+                notifications.append({
+                    'type': 'user_pending_external_trainings',
+                    'title': 'Your Pending External Trainings',
+                    'count': user_pending_external_trainings_count,
+                    'url': url_for('dashboard.dashboard_home') # Or a dedicated page for user's external trainings
+                })
+                total_count += user_pending_external_trainings_count
+
+    return {'total_count': total_count, 'notifications': notifications}
 
 @bp.route('/user_profile/<username>')
 @login_required
@@ -51,7 +219,7 @@ def dashboard_home():
     db.session.refresh(user) # Refresh the user object to get latest data
 
     # START: New logic for training chart (from dashboard.user_profile)
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     years_labels = [str(y) for y in range(current_year - 5, current_year + 1)]
     six_years_ago = datetime(current_year - 5, 1, 1)
 
@@ -133,7 +301,7 @@ def dashboard_home():
     pending_external_trainings_by_user = current_user.external_trainings.filter_by(status=ExternalTrainingStatus.PENDING).all()
 
     # Get upcoming and completed training sessions for the user (from dashboard.user_profile)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     upcoming_training_sessions_by_user = [sess for sess in user.attended_training_sessions if sess.start_time > now]
     completed_training_sessions_by_user = [sess for sess in user.attended_training_sessions if sess.start_time <= now]
 
@@ -158,7 +326,7 @@ def dashboard_home():
     user_next_session = TrainingSession.query \
         .join(training_session_attendees) \
         .filter(training_session_attendees.c.user_id == current_user.id) \
-        .filter(TrainingSession.start_time > datetime.utcnow()) \
+        .filter(TrainingSession.start_time > datetime.now(timezone.utc)) \
         .order_by(TrainingSession.start_time.asc()) \
         .first()
     user_skills_needing_recycling_count = Competency.query \
@@ -166,8 +334,11 @@ def dashboard_home():
         .filter(\
             Competency.user_id == current_user.id,\
             Skill.validity_period_months.isnot(None),\
-            func.DATETIME(func.JULIANDAY(Competency.evaluation_date) + (Skill.validity_period_months * 30.44)) < datetime.utcnow()\
+            func.DATETIME(func.JULIANDAY(Competency.evaluation_date) + (Skill.validity_period_months * 30.44)) < datetime.now(timezone.utc)\
         ).count()
+
+    # Get notification summary for dashboard tabs
+    notification_summary = get_notification_summary_for_user(current_user)
 
     return render_template('dashboard/dashboard.html',
                            user=user,
@@ -193,12 +364,8 @@ def dashboard_home():
                            UserContinuousTrainingStatus=UserContinuousTrainingStatus,
                            ContinuousTrainingType=ContinuousTrainingType,
                            TrainingRequestStatus=TrainingRequestStatus,
-                           datetime=datetime,
-                           timedelta=timedelta,
-                           user_pending_training_requests_count=user_pending_training_requests_count,
-                           user_pending_external_trainings_count=user_pending_external_trainings_count,
-                           user_next_session=user_next_session,
-                           user_skills_needing_recycling_count=user_skills_needing_recycling_count
+                           notification_summary=notification_summary, # Pass notification summary to template
+                           now=now
                            )
 
 
@@ -210,8 +377,7 @@ def request_continuous_training_event():
     if form.validate_on_submit():
         attachment_path = None
         if form.attachment.data:
-            content_type = "continuous_event_request"
-            current_utc = datetime.utcnow()
+            current_utc = datetime.now(timezone.utc)
             year = current_utc.year
             month = current_utc.month
             user_id = current_user.id
@@ -241,6 +407,35 @@ def request_continuous_training_event():
         )
         db.session.add(new_event)
         db.session.commit()
+
+        # Send email to continuous training managers
+        ct_managers = User.query.join(User.roles).join(Role.permissions).filter(
+            Permission.name == 'continuous_training_manage'
+        ).all()
+
+        if ct_managers:
+            recipients = [manager.email for manager in ct_managers if manager.email]
+            if recipients:
+                send_email(
+                    '[Training Manager] New Continuous Training Event Request for Review',
+                    sender=current_app.config['MAIL_USERNAME'],
+                    recipients=recipients,
+                    text_body=render_template(
+                        'email/continuous_training_event_requested_notification.txt',
+                        user=current_user,
+                        event_title=new_event.title,
+                        event_description=new_event.description,
+                        event_date=new_event.event_date.strftime('%Y-%m-%d')
+                    ),
+                    html_body=render_template(
+                        'email/continuous_training_event_requested_notification.html',
+                        user=current_user,
+                        event_title=new_event.title,
+                        event_description=new_event.description,
+                        event_date=new_event.event_date.strftime('%Y-%m-%d')
+                    )
+                )
+                current_app.logger.info(f"Email sent to CT managers for new event request by {current_user.full_name}")
 
         flash("Votre demande d'événement de formation continue a été soumise pour validation !", 'success')
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -283,8 +478,7 @@ def submit_continuous_training_attendance():
 
         attendance_attachment_path = None
         if form.attendance_attachment.data:
-            content_type = "continuous_attendance"
-            current_utc = datetime.utcnow()
+            current_utc = datetime.now(timezone.utc)
             year = current_utc.year
             month = current_utc.month
             user_id = current_user.id
@@ -292,7 +486,7 @@ def submit_continuous_training_attendance():
             timestamp = int(current_utc.timestamp())
             original_filename = secure_filename(form.attendance_attachment.data.filename)
             file_extension = os.path.splitext(original_filename)[1]
-
+            content_type = "continuous_training_attendance"
             upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', content_type, str(year), str(month), str(user_id))
             os.makedirs(upload_folder, exist_ok=True)
 
@@ -376,8 +570,7 @@ def edit_profile():
         attachment_path = None
         if initial_training_form.attachment.data:
             # Determine content type, date, and user info for folder structure
-            content_type = "initial_training"
-            current_utc = datetime.utcnow()
+            current_utc = datetime.now(timezone.utc)
             year = current_utc.year
             month = current_utc.month
             user_id = current_user.id
@@ -385,7 +578,7 @@ def edit_profile():
             timestamp = int(current_utc.timestamp())
             original_filename = secure_filename(initial_training_form.attachment.data.filename)
             file_extension = os.path.splitext(original_filename)[1]
-
+            content_type = "initial_regulatory_training"
             # New folder structure: static/uploads/{content_type}/{year}/{month}/{user_id}/
             upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', content_type, str(year), str(month), str(user_id))
             os.makedirs(upload_folder, exist_ok=True)
@@ -460,6 +653,15 @@ def confirm_email(token):
 @permission_required('self_submit_training_request')
 def submit_training_request():
     form = TrainingRequestForm()
+    skill_id = request.args.get('skill_id')
+    species_id = request.args.get('species_id')
+
+    if request.method == 'GET' and skill_id and species_id:
+        skill = Skill.query.get(skill_id)
+        species = Species.query.get(species_id)
+        if skill and species:
+            form.skills_requested.data = [skill]
+            form.species.data = species
 
     def get_skills_for_species(species_id):
         if species_id:
@@ -526,22 +728,25 @@ def submit_training_request():
                 flash('Some errors occurred during submission.', 'danger')
 
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                # Combine messages for AJAX response
-                all_messages = successful_requests_messages + existing_requests_messages
-                if errors_occurred:
-                    all_messages.append('Some errors occurred during submission.')
-                return jsonify({'success': not errors_occurred, 'message': '; '.join(all_messages), 'redirect_url': url_for('dashboard.dashboard_home')})
+                if existing_requests_messages:
+                    return jsonify({'success': True, 'message': existing_requests_messages[0], 'redirect_url': url_for('dashboard.dashboard_home')})
+                elif successful_requests_messages:
+                    return jsonify({'success': True, 'message': successful_requests_messages[0], 'redirect_url': url_for('dashboard.dashboard_home')})
+                else:
+                    return jsonify({'success': True, 'message': 'Request processed.', 'redirect_url': url_for('dashboard.dashboard_home')})
             
             return redirect(url_for('dashboard.dashboard_home'))
 
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Error committing training request: {e}")
+            current_app.logger.error(f"Error committing training request: {e}", exc_info=True) # Log full traceback
+            traceback.print_exc() # Print traceback directly to stderr
             flash('An unexpected error occurred during submission.', 'danger')
             errors_occurred = True # Mark that an error occurred
 
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'success': False, 'message': 'An unexpected error occurred during submission.'}), 500
+                import traceback
+                return jsonify({'success': False, 'message': 'An unexpected error occurred during submission.', 'traceback': traceback.format_exc()}), 500
             return redirect(url_for('dashboard.dashboard_home'))
     elif request.method == 'POST': # Validation failed
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -551,7 +756,7 @@ def submit_training_request():
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
 
-    return render_template('profile/submit_training_request.html', title='Submit Training Request', form=form)
+    return render_template('profile/_training_request_form.html', title='Submit Training Request', form=form)
 
 
 @bp.route('/propose-skill', methods=['GET', 'POST'])
@@ -566,6 +771,34 @@ def propose_skill():
             justification=f"Proposed Skill: {form.name.data} - Description: {form.description.data}")
         db.session.add(req)
         db.session.commit()
+
+        # Send email to skill managers
+        skill_managers = User.query.join(User.roles).join(Role.permissions).filter(
+            Permission.name == 'skill_manage'
+        ).all()
+        
+        if skill_managers:
+            recipients = [manager.email for manager in skill_managers if manager.email]
+            if recipients:
+                send_email(
+                    '[Training Manager] New Skill Proposal for Review',
+                    sender=current_app.config['MAIL_USERNAME'],
+                    recipients=recipients,
+                    text_body=render_template(
+                        'email/skill_proposed_notification.txt',
+                        user=current_user,
+                        skill_name=form.name.data,
+                        skill_description=form.description.data
+                    ),
+                    html_body=render_template(
+                        'email/skill_proposed_notification.html',
+                        user=current_user,
+                        skill_name=form.name.data,
+                        skill_description=form.description.data
+                    )
+                )
+                current_app.logger.info(f"Email sent to skill managers for new skill proposal by {current_user.full_name}")
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': True, 'message': 'Votre proposition de compétence a été soumise aux administrateurs.', 'redirect_url': url_for('dashboard.dashboard_home')})
         flash('Votre proposition de compétence a été soumise aux administrateurs.', 'success')
@@ -595,7 +828,7 @@ def submit_external_training():
         )
         if form.attachment.data:
             content_type = "external_training"
-            current_utc = datetime.utcnow()
+            current_utc = datetime.now(timezone.utc)
             year = current_utc.year
             month = current_utc.month
             user_id = current_user.id
@@ -886,7 +1119,7 @@ def generate_user_booklet_pdf(user_id):
     ).order_by(ContinuousTrainingEvent.event_date.desc()).all()
 
     # --- PDF Generation ---
-    generation_date_str = datetime.utcnow().strftime("%Y-%m-%d")
+    generation_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     pdf = PDFWithFooter(
         orientation='L', 
         unit='mm', 
@@ -943,7 +1176,7 @@ def generate_user_booklet_pdf(user_id):
                 recycling_due = comp.recycling_due_date.strftime("%Y-%m-%d")
                 if comp.needs_recycling:
                     status_text = "Expired"
-                elif comp.warning_date and datetime.utcnow() > comp.warning_date:
+                elif comp.warning_date and datetime.now(timezone.utc) > comp.warning_date:
                     status_text = "Recycling Soon"
                 else:
                     status_text = "Valid"
@@ -1095,7 +1328,7 @@ def edit_training_request(request_id):
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
 
-    return render_template('profile/submit_training_request.html', title='Modifier Demande de Formation', form=form)
+    return render_template('profile/_training_request_form.html', title='Modifier Demande de Formation', form=form)
 
 
 @bp.route('/external_training/delete/<int:training_id>', methods=['POST'])
@@ -1163,7 +1396,7 @@ def edit_external_training(training_id):
                     os.remove(old_path)
 
             content_type = "external_training"
-            current_utc = datetime.utcnow()
+            current_utc = datetime.now(timezone.utc)
             year = current_utc.year
             month = current_utc.month
             user_id = current_user.id
@@ -1237,6 +1470,14 @@ def show_external_training(training_id):
                            title='External Training Details',
                            external_training=external_training)
 
+
+@bp.route('/dismissed_notifications')
+@login_required
+def dismissed_notifications():
+    dismissed_notifications = UserDismissedNotification.query.filter_by(user_id=current_user.id).order_by(UserDismissedNotification.dismissed_at.desc()).all()
+    return render_template('dashboard/dismissed_notifications.html',
+                           title='Dismissed Notifications',
+                           dismissed_notifications=dismissed_notifications)
 
 @bp.route('/skills')
 @login_required

@@ -15,6 +15,12 @@
                             <thead>
                                 <tr>
                                     <th>Member</th>
+                                    <th>CT Total Hrs (6Y)</th>
+                                    <th>CT Req. Hrs</th>
+                                    <th>CT Compliant</th>
+                                    <th>CT Live Ratio</th>
+                                    <th>CT Live Ratio Compliant</th>
+                                    <th>CT At Risk Next Year</th>
                                     {% for skill in all_skills %}
                                         <th>{{ skill.name }}</th>
                                     {% endfor %}
@@ -24,6 +30,30 @@
                                 {% for member_id, member_data in data.competency_matrix.items() %}
                                     <tr>
                                         <td>{{ member_data.user.full_name }}</td>
+                                        <td>{{ "%.2f"|format(member_data.continuous_training_summary.total_hours_6_years) }}</td>
+                                        <td>{{ "%.2f"|format(member_data.continuous_training_summary.required_hours) }}</td>
+                                        <td>
+                                            {% if member_data.continuous_training_summary.is_compliant %}
+                                                <span class="badge bg-success">Yes</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">No</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ "%.2f%%"|format(member_data.continuous_training_summary.live_ratio * 100) }}</td>
+                                        <td>
+                                            {% if member_data.continuous_training_summary.is_live_ratio_compliant %}
+                                                <span class="badge bg-success">Yes</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">No</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if member_data.continuous_training_summary.is_at_risk_next_year %}
+                                                <span class="badge bg-warning">Yes</span>
+                                            {% else %}
+                                                <span class="badge bg-info">No</span>
+                                            {% endif %}
+                                        </td>
                                         {% for skill in all_skills %}
                                             {% set comp_info = member_data.skills[skill.id] %}
                                             <td>

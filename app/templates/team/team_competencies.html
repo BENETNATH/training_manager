@@ -9,10 +9,11 @@
     <p>Vue d'overview des compétences et de leur statut pour les membres de votre équipe.</p>
 
     <div class="mb-3">
-        <label for="competencyFilter-{{ team.id }}" class="form-label">Filtrer par besoin de recyclage :</label>
+        <label for="competencyFilter-{{ team.id }}" class="form-label">Filter by:</label>
         <select class="form-select competency-filter" id="competencyFilter-{{ team.id }}" data-table-id="team-competencies-table-{{ team.id }}">
-            <option value="">Afficher tout</option>
-            <option value="needs-recycling">Afficher seulement les besoins de recyclage</option>
+            <option value="">Montrer tous</option>
+            <option value="ct-issue">Problème de Formation Continue</option>
+            <option value="needs-recycling">Compétences à revoir</option>
         </select>
     </div>
 
@@ -22,6 +23,7 @@
                 <thead>
                     <tr>
                         <th>Membre</th>
+                        <th class="text-center">Status FC</th>
                         {% for skill in all_skills %}
                             <th class="text-center">
                                 {{ skill.name }}<br>
@@ -38,6 +40,18 @@
                         {% set member = data.user %}
                         <tr>
                             <td>{{ member.full_name }}</td>
+                            {% set summary = data.continuous_training_summary %}
+                            <td class="text-center ct-status-cell" data-order="{{ summary.total_hours_6_years }}">
+                                {% set color = 'success' %}
+                                {% if not summary.is_compliant %}
+                                    {% set color = 'danger' %}
+                                {% elif not summary.is_live_ratio_compliant or summary.is_at_risk_next_year %}
+                                    {% set color = 'warning' %}
+                                {% endif %}
+                                <span class="badge bg-{{ color }}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: {{ '%.2f'|format(summary.total_hours_6_years) }} / {{ '%.2f'|format(summary.required_hours) }}. Live Ratio: {{ '%.0f'|format(summary.live_ratio * 100) }}%">
+                                    <i class="fas fa-info-circle"></i>
+                                </span>
+                            </td>
                             {% for skill in all_skills %}
                                 {% set skill_data = data.skills[skill.id] %}
                                 <td class="text-center {% if skill_data.needs_recycling %}needs-recycling-cell{% endif %}">
@@ -101,8 +115,10 @@
                 }
                 
                 var row = settings.aoData[dataIndex].nTr; // Get the row node
-                if (filterValue === 'needs-recycling') {
-                    return $(row).find('.needs-recycling-cell').length > 0; // Check if any cell in the row has the class
+                if (filterValue === 'ct-issue') {
+                    return $(row).find('.ct-status-cell .badge.bg-warning, .ct-status-cell .badge.bg-danger').length > 0;
+                } else if (filterValue === 'needs-recycling') {
+                    return $(row).find('.needs-recycling-cell').length > 0;
                 }
                 return true;
             }

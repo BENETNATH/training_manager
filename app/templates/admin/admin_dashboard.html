@@ -189,97 +189,30 @@
 
     <!-- Tabbed Interface for Management Sections -->
     <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
-        {% if current_user.can('user_manage') %}
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab" aria-controls="users-pane" aria-selected="true">Gestion des Utilisateurs</button>
-        </li>
-        {% endif %}
         {% if current_user.can('skill_manage') %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link {% if not current_user.can('user_manage') %}active{% endif %}" id="skills-tab" data-bs-toggle="tab" data-bs-target="#skills-pane" type="button" role="tab" aria-controls="skills-pane" aria-selected="false">Gestion des Compétences</button>
-        </li>
-        {% endif %}
-        {% if current_user.can('team_manage') %}
-        <li class="nav-item" role="presentation">
-            <button class="nav-link {% if not current_user.can('user_manage') and not current_user.can('skill_manage') %}active{% endif %}" id="teams-tab" data-bs-toggle="tab" data-bs-target="#teams-pane" type="button" role="tab" aria-controls="teams-pane" aria-selected="false">Gestion des Équipes</button>
+            <button class="nav-link active" id="skills-tab" data-bs-toggle="tab" data-bs-target="#skills-pane" type="button" role="tab" aria-controls="skills-pane" aria-selected="true">Gestion des Compétences</button>
         </li>
         {% endif %}
         {% if current_user.can('continuous_training_manage') %}
         <li class="nav-item" role="presentation">
-            <button class="nav-link {% if not current_user.can('user_manage') and not current_user.can('skill_manage') and not current_user.can('team_manage') %}active{% endif %}" id="continuous-training-tab" data-bs-toggle="tab" data-bs-target="#continuous-training-pane" type="button" role="tab" aria-controls="continuous-training-pane" aria-selected="false">Gestion des Formations Continues</button>
+            <button class="nav-link {% if not current_user.can('skill_manage') %}active{% endif %}" id="continuous-training-tab" data-bs-toggle="tab" data-bs-target="#continuous-training-pane" type="button" role="tab" aria-controls="continuous-training-pane" aria-selected="false">Gestion des Formations Continues</button>
+        </li>
+        {% endif %}
+        {% if current_user.can('user_manage') %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if not current_user.can('skill_manage') and not current_user.can('continuous_training_manage') %}active{% endif %}" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab" aria-controls="users-pane" aria-selected="false">Gestion des Utilisateurs</button>
+        </li>
+        {% endif %}
+        {% if current_user.can('team_manage') %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if not current_user.can('skill_manage') and not current_user.can('continuous_training_manage') and not current_user.can('user_manage') %}active{% endif %}" id="teams-tab" data-bs-toggle="tab" data-bs-target="#teams-pane" type="button" role="tab" aria-controls="teams-pane" aria-selected="false">Gestion des Équipes</button>
         </li>
         {% endif %}
     </ul>
     <div class="tab-content" id="adminTabsContent">
-        {% if current_user.can('user_manage') %}
-        <div class="tab-pane fade show active" id="users-pane" role="tabpanel" aria-labelledby="users-tab">
-            <!-- Section: Gestion des Utilisateurs -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">Gestion des Utilisateurs</h6>
-                    <div>
-                        <button class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#import-users-modal">Importer</button>
-                        <div class="btn-group me-2">
-                            <button type="button" class="btn btn-info btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                Exporter
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{{ url_for('admin.export_users_xlsx') }}">Export Excel</a></li>
-                            </ul>
-                        </div>
-                        <button class="btn btn-primary btn-sm" id="add-user-btn">Créer un utilisateur</button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered" id="users-table" width="100%" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Nom complet</th>
-                                    <th>Email</th>
-                                    <th>Équipe</th>
-                                    <th>Rôles</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for user in users %}
-                                <tr id="user-row-{{ user.id }}">
-                                    <td>{{ user.full_name }}</td>
-                                    <td>{{ user.email }}</td>
-                                    <td>
-                                        {% for team in user.teams %}
-                                            <span class="badge bg-secondary">{{ team.name }}</span>
-                                        {% else %}
-                                            Aucune
-                                        {% endfor %}
-                                    </td>
-                                    <td>
-                                        {% if user.is_admin %}<span class="badge bg-primary">Admin</span>{% endif %}
-                                        {% if user.teams_as_lead %}
-                                            {% for team in user.teams_as_lead %}
-                                                <span class="badge bg-info">Lead: {{ team.name }}</span>
-                                            {% endfor %}
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{{ url_for('dashboard.dashboard_home', username=user.full_name) }}" target="_blank" class="btn btn-sm btn-info" title="Voir le livret"><i class="fa fa-eye"></i></a>
-                                        <button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="{{ url_for('admin.edit_user', id=user.id) }}" title="Éditer"><i class="fa fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="{{ user.id }}" data-delete-url="{{ url_for('admin.delete_user', id=user.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
-                                        <a href="{{ url_for('dashboard.generate_user_booklet_pdf', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
         {% if current_user.can('skill_manage') %}
-        <div class="tab-pane fade {% if not current_user.can('user_manage') %}show active{% endif %}" id="skills-pane" role="tabpanel" aria-labelledby="skills-tab">
+        <div class="tab-pane fade show active" id="skills-pane" role="tabpanel" aria-labelledby="skills-tab">
             <!-- Section: Gestion des Compétences -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
@@ -329,8 +262,8 @@
                                         {% endfor %}
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="{{ url_for('admin.edit_skill', id=skill.id) }}" title="Éditer"><i class="fa fa-edit"></i></button>
-                                        <button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="{{ skill.id }}" data-delete-url="{{ url_for('admin.delete_skill', id=skill.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
+                                        <button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="{{ url_for('admin.edit_skill', item_id=skill.id) }}" title="Éditer"><i class="fa fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="{{ skill.id }}" data-delete-url="{{ url_for('admin.delete_skill', item_id=skill.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -341,58 +274,8 @@
             </div>
         </div>
         {% endif %}
-
-        {% if current_user.can('team_manage') %}
-        <div class="tab-pane fade {% if not current_user.can('user_manage') and not current_user.can('skill_manage') %}show active{% endif %}" id="teams-pane" role="tabpanel" aria-labelledby="teams-tab">
-            <!-- Section: Gestion des Équipes -->
-            <div class="card shadow mb-4">
-                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">Gestion des Équipes</h6>
-                    <button class="btn btn-primary btn-sm" id="add-team-btn">Créer une équipe</button>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered" id="teams-table" width="100%" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Nb Members</th>
-                                    <th>Team Leads</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for team in teams %}
-                                <tr>
-                                    <td>{{ team.name }}</td>
-                                    <td>{{ team.members|length }}</td>
-                                    <td>
-                                        {% for lead in team.team_leads %}
-                                            <a href="{{ url_for('dashboard.dashboard_home', username=lead.full_name) }}" class="badge bg-primary text-decoration-none">{{ lead.full_name }}</a>
-                                        {% else %}
-                                            Aucun
-                                        {% endfor %}
-                                    </td>
-                                    <td>
-                                        <a href="{{ url_for('admin.edit_team', id=team.id) }}" class="btn btn-sm btn-warning" title="Éditer"><i class="fa fa-edit"></i></a>
-                                        <button class="btn btn-sm btn-info add-user-to-team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" title="Add User to Team"><i class="fas fa-user-plus"></i></button>
-                                        <form action="{{ url_for('admin.delete_team', id=team.id) }}" method="post" style="display:inline;">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Supprimer"><i class="fa fa-trash"></i></button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
         {% if current_user.can('continuous_training_manage') %}
-        <div class="tab-pane fade {% if not current_user.can('user_manage') and not current_user.can('skill_manage') and not current_user.can('team_manage') %}show active{% endif %}" id="continuous-training-pane" role="tabpanel" aria-labelledby="continuous-training-tab">
+        <div class="tab-pane fade {% if not current_user.can('skill_manage') %}show active{% endif %}" id="continuous-training-pane" role="tabpanel" aria-labelledby="continuous-training-tab">
             <!-- Section: Gestion des Formations Continues -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
@@ -522,6 +405,140 @@
                     {% else %}
                         <p>No continuous trainings pending validation.</p>
                     {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if current_user.can('user_manage') %}
+        <div class="tab-pane fade {% if not current_user.can('skill_manage') and not current_user.can('continuous_training_manage') %}show active{% endif %}" id="users-pane" role="tabpanel" aria-labelledby="users-tab">
+            <!-- Section: Gestion des Utilisateurs -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Gestion des Utilisateurs</h6>
+                    <div>
+                        <button class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#import-users-modal">Importer</button>
+                        <div class="btn-group me-2">
+                            <button type="button" class="btn btn-info btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                Exporter
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ url_for('admin.export_users_xlsx') }}">Export Excel</a></li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-primary btn-sm" id="add-user-btn">Créer un utilisateur</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="users-table" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Nom complet</th>
+                                    <th>Email</th>
+                                    <th>Équipe</th>
+                                    <th>Rôles</th>
+                                    <th class="text-center">Status FC</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr id="user-row-{{ user.id }}">
+                                    <td>{{ user.full_name }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% for team in user.teams %}
+                                            <span class="badge bg-secondary">{{ team.name }}</span>
+                                        {% else %}
+                                            Aucune
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_admin %}<span class="badge bg-primary">Admin</span>{% endif %}
+                                        {% if user.teams_as_lead %}
+                                            {% for team in user.teams_as_lead %}
+                                                <span class="badge bg-info">Lead: {{ team.name }}</span>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    {% set summary = {
+                                        'is_compliant': user.is_continuous_training_compliant,
+                                        'is_live_ratio_compliant': user.is_live_training_ratio_compliant,
+                                        'is_at_risk_next_year': user.is_at_risk_next_year,
+                                        'total_hours_6_years': user.total_continuous_training_hours_6_years,
+                                        'required_hours': user.required_continuous_training_hours,
+                                        'live_ratio': user.live_training_ratio
+                                    } %}
+                                    <td class="text-center" data-order="{{ summary.total_hours_6_years }}">
+                                        {% set color = 'success' %}
+                                        {% if not summary.is_compliant %}
+                                            {% set color = 'danger' %}
+                                        {% elif not summary.is_live_ratio_compliant or summary.is_at_risk_next_year %}
+                                            {% set color = 'warning' %}
+                                        {% endif %}
+                                        <span class="badge bg-{{ color }}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: {{ '%.2f'|format(summary.total_hours_6_years) }} / {{ '%.2f'|format(summary.required_hours) }}. Live Ratio: {{ '%.0f'|format(summary.live_ratio * 100) }}%">
+                                            <i class="fas fa-info-circle"></i>
+                                        </span>
+                                    </td>
+                                    <td>
+
+                                        <button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="{{ url_for('admin.edit_user', item_id=user.id) }}" title="Éditer"><i class="fa fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="{{ user.id }}" data-delete-url="{{ url_for('admin.delete_user', item_id=user.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
+                                        <a href="{{ url_for('dashboard.generate_user_booklet_pdf', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if current_user.can('team_manage') %}
+        <div class="tab-pane fade {% if not current_user.can('skill_manage') and not current_user.can('continuous_training_manage') and not current_user.can('user_manage') %}show active{% endif %}" id="teams-pane" role="tabpanel" aria-labelledby="teams-tab">
+            <!-- Section: Gestion des Équipes -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Gestion des Équipes</h6>
+                    <button class="btn btn-primary btn-sm" id="add-team-btn">Créer une équipe</button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="teams-table" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Nb Members</th>
+                                    <th>Team Leads</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for team in teams %}
+                                <tr>
+                                    <td>{{ team.name }}</td>
+                                    <td>{{ team.members|length }}</td>
+                                    <td>
+                                        {% for lead in team.team_leads %}
+                                            <a href="{{ url_for('dashboard.dashboard_home', username=lead.full_name) }}" class="badge bg-primary text-decoration-none">{{ lead.full_name }}</a>
+                                        {% else %}
+                                            Aucun
+                                        {% endfor %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('admin.edit_team', item_id=team.id) }}" class="btn btn-sm btn-warning" title="Éditer"><i class="fa fa-edit"></i></a>
+                                        <button class="btn btn-sm btn-info add-user-to-team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" title="Add User to Team"><i class="fas fa-user-plus"></i></button>
+                                        <form action="{{ url_for('admin.delete_team', item_id=team.id) }}" method="post" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Supprimer"><i class="fa fa-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

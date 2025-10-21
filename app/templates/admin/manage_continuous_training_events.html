@@ -244,8 +244,7 @@
                     });
                 }
             });
-        });
-    </script>
+
             // Handle quick validate button click
             $(document).on('click', '.quick-validate-btn', function() {
                 const eventId = $(this).data('id');
@@ -268,39 +267,6 @@
                         alert(data.message);
                         if (data.redirect_to_edit) {
                             window.location.href = data.redirect_to_edit;
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during quick validation:', error);
-                    alert('Une erreur est survenue lors de la validation rapide.');
-                });
-            });
-            // Handle quick validate button click
-            $(document).on('click', '.quick-validate-btn', function() {
-                const eventId = $(this).data('id');
-                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-                fetch(`/admin/continuous_training_events/validate_quick/${eventId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': csrfToken
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert(data.message);
-                        location.reload();
-                    } else {
-                        alert(data.message);
-                        if (data.redirect_to_edit) {
-                            window.location.href = data.redirect_to_edit;
-                        } else {
-                            // If no redirect, just show the alert
-                            // This case should ideally not happen if backend always provides redirect_to_edit on failure
                         }
                     }
                 })

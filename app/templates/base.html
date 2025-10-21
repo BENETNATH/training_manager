@@ -46,7 +46,7 @@
               </ul>
             </li>
             {% endif %}
-            {% if current_user.can('view_team_competencies') %}
+            {% if current_user.teams_as_lead %}
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('team.team_competencies') }}">Team</a>
             </li>
@@ -59,6 +59,15 @@
               <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
             </li>
             {% else %}
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownNotifications" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge rounded-pill bg-danger" id="notification-badge" style="font-size: 0.6em; position: relative; top: -10px; left: -5px;">0</span>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownNotifications" id="notification-list">
+                    <li><a class="dropdown-item text-center" href="{{ url_for('dashboard.dismissed_notifications') }}">No new notifications</a></li>
+                </ul>
+            </li>
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('dashboard.edit_profile') }}">Edit Profile</a>
             </li>
@@ -109,6 +118,84 @@
     <script src="https://cdn.datatables.net/1.12.1/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        $(document).ready(function() {
+            function fetchNotifications() {
+                $.ajax({
+                    url: "{{ url_for('api.notification_summary') }}",
+                    method: "GET",
+                    headers: {
+                        // If using API key for browser, retrieve it from a meta tag or similar
+                        // For now, assuming session-based auth for browser
+                    },
+                    success: function(data) {
+                        $('#notification-badge').text(data.total_count);
+                        if (data.total_count > 0) {
+                            $('#notification-badge').show();
+                            let notificationList = $('#notification-list');
+                            notificationList.empty();
+                            $.each(data.notifications, function(index, notification) {
+                            notificationList.append(
+                                `<li>
+                                    <div class="d-flex justify-content-between align-items-center px-3 py-2">
+                                        <a class="dropdown-item flex-grow-1" href="${notification.url}">${notification.title} (${notification.count})</a>
+                                        <button class="btn btn-sm btn-outline-secondary dismiss-notification-btn" data-notification-type="${notification.type}" title="Dismiss Notification">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </li>`
+                            );
+                        });
+                        // Add click handler for dismiss button
+                        $(document).on('click', '.dismiss-notification-btn', function(e) {
+                            e.preventDefault(); // Prevent the default action of the button
+                            e.stopPropagation(); // Stop event propagation to prevent dropdown from closing or link from being followed
+
+                            const notificationType = $(this).data('notification-type');
+                            const notificationUrl = $(this).siblings('a').attr('href'); // Get the URL from the sibling <a> tag
+                            const csrfToken = $('meta[name=csrf-token]').attr('content');
+
+                            fetch("{{ url_for('api.notification_dismiss') }}", {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRFToken': csrfToken
+                                },
+                                body: JSON.stringify({ notification_type: notificationType, notification_url: notificationUrl })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                // if (data.message) {
+                                //     alert(data.message);
+                                // }
+                                fetchNotifications(); // Refresh notifications after dismissal
+                            })
+                            .catch(error => {
+                                console.error('Error dismissing notification:', error);
+                                alert('An error occurred while dismissing the notification.');
+                            });
+                        });
+                        } else {
+                            $('#notification-badge').hide();
+                            $('#notification-list').empty().append(`<li><a class="dropdown-item text-center" href="{{ url_for('dashboard.dismissed_notifications') }}">No new notifications</a></li>`);
+                        }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        console.error("Error fetching notifications: ", textStatus, errorThrown);
+                        $('#notification-badge').hide();
+                        $('#notification-list').empty().append('<li><a class="dropdown-item text-center" href="#">Error loading notifications</a></li>');
+                    }
+                });
+            }
+
+            // Fetch notifications on page load
+            fetchNotifications();
+
+            // Fetch notifications every 60 seconds
+            setInterval(fetchNotifications, 60000);
+        });
+    </script>
     {% endblock %}
   </body>
 </html>

@@ -1,0 +1,8 @@
+Dear Validator,
+A new continuous training event has been requested by {{ user.full_name }}:
+Event Title: {{ event_title }}
+Description: {{ event_description }}
+Date: {{ event_date }}
+Please review and approve/reject it in the admin panel.
+Regards,
+The Training Manager Team

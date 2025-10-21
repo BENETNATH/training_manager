@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container text-center mt-5">
+        <h1 class="display-1">500</h1>
+        <h2 class="mb-4">Internal Server Error</h2>
+        <p class="lead">An unexpected error has occurred. The administrators have been notified.</p>
+        <a href="{{ url_for('root.index') }}" class="btn btn-primary">Go to Homepage</a>
+    </div>
+{% endblock %}

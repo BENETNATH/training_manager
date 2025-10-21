@@ -6,6 +6,14 @@ app = create_app()
 
 with app.app_context():
     init_roles_and_permissions()
+    # Check if an admin user exists, if not, create one
+    if not User.query.filter_by(email=app.config['ADMIN_EMAIL']).first():
+        if app.config['ADMIN_EMAIL'] and app.config['ADMIN_PASSWORD']:
+            User.create_admin_user(app.config['ADMIN_EMAIL'], app.config['ADMIN_PASSWORD'])
+            db.session.commit()
+            print(f"Admin user '{app.config['ADMIN_EMAIL']}' created.")
+        else:
+            print("WARNING: ADMIN_EMAIL or ADMIN_PASSWORD not set in environment variables. Admin user not created.")
 
 @app.shell_context_processor
 def make_shell_context():

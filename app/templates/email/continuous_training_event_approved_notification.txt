@@ -1,0 +1,7 @@
+Dear {{ user.full_name }},
+Your requested continuous training event "{{ event_title }}" has been approved!
+Event Title: {{ event_title }}
+Description: {{ event_description }}
+Date: {{ event_date }}
+Regards,
+The Training Manager Team

@@ -9,7 +9,7 @@ from app.models import TrainingRequest, TrainingRequestStatus, TrainingSession, 
 from app.decorators import permission_required
 from flask_mail import Message
 from ics import Calendar, Event
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 @bp.route('/requests')
 @login_required
@@ -67,7 +67,7 @@ def _handle_session_attachment(form, session):
     """Helper to manage file uploads for a TrainingSession."""
     if form.attachment.data:
         content_type = "training_session"
-        current_utc = datetime.utcnow()
+        current_utc = datetime.now(timezone.utc)
         year = current_utc.year
         month = current_utc.month
         # Assuming the creator of the session is the current_user
@@ -239,7 +239,7 @@ def create_session_from_requests():
 
             if form.attachment.data:
                 content_type = "training_session"
-                current_utc = datetime.utcnow()
+                current_utc = datetime.now(timezone.utc)
                 year = current_utc.year
                 month = current_utc.month
                 user_id = current_user.id # Assuming the creator of the session is the current_user

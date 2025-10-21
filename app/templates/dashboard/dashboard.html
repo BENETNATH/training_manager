@@ -53,16 +53,34 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="competencies-tab" data-bs-toggle="tab" data-bs-target="#competencies-tab-pane" type="button" role="tab" aria-controls="competencies-tab-pane" aria-selected="false">Mes Compétences
-                {% if user_skills_needing_recycling_count > 0 %}
-                    <span class="badge bg-warning rounded-pill ms-1">{{ user_skills_needing_recycling_count }}</span>
+                {% set skills_needing_recycling_count = 0 %}
+                {% for notification in notification_summary.notifications %}
+                    {% if notification.type == 'skills_needing_recycling' %}
+                        {% set skills_needing_recycling_count = notification.count %}
+                    {% endif %}
+                {% endfor %}
+                {% if skills_needing_recycling_count > 0 %}
+                    <span class="badge bg-danger rounded-pill ms-1">{{ skills_needing_recycling_count }}</span>
                 {% endif %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="training-requests-tab" data-bs-toggle="tab" data-bs-target="#training-requests-tab-pane" type="button" role="tab" aria-controls="training-requests-tab-pane" aria-selected="false">Mes Demandes & Sessions
-                {% set total_pending_requests = user_pending_training_requests_count + user_pending_external_trainings_count %}
-                {% if total_pending_requests > 0 %}
-                    <span class="badge bg-danger rounded-pill ms-1">{{ total_pending_requests }}</span>
+                {% set user_pending_requests_count = 0 %}
+                {% set user_pending_external_trainings_count = 0 %}
+                {% set upcoming_sessions_count = 0 %}
+                {% for notification in notification_summary.notifications %}
+                    {% if notification.type == 'user_pending_training_requests' %}
+                        {% set user_pending_requests_count = notification.count %}
+                    {% elif notification.type == 'user_pending_external_trainings' %}
+                        {% set user_pending_external_trainings_count = notification.count %}
+                    {% elif notification.type == 'upcoming_sessions' %}
+                        {% set upcoming_sessions_count = notification.count %}
+                    {% endif %}
+                {% endfor %}
+                {% set total_pending_requests_and_sessions = user_pending_requests_count + user_pending_external_trainings_count + upcoming_sessions_count %}
+                {% if total_pending_requests_and_sessions > 0 %}
+                    <span class="badge bg-danger rounded-pill ms-1">{{ total_pending_requests_and_sessions }}</span>
                 {% endif %}
             </button>
         </li>
@@ -229,9 +247,11 @@
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             {{ comp.skill.name }}
                                             <div>
-                                                {% if comp.skill.species %}
-                                                    {% for species in comp.skill.species %}
-                                                        <span class="badge bg-secondary me-1">{{ species.name }}</span>
+                                                {% if comp.species %}
+                                                    {% for species in comp.species %}
+                                                        <a href="#" class="action-btn" data-action-url="{{ url_for('dashboard.submit_training_request', skill_id=comp.skill.id, species_id=species.id) }}" data-modal-title="Demander une Formation">
+                                                            <span class="badge bg-secondary me-1">{{ species.name }}</span>
+                                                        </a>
                                                     {% endfor %}
                                                 {% else %}
                                                     <span class="badge bg-secondary me-1">N/A</span>
@@ -271,7 +291,7 @@
                                 </thead>
                                 <tbody>
                                     {% for comp in competencies %}
-                                        <tr class="{% if comp.needs_recycling %}table-danger{% elif comp.warning_date and datetime.utcnow() > comp.warning_date %}table-warning{% endif %}">
+                                        <tr class="{% if comp.needs_recycling %}table-danger{% elif comp.warning_date and now > comp.warning_date %}table-warning{% endif %}">
                                             <td>{{ comp.skill.name }}</td>
                                             <td>{{ comp.level }}</td>
                                             <td>{{ comp.evaluation_date.strftime('%Y-%m-%d') }}</td>
@@ -296,7 +316,7 @@
                                                 {% if comp.skill.validity_period_months %}
                                                     {% if comp.needs_recycling %}
                                                         <span class="badge bg-danger">Expirée</span>
-                                                    {% elif comp.warning_date and datetime.utcnow() > comp.warning_date %}
+                                                    {% elif comp.warning_date and now > comp.warning_date %}
                                                         <span class="badge bg-warning">À Recycler Bientôt</span>
                                                     {% else %}
                                                         <span class="badge bg-success">Valide</span>
@@ -912,7 +932,7 @@ $(document).ready(function() {
                             placeholder: placeholder,
                             allowClear: true,
                             width: '100%',
-                            dropdownParent: $modalBody
+                            dropdownParent: $('body')
                         };
 
                         if (!$sel.hasClass('level-select')) {
