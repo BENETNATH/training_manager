@@ -213,3 +213,4 @@ app/static/uploads/*
 *.out
 test_app_access*
 *.log.*
+app.pid
