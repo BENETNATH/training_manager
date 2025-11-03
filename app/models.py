@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer as Serializer
 
 from app import db, login
 
@@ -218,8 +219,8 @@ class User(UserMixin, db.Model):
                                                  back_populates='tutors')
 
     # New relationships for regulatory and continuous training
-    initial_regulatory_training = db.relationship('InitialRegulatoryTraining',
-                                                  back_populates='user', uselist=False,
+    initial_regulatory_trainings = db.relationship('InitialRegulatoryTraining',
+                                                  back_populates='user',
                                                   cascade="all, delete-orphan")
     created_continuous_training_events = db.relationship('ContinuousTrainingEvent',
                                                          foreign_keys=lambda: [ContinuousTrainingEvent.creator_id],
@@ -328,9 +329,32 @@ class User(UserMixin, db.Model):
         """
         Returns continuous training hours for a specific year.
         """
-        start_date = datetime(year, 1, 1)
-        end_date = datetime(year + 1, 1, 1)
+        start_date = datetime(year, 1, 1, tzinfo=timezone.utc)
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
         return self.get_continuous_training_hours(start_date, end_date)
+
+    def get_total_continuous_training_hours_last_six_years(self):
+        """
+        Calculates the total continuous training hours for the last 6 years (day to day of extraction).
+        """
+        total_hours = 0.0
+        today = datetime.now(timezone.utc)
+        
+        # Calculate the date 6 years ago from today
+        six_years_ago = today - timedelta(days=self.CONTINUOUS_TRAINING_YEARS_WINDOW * 365.25) # Account for leap years
+
+        # Iterate from 6 years ago up to the current year
+        for year_offset in range(self.CONTINUOUS_TRAINING_YEARS_WINDOW):
+            year = today.year - year_offset
+            
+            # Determine the start and end dates for the current year in the 6-year window
+            year_start = max(datetime(year, 1, 1, tzinfo=timezone.utc), six_years_ago)
+            year_end = min(datetime(year + 1, 1, 1, tzinfo=timezone.utc), today)
+            
+            if year_start < year_end: # Ensure the period is valid
+                total_hours += self.get_continuous_training_hours(year_start, year_end)
+                
+        return total_hours
 
     @property
     def continuous_training_summary_by_year(self):
@@ -406,6 +430,27 @@ class User(UserMixin, db.Model):
         """
         return self.email_confirmation_token == token
 
+    def get_reset_password_token(self, expires_in=600):
+        """
+        Generates a signed token for password reset.
+        """
+        from app import current_app
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'user_id': self.id})
+
+    @staticmethod
+    def verify_reset_password_token(token):
+        """
+        Verifies the password reset token and returns the user.
+        """
+        from app import current_app
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token)
+        except:
+            return None
+        return User.query.get(data['user_id'])
+
     @classmethod
     def check_for_admin_user(cls):
         """
@@ -428,6 +473,13 @@ class User(UserMixin, db.Model):
             admin_user.roles.append(admin_role)
         db.session.commit()
         return admin_user
+
+    @property
+    def latest_initial_regulatory_training(self):
+        """
+        Returns the latest initial regulatory training for the user, if any.
+        """
+        return self.initial_regulatory_trainings.order_by(InitialRegulatoryTraining.training_date.desc()).first()
 
     def __repr__(self):
         """
@@ -931,6 +983,7 @@ class ExternalTraining(db.Model):
     external_trainer_name = db.Column(db.String(128))
     date = db.Column(db.DateTime(timezone=True), index=True,
                      default=lambda: datetime.now(timezone.utc))
+    duration_hours = db.Column(db.Float, nullable=True)
     attachment_path = db.Column(db.String(256)) # Path to external certificate/document
     status = db.Column(db.Enum(ExternalTrainingStatus),
                         default=ExternalTrainingStatus.PENDING, nullable=False)
@@ -981,24 +1034,26 @@ class InitialRegulatoryTrainingLevel(enum.Enum):
     NIVEAU_1_CONCEPTEUR = 'Niveau 1: Concepteur'
     NIVEAU_2_EXPERIMENTATEUR = 'Niveau 2: Experimentateur'
     NIVEAU_3_SOIGNEUR = 'Niveau 3: Soigneur'
+    NIVEAU_CHIRURGIE = 'Formation à la chirurgie'
 
 class InitialRegulatoryTraining(db.Model):
     """
     Records a user's initial regulatory training.
     """
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    training_type = db.Column(db.String(128), nullable=False, default='General')
     level = db.Column(db.Enum(InitialRegulatoryTrainingLevel), nullable=False)
     training_date = db.Column(db.DateTime(timezone=True), nullable=False)
     attachment_path = db.Column(db.String(256), nullable=True)
 
-    user = db.relationship('User', back_populates='initial_regulatory_training')
+    user = db.relationship('User', back_populates='initial_regulatory_trainings')
 
     def __repr__(self):
         """
         Returns a string representation of the InitialRegulatoryTraining object.
         """
-        return f'<InitialRegulatoryTraining {self.user.full_name} - {self.level.value}>'
+        return f'<InitialRegulatoryTraining {self.user.full_name} - {self.training_type} - {self.level.value}>'
 
 class ContinuousTrainingType(enum.Enum):
     """

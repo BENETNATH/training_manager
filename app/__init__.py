@@ -161,6 +161,12 @@ def create_app(config_class=Config):
         ContinuousTrainingEvent, UserContinuousTraining, ContinuousTrainingType, \
         UserContinuousTrainingStatus, InitialRegulatoryTrainingLevel, init_roles_and_permissions
 
+    @app.context_processor
+    def inject_api_key():
+        if hasattr(current_user, 'api_key'):
+            return dict(api_key=current_user.api_key)
+        return dict(api_key=None)
+
     @app.template_filter('get_skill_name')
     def get_skill_name_filter(skill_id):
         try:

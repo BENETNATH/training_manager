@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base.html" %} 
 
 {% block content %}
     <h1>{{ title }}</h1>
@@ -9,61 +9,80 @@
                 <div class="card-header bg-primary text-white">
                     <h3>Team: {{ data.team.name }}</h3>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered" id="team-competencies-table-{{ team_id }}" width="100%" cellspacing="0">
+                                    <div class="card-body">
+                                    <h4 class="mb-3">Continuous Training Summaries</h4>
+                                    <div class="table-responsive mb-4">
+                                        <table class="table table-bordered" id="team-ct-summary-table-{{ team_id }}" width="100%" cellspacing="0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Member</th>
+                                                    <th>CT Total Hrs (6Y)</th>
+                                                    <th>CT Req. Hrs</th>
+                                                    <th>CT Compliant</th>
+                                                    <th>CT Live Ratio</th>
+                                                    <th>CT Live Ratio Compliant</th>
+                                                    <th>CT At Risk Next Year</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for member in data.members %}
+                                                    {% set ct_summary = data.member_training_summaries[member.id].continuous_training_summary %}
+                                                    <tr>
+                                                        <td>{{ member.full_name }}</td>
+                                                        <td>{{ "%.2f"|format(ct_summary.total_hours_6_years) }}</td>
+                                                        <td>{{ "%.2f"|format(ct_summary.required_hours) }}</td>
+                                                        <td>
+                                                            {% if ct_summary.is_compliant %}
+                                                                <span class="badge bg-success">Yes</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger">No</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ "%.2f%%"|format(ct_summary.live_ratio * 100) }}</td>
+                                                        <td>
+                                                            {% if ct_summary.is_live_ratio_compliant %}
+                                                                <span class="badge bg-success">Yes</span>
+                                                            {% else %}
+                                                                <span class="badge bg-danger">No</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% if ct_summary.is_at_risk_next_year %}
+                                                                <span class="badge bg-warning">Yes</span>
+                                                            {% else %}
+                                                                <span class="badge bg-info">No</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                
+                                    <h4 class="mb-3">Skill Competency Matrix</h4>
+                                    <div class="table-responsive">                        <table class="table table-bordered" id="team-competencies-table-{{ team_id }}" width="100%" cellspacing="0">
                             <thead>
                                 <tr>
-                                    <th>Member</th>
-                                    <th>CT Total Hrs (6Y)</th>
-                                    <th>CT Req. Hrs</th>
-                                    <th>CT Compliant</th>
-                                    <th>CT Live Ratio</th>
-                                    <th>CT Live Ratio Compliant</th>
-                                    <th>CT At Risk Next Year</th>
-                                    {% for skill in all_skills %}
-                                        <th>{{ skill.name }}</th>
+                                    <th>Skill</th>
+                                    {% for member in data.members %}
+                                        <th>{{ member.full_name }}</th>
                                     {% endfor %}
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for member_id, member_data in data.competency_matrix.items() %}
+                                {% for skill in data.all_skills %}
                                     <tr>
-                                        <td>{{ member_data.user.full_name }}</td>
-                                        <td>{{ "%.2f"|format(member_data.continuous_training_summary.total_hours_6_years) }}</td>
-                                        <td>{{ "%.2f"|format(member_data.continuous_training_summary.required_hours) }}</td>
-                                        <td>
-                                            {% if member_data.continuous_training_summary.is_compliant %}
-                                                <span class="badge bg-success">Yes</span>
-                                            {% else %}
-                                                <span class="badge bg-danger">No</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ "%.2f%%"|format(member_data.continuous_training_summary.live_ratio * 100) }}</td>
-                                        <td>
-                                            {% if member_data.continuous_training_summary.is_live_ratio_compliant %}
-                                                <span class="badge bg-success">Yes</span>
-                                            {% else %}
-                                                <span class="badge bg-danger">No</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if member_data.continuous_training_summary.is_at_risk_next_year %}
-                                                <span class="badge bg-warning">Yes</span>
-                                            {% else %}
-                                                <span class="badge bg-info">No</span>
-                                            {% endif %}
-                                        </td>
-                                        {% for skill in all_skills %}
-                                            {% set comp_info = member_data.skills[skill.id] %}
+                                        <td>{{ skill.name }}</td>
+                                        {% for member in data.members %}
+                                            {% set comp_info = data.skill_competency_matrix[skill.id].member_competencies[member.id] %}
                                             <td>
                                                 {% if comp_info.competency %}
                                                     Level: {{ comp_info.competency.level }}<br>
                                                     Last Practice: {{ comp_info.latest_practice_date.strftime('%Y-%m-%d') if comp_info.latest_practice_date else 'N/A' }}<br>
                                                     {% if comp_info.needs_recycling %}
-                                                        <span class="badge bg-danger">Recycling Due: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
-                                                    {% elif comp_info.recycling_due_date %} {# Check if recycling_due_date exists before displaying #}
-                                                        <span class="badge bg-warning">Recycling: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                        <span class="badge bg-danger">Expired on: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                    {% elif comp_info.recycling_due_date %}
+                                                        <span class="badge bg-warning">Expiration: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
                                                     {% endif %}
                                                 {% else %}
                                                     N/A
@@ -90,6 +109,12 @@ $(document).ready(function() {
     // Initialize DataTables for each team's competency table
     {% for team_id, data in teams_competency_data.items() %}
         $('#team-competencies-table-{{ team_id }}').DataTable({
+            "scrollX": true, // Enable horizontal scrolling
+            "paging": false, // Disable pagination
+            "info": false,   // Disable table information display
+            "searching": false // Disable search box
+        });
+        $('#team-ct-summary-table-{{ team_id }}').DataTable({
             "scrollX": true, // Enable horizontal scrolling
             "paging": false, // Disable pagination
             "info": false,   // Disable table information display

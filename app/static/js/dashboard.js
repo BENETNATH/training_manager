@@ -26,6 +26,7 @@ $(document).ready(function() {
                 null, // Équipe
                 { "orderable": false, "searchable": false }, // Rôles
                 { "orderable": true, "searchable": false }, // CT Status (sortable by data-order, not searchable)
+                null, // Niveau Formation Initiale
                 { "orderable": false, "searchable": false }  // Actions
             ]
         });

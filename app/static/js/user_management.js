@@ -53,12 +53,24 @@ $(document).ready(function() {
                 var teamsHtml = user.teams && user.teams.length > 0 ? user.teams.map(name => `<span class="badge bg-secondary">${name}</span>`).join(' ') : 'Aucune';
                 var rolesHtml = (user.is_admin ? '<span class="badge bg-primary">Admin</span> ' : '') +
                                 (user.teams_as_lead && user.teams_as_lead.length > 0 ? user.teams_as_lead.map(name => `<span class="badge bg-info">Lead: ${name}</span>`).join(' ') : '');
-                var actionsHtml = `<a href="/profile/${user.id}" target="_blank" class="btn btn-sm btn-info" title="Voir le livret"><i class="fa fa-eye"></i></a> ` +
-                                  `<button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="/admin/users/edit/${user.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
+                
+                var summary = user.continuous_training_summary;
+                var color = 'success';
+                if (!summary.is_compliant) {
+                    color = 'danger';
+                } else if (!summary.is_live_ratio_compliant || summary.is_at_risk_next_year) {
+                    color = 'warning';
+                }
+                var statusFcHtml = `<span class="badge bg-${color}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: ${summary.total_hours_6_years.toFixed(2)} / ${summary.required_hours.toFixed(2)}. Live Ratio: ${(summary.live_ratio * 100).toFixed(0)}%"><i class="fas fa-info-circle"></i></span>`;
+
+                var statusFcHtml = `<span style="display:none;">${summary.total_hours_6_years}</span>` +
+                                 `<span class="badge bg-${color}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: ${summary.total_hours_6_years.toFixed(2)} / ${summary.required_hours.toFixed(2)}. Live Ratio: ${(summary.live_ratio * 100).toFixed(0)}%"><i class="fas fa-info-circle"></i></span>`;
+
+                var actionsHtml = `<button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="/admin/users/edit/${user.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
                                   `<button class="btn btn-sm btn-danger delete-user-btn" data-user-id="${user.id}" data-delete-url="/admin/users/delete/${user.id}" title="Supprimer"><i class="fa fa-trash"></i></button> ` +
                                   `<a href="/profile/${user.id}/booklet.pdf" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>`;
                 
-                var rowData = [user.full_name, user.email, teamsHtml, rolesHtml, actionsHtml];
+                var rowData = [user.full_name, user.email, teamsHtml, rolesHtml, statusFcHtml, actionsHtml];
 
                 if (editingUserRow) {
                     table.row(editingUserRow).data(rowData).draw();

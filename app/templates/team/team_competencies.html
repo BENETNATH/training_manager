@@ -14,71 +14,50 @@
             <option value="">Montrer tous</option>
             <option value="ct-issue">Problème de Formation Continue</option>
             <option value="needs-recycling">Compétences à revoir</option>
+            <option value="hide-no-trained">Masquer les compétences sans membre formé</option>
         </select>
     </div>
 
     {% if team_members %}
         <div class="table-responsive">
             <table class="table table-bordered table-striped team-competencies-table" id="team-competencies-table-{{ team.id }}" width="100%" cellspacing="0">
-                <thead>
-                    <tr>
-                        <th>Membre</th>
-                        <th class="text-center">Status FC</th>
-                        {% for skill in all_skills %}
-                            <th class="text-center">
-                                {{ skill.name }}<br>
-                                {% for species in skill.species %}
-                                    <span class="badge bg-info">{{ species.name }}</span>
+                                            <thead>
+                                                <tr>
+                                                    <th>Skill</th>
+                                                    {% for member in team_data.members %}
+                                                        <th>{{ member.full_name }}</th>
+                                                    {% endfor %}
+                                                </tr>
+                                            </thead>                            <tbody>
+                                {% for skill in team_data.all_skills %}
+                                    <tr data-skill-id="{{ skill.id }}">
+                                        <td>{{ skill.name }}</td>
+                                        {% for member in team_data.members %}
+                                            {% set comp_info = team_data.skill_competency_matrix[skill.id].member_competencies[member.id] %}
+                                            <td>
+                                                {% if comp_info.competency %}
+                                                    Level: {{ comp_info.competency.level }}<br>
+                                                    Last Practice: {{ comp_info.latest_practice_date.strftime('%Y-%m-%d') if comp_info.latest_practice_date else 'N/A' }}<br>
+                                                    {% if comp_info.needs_recycling %}
+                                                        <span class="badge bg-danger">Recycling Due: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                    {% elif comp_info.recycling_due_date %}
+                                                        <span class="badge bg-warning">Recycling: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                    {% endif %}
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
                                 {% endfor %}
-                            </th>
-                        {% endfor %}
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for member_id, data in competency_matrix.items() %}
-                        {% set member = data.user %}
-                        <tr>
-                            <td>{{ member.full_name }}</td>
-                            {% set summary = data.continuous_training_summary %}
-                            <td class="text-center ct-status-cell" data-order="{{ summary.total_hours_6_years }}">
-                                {% set color = 'success' %}
-                                {% if not summary.is_compliant %}
-                                    {% set color = 'danger' %}
-                                {% elif not summary.is_live_ratio_compliant or summary.is_at_risk_next_year %}
-                                    {% set color = 'warning' %}
-                                {% endif %}
-                                <span class="badge bg-{{ color }}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: {{ '%.2f'|format(summary.total_hours_6_years) }} / {{ '%.2f'|format(summary.required_hours) }}. Live Ratio: {{ '%.0f'|format(summary.live_ratio * 100) }}%">
-                                    <i class="fas fa-info-circle"></i>
-                                </span>
-                            </td>
-                            {% for skill in all_skills %}
-                                {% set skill_data = data.skills[skill.id] %}
-                                <td class="text-center {% if skill_data.needs_recycling %}needs-recycling-cell{% endif %}">
-                                    {% if skill_data.competency %}
-                                        {% if skill_data.needs_recycling %}
-                                            <span class="badge bg-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Recyclage dû: {{ skill_data.recycling_due_date.strftime('%Y-%m-%d') }}">
-                                                {{ skill_data.competency.level }} (Recycle)
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-success" data-bs-toggle="tooltip" data-bs-placement="top" title="Dernière Pratique: {{ skill_data.latest_practice_date.strftime('%Y-%m-%d') if skill_data.latest_practice_date else 'N/A' }}">
-                                                {{ skill_data.competency.level }}
-                                            </span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="badge bg-secondary">N/A</span>
-                                    {% endif %}
-                                </td>
-                            {% endfor %}
-                            <td>
-                                <a href="{{ url_for('dashboard.user_profile', username=member.full_name) }}" target="_blank" class="btn btn-sm btn-primary" title="Voir le profil"><i class="fas fa-user"></i></a>
-                                <a href="{{ url_for('dashboard.generate_user_booklet_pdf', user_id=member.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer Livret PDF"><i class="fas fa-file-pdf"></i></a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
+                            </tbody>
+
             </table>
         </div>
+        <script>
+            // Make skillsWithCompetentMembersIds available to JavaScript for this team
+            window.skillsWithCompetentMembersIds_{{ team.id }} = {{ team_data.skills_with_competent_members_ids|tojson }};
+        </script>
     {% else %}
         <p>Votre équipe n'a actuellement aucun membre.</p>
     {% endif %}
@@ -119,6 +98,14 @@
                     return $(row).find('.ct-status-cell .badge.bg-warning, .ct-status-cell .badge.bg-danger').length > 0;
                 } else if (filterValue === 'needs-recycling') {
                     return $(row).find('.needs-recycling-cell').length > 0;
+                } else if (filterValue === 'hide-no-trained') {
+                    var skillId = parseInt($(row).data('skill-id'), 10);
+                    var teamId = tableId.split('-').pop();
+                    var skillsWithCompetentMembersIds = window['skillsWithCompetentMembersIds_' + teamId] || [];
+                    if (!Array.isArray(skillsWithCompetentMembersIds)) {
+                        skillsWithCompetentMembersIds = [];
+                    }
+                    return skillsWithCompetentMembersIds.includes(skillId);
                 }
                 return true;
             }

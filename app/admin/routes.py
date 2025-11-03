@@ -7,7 +7,7 @@ import os
 import re
 import traceback
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # Third-party imports
 import openpyxl
@@ -38,7 +38,9 @@ from app.models import (
     TrainingSession, SkillPracticeEvent, Complexity, ExternalTrainingSkillClaim,
     TrainingSessionTutorSkill, tutor_skill_association, Permission, Role,
     ContinuousTrainingEvent, ContinuousTrainingEventStatus, UserContinuousTraining,
-    UserContinuousTrainingStatus, InitialRegulatoryTraining, InitialRegulatoryTrainingLevel
+    UserContinuousTrainingStatus, InitialRegulatoryTraining, InitialRegulatoryTrainingLevel,
+    training_session_skills_covered, training_request_skills_requested, skill_species_association,
+    skill_practice_event_skills
 )
 from app.training.forms import TrainingSessionForm
 
@@ -310,6 +312,24 @@ def delete_initial_regulatory_training(training_id):
     flash('Formation réglementaire initiale supprimée avec succès !', 'success')
     return redirect(url_for('admin.manage_initial_regulatory_trainings'))
 
+@bp.route('/api/initial_regulatory_training/<int:training_id>')
+@login_required
+@permission_required('admin_access') # Or a more specific permission if needed
+def get_initial_regulatory_training_details(training_id):
+    """Returns JSON details of a specific InitialRegulatoryTraining record."""
+    initial_training = InitialRegulatoryTraining.query.get_or_404(training_id)
+    
+    attachment_url = None
+    if initial_training.attachment_path:
+        attachment_url = url_for('static', filename=initial_training.attachment_path)
+
+    return jsonify({
+        'id': initial_training.id,
+        'level': initial_training.level.value,
+        'training_date': initial_training.training_date.strftime('%Y-%m-%d'),
+        'attachment_path': attachment_url
+    })
+
 @bp.route('/validate_continuous_trainings')
 @login_required
 @permission_required('continuous_training_validate')
@@ -505,7 +525,8 @@ def index():
                                   .order_by(TrainingSession.start_time.asc()).first()
 
     # Data for the tables
-    users = User.query.options(db.joinedload(User.teams), db.joinedload(User.teams_as_lead))\
+    users = User.query.options(db.joinedload(User.teams), db.joinedload(User.teams_as_lead),
+                      db.joinedload(User.initial_regulatory_trainings))\
                       .order_by(User.full_name).all()
     skills = Skill.query.options(db.joinedload(Skill.species)).order_by(Skill.name).all()
     pending_training_requests = TrainingRequest.query.options(
@@ -592,7 +613,7 @@ def approve_user(user_id):
                recipients=[user.email],
                text_body=render_template('email/registration_approved.txt', user=user),
                html_body=render_template('email/registration_approved.html', user=user))
-    return redirect(url_for('admin.edit_user', id=user_id))
+    return redirect(url_for('admin.edit_user', item_id=user_id))
 
 @bp.route('/reject_user/<int:user_id>', methods=['POST'])
 @login_required
@@ -891,7 +912,15 @@ def edit_user(item_id):
                     'study_level': user.study_level,
                     'teams': [t.name for t in user.teams],
                     'teams_as_lead': [lt.name for lt in user.teams_as_lead],
-                    'roles': [r.name for r in user.roles]
+                    'roles': [r.name for r in user.roles],
+                    'continuous_training_summary': {
+                        'is_compliant': user.is_continuous_training_compliant,
+                        'is_live_ratio_compliant': user.is_live_training_ratio_compliant,
+                        'is_at_risk_next_year': user.is_at_risk_next_year,
+                        'total_hours_6_years': user.total_continuous_training_hours_6_years,
+                        'required_hours': user.required_continuous_training_hours,
+                        'live_ratio': user.live_training_ratio
+                    }
                 }
             })
 
@@ -1625,6 +1654,11 @@ def import_export_users():
                                 user.teams.append(team)
                                 if is_team_lead:
                                     user.teams_as_lead.append(team)
+                            
+                            # Generate API key if missing for updated user
+                            if user.api_key is None:
+                                user.generate_api_key()
+
                             users_updated += 1
 
                     except Exception as e:
@@ -1706,6 +1740,99 @@ def download_user_import_template_xlsx():
 
     return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      as_attachment=True, download_name='user_import_template.xlsx')
+
+@bp.route('/export_user_summary')
+@login_required
+@permission_required('user_manage')
+def export_user_summary():
+    """Exports a detailed summary of all users to an Excel file."""
+    try:
+        users = User.query.options(
+            db.joinedload(User.teams),
+            db.joinedload(User.initial_regulatory_trainings)
+        ).all()
+        
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.title = "User Summary"
+
+        current_year = datetime.now(timezone.utc).year
+        headers = [
+            "User ID", "Full Name", "Email", "Team(s)", "Account Status", "Study Level",
+            "Initial Training Name", "Initial Training Completion Date",
+            "Compliance", "Ratio Online", "Total Continuous Training Hours (Last 6 Years)"
+        ]
+        for i in range(6):
+            headers.append(f"Continuous Training Hours ({current_year - i})")
+
+        sheet.append(headers)
+
+        for user in users:
+            # Personal Info
+            user_id = user.id
+            full_name = user.full_name
+            email = user.email
+            teams = ", ".join([team.name for team in user.teams]) if user.teams else "N/A"
+            account_status = "Active" if user.is_approved else "Pending"
+            study_level = user.study_level if user.study_level else "N/A"
+
+            # Initial Training
+            initial_trainings_names = []
+            initial_trainings_dates = []
+            for it in user.initial_regulatory_trainings:
+                initial_trainings_names.append(it.level.value)
+                initial_trainings_dates.append(it.training_date.strftime("%Y-%m-%d"))
+            
+            it_name = ", ".join(initial_trainings_names) if initial_trainings_names else "N/A"
+            it_completion_date = ", ".join(initial_trainings_dates) if initial_trainings_dates else "N/A"
+            
+            # Compliance
+            compliance_status = ""
+            if not user.is_continuous_training_compliant:
+                compliance_status = "WARNING"
+            elif not user.is_live_training_ratio_compliant:
+                compliance_status = "OK except ratio"
+            else:
+                compliance_status = "OK"
+
+            # Ratio Online
+            # user.live_training_ratio is the ratio of live (presential) training
+            # So, 1 - live_training_ratio is the ratio of online training
+            online_ratio = (1 - user.live_training_ratio) * 100 if user.live_training_ratio is not None else 0
+            online_ratio_str = f"{online_ratio:.2f}%"
+
+            total_continuous_training_6_years = user.get_total_continuous_training_hours_last_six_years()
+
+            row_data = [
+                user_id, full_name, email, teams, account_status, study_level,
+                it_name, it_completion_date,
+                compliance_status, online_ratio_str, total_continuous_training_6_years
+            ]
+
+            # Continuous Training Annual Hours
+            for i in range(6):
+                year = current_year - i
+                hours = user.get_continuous_training_hours_for_year(year)
+                row_data.append(hours)
+
+            sheet.append(row_data)
+
+        output = io.BytesIO()
+        workbook.save(output)
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'user_summary_export_{datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")}.xlsx'
+        )
+    except Exception as e:
+        current_app.logger.error(f"Failed to export user summary: {e}")
+        traceback.print_exc()
+        flash("An error occurred while generating the user summary export.", "danger")
+        return redirect(url_for('admin.index'))
+
 
 @bp.route('/import_export_skills', methods=['GET', 'POST'])
 @login_required
@@ -1801,12 +1928,16 @@ def import_export_skills():
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('admin/_import_form.html', form=form,
                                action_url=url_for('admin.import_export_skills'),
-                               template_url=url_for('admin.download_skill_import_template'))
+                                       template_url = url_for('admin.download_skill_import_template_for_skills_xlsx'))
 
-    return render_template('admin/import_export_skills.html', title='Import/Export Skills', form=form)@bp.route('/download_skill_import_template')
+    return render_template('admin/import_export_skills.html', title='Import/Export Skills', form=form)
+
+
+
+@bp.route('/download_skill_import_template_for_skills_xlsx')
 @login_required
 @permission_required('skill_manage')
-def download_skill_import_template():
+def download_skill_import_template_for_skills_xlsx():
     """Downloads an Excel template for importing skill data."""
     # Get data for dropdowns
     complexity_values = [c.name for c in Complexity]
@@ -1828,21 +1959,9 @@ def download_skill_import_template():
     dv_complexity.add('D2:D1048576') # Apply to column D (Complexity) from row 2 onwards
     sheet.add_data_validation(dv_complexity)
 
-    # Create data validation for 'species_names' (assuming comma-separated list)
-    # This is a bit trickier for multi-select, so we'll provide a hint in the comment
-    # For now, just a list of existing species for single selection or as a guide
-    # if species_names:
-    #     dv_species = DataValidation(type="list", formula1='"' + ','.join(species_names) + '"', allow_blank=True)
-    #     dv_species.add('H2:H1048576') # Apply to column H (species_names) from row 2 onwards
-    #     sheet.add_data_validation(dv_species)
-    
-
-
     # Add a comment to guide users for multi-select fields
     sheet['H1'].comment = openpyxl.comments.Comment("For multiple species, separate names with commas "
                                                    "(e.g., 'Species A, Species B')", "Admin")
-
-
 
     output = io.BytesIO()
     workbook.save(output)
@@ -1850,7 +1969,6 @@ def download_skill_import_template():
 
     return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      as_attachment=True, download_name='skill_import_template.xlsx')
-
 
 
 @bp.route('/export_skills_xlsx')

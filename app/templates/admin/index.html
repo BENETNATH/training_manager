@@ -291,7 +291,7 @@
                                 <a href="{{ url_for('dashboard.user_profile', username=user.full_name) }}" target="_blank" class="btn btn-sm btn-info" title="View booklet"><i class="fa fa-eye"></i></a>
                                 <button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="{{ url_for('admin.edit_user', item_id=user.id) }}" title="Edit"><i class="fa fa-edit"></i></button>
                                 <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="{{ user.id }}" data-delete-url="{{ url_for('admin.delete_user', item_id=user.id) }}" title="Delete"><i class="fa fa-trash"></i></button>
-                                <a href="{{ url_for('dashboard.generate_user_booklet_pdf', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Generate PDF"><i class="fa fa-file-pdf"></i></a>
+                                <a href="{{ url_for('dashboard.generate_user_booklet_zip', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Generate PDF"><i class="fa fa-file-pdf"></i></a>
                             </td>
                         </tr>
                         {% endfor %}

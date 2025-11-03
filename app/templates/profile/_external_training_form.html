@@ -15,6 +15,13 @@
                 <span class="text-danger">{{ error }}</span>
             {% endfor %}
         </div>
+        <div class="mb-3">
+            {{ form.duration_hours.label(class="form-label") }}
+            {{ form.duration_hours(class="form-control") }}
+            {% for error in form.duration_hours.errors %}
+                <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
 
         <h5 class="mt-4">Compétences Acquises</h5>
         <div id="skill-claims-container">

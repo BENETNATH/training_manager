@@ -125,8 +125,7 @@
                     url: "{{ url_for('api.notification_summary') }}",
                     method: "GET",
                     headers: {
-                        // If using API key for browser, retrieve it from a meta tag or similar
-                        // For now, assuming session-based auth for browser
+                        'X-API-Key': '{{ api_key }}'
                     },
                     success: function(data) {
                         $('#notification-badge').text(data.total_count);
@@ -160,7 +159,8 @@
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'X-Requested-With': 'XMLHttpRequest',
-                                    'X-CSRFToken': csrfToken
+                                    'X-CSRFToken': csrfToken,
+                                    'X-API-Key': '{{ api_key }}'
                                 },
                                 body: JSON.stringify({ notification_type: notificationType, notification_url: notificationUrl })
                             })

@@ -13,6 +13,7 @@
                         <p><strong>Soumis par:</strong> {{ external_training.user.full_name }}</p>
                         <p><strong>Nom du Formateur Externe:</strong> {{ external_training.external_trainer_name or 'N/A' }}</p>
                         <p><strong>Date de la Formation:</strong> {{ external_training.date.strftime('%Y-%m-%d') }}</p>
+                        <p><strong>Durée (heures):</strong> {{ external_training.duration_hours or 'N/A' }}</p>
                     </div>
                     <div class="col-md-6">
                         <p><strong>Statut:</strong> <span class="badge bg-{{ 'success' if external_training.status.name == 'APPROVED' else ('danger' if external_training.status.name == 'REJECTED' else 'warning') }}">{{ external_training.status.value }}</span></p>

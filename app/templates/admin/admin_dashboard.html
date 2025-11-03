@@ -422,7 +422,8 @@
                                 Exporter
                             </button>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{{ url_for('admin.export_users_xlsx') }}">Export Excel</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin.export_users_xlsx') }}">Export Excel (Basic)</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('admin.export_user_summary') }}">Export User Summary (Detailed)</a></li>
                             </ul>
                         </div>
                         <button class="btn btn-primary btn-sm" id="add-user-btn">Créer un utilisateur</button>
@@ -437,7 +438,8 @@
                                     <th>Email</th>
                                     <th>Équipe</th>
                                     <th>Rôles</th>
-                                    <th class="text-center">Status FC</th>
+                                    <th>Status FC</th>
+                                    <th>Niveau Formation Initiale</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -469,7 +471,8 @@
                                         'required_hours': user.required_continuous_training_hours,
                                         'live_ratio': user.live_training_ratio
                                     } %}
-                                    <td class="text-center" data-order="{{ summary.total_hours_6_years }}">
+                                    <td class="text-center">
+                                        <span style="display:none;">{{ summary.total_hours_6_years }}</span>
                                         {% set color = 'success' %}
                                         {% if not summary.is_compliant %}
                                             {% set color = 'danger' %}
@@ -481,10 +484,25 @@
                                         </span>
                                     </td>
                                     <td>
+                                    {% for initial_training in user.initial_regulatory_trainings %}
+                                        <a href="#" class="badge bg-info initial-training-link"
+                                            data-bs-toggle="modal" data-bs-target="#initialTrainingModal"
+                                            data-training-id="{{ initial_training.id }}"
+                                            data-level="{{ initial_training.level.value }}"
+                                            data-date="{{ initial_training.training_date.strftime('%Y-%m-%d') }}"
+                                            data-attachment="{{ url_for('static', filename=initial_training.attachment_path) if initial_training.attachment_path else '' }}">
+                                            {{ initial_training.level.value }}
+                                        </a><br>
+                                    {% else %}
+                                        Aucune
+                                    {% endfor %}
+                                    </td>
+
+                                    <td>
 
                                         <button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="{{ url_for('admin.edit_user', item_id=user.id) }}" title="Éditer"><i class="fa fa-edit"></i></button>
                                         <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="{{ user.id }}" data-delete-url="{{ url_for('admin.delete_user', item_id=user.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
-                                        <a href="{{ url_for('dashboard.generate_user_booklet_pdf', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>
+                                        <a href="{{ url_for('dashboard.generate_user_booklet_zip', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Générer Livret ZIP"><i class="fa fa-file-archive"></i></a>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -731,7 +749,7 @@
             button.addEventListener('click', function() {
                 const userCtId = this.dataset.id;
                 if (confirm('Êtes-vous sûr de vouloir rejeter cette formation continue ?')) {
-                    fetch(`/admin/validate_continuous_trainings/reject/${userCtId}`, {
+                    fetch(`/admin/continuous_training_events/reject/${userCtId}`, {
                         method: 'POST',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
@@ -748,10 +766,33 @@
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Une erreur est survenue lors du rejet.');
+                        alert('Une erreur est survenue lors de la rejet.');
                     });
                 }
             });
+        });
+
+        // Handle click on initial training links to populate and show the modal
+        $(document).on('click', '.initial-training-link', function(e) {
+            e.preventDefault();
+            var trainingId = $(this).data('training-id');
+            var level = $(this).data('level');
+            var date = $(this).data('date');
+            var attachmentPath = $(this).data('attachment');
+
+            $('#initialTrainingModalLabel').text('Détails de la Formation Initiale');
+            $('#initialTrainingLevel').text(level);
+            $('#initialTrainingDate').text(date);
+
+            var attachmentLink = $('#initialTrainingAttachment');
+            if (attachmentPath) {
+                attachmentLink.attr('href', attachmentPath).show();
+            } else {
+                attachmentLink.hide();
+            }
+
+            var initialTrainingModal = new bootstrap.Modal(document.getElementById('initialTrainingModal'));
+            initialTrainingModal.show();
         });
     });
 </script>
@@ -906,6 +947,26 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Initial Training Details Modal -->
+    <div class="modal fade" id="initialTrainingModal" tabindex="-1" aria-labelledby="initialTrainingModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="initialTrainingModalLabel">Détails de la Formation Initiale</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Niveau:</strong> <span id="initialTrainingLevel"></span></p>
+                    <p><strong>Date:</strong> <span id="initialTrainingDate"></span></p>
+                    <p><strong>Certificat:</strong> <a id="initialTrainingAttachment" href="#" target="_blank">Voir le certificat</a></p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>

@@ -27,6 +27,7 @@
                 {{ form.submit(class="btn btn-primary") }}
             </form>
             <br>
+            <p><a href="{{ url_for('auth.reset_password_request') }}">Forgot Your Password?</a></p>
             <p>New User? <a href="{{ url_for('auth.register') }}">Click to Register!</a></p>
         </div>
     </div>

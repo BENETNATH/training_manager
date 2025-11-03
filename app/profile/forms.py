@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import SubmitField, SelectMultipleField, TextAreaField, StringField, DateTimeLocalField, SelectField, BooleanField, FieldList, FormField, PasswordField # Added PasswordField, StringField, SelectField, SubmitField
+from wtforms import SubmitField, SelectMultipleField, TextAreaField, StringField, DateTimeLocalField, SelectField, BooleanField, FieldList, FormField, PasswordField, FloatField # Added PasswordField, StringField, SelectField, SubmitField, FloatField
 from wtforms.validators import DataRequired, Optional, Length, EqualTo, Email, ValidationError # Added EqualTo, Email, ValidationError
 from wtforms_sqlalchemy.fields import QuerySelectMultipleField, QuerySelectField
 from flask_wtf.file import FileField, FileAllowed
@@ -38,17 +38,21 @@ class TrainingRequestForm(FlaskForm):
     skills_requested = QuerySelectMultipleField('Skills Requested', query_factory=get_skills, get_label='name', validators=[DataRequired()])
     justification = TextAreaField('Justification', validators=[DataRequired(), Length(min=10, max=500)], render_kw={"rows": 3})
     preferred_date = DateTimeLocalField('Preferred Date (Optional)', format='%Y-%m-%dT%H:%M', validators=[Optional()])
-    justification = TextAreaField('Justification', validators=[DataRequired(), Length(min=10, max=500)], render_kw={"rows": 3})
     submit = SubmitField('Submit Training Request')
 
-class InitialRegulatoryTrainingForm(FlaskForm):
+class SingleInitialRegulatoryTrainingForm(FlaskForm):
+    training_type = StringField('Type de Formation Initiale', validators=[DataRequired(), Length(min=2, max=128)])
     level = SelectField('Niveau de Formation Réglementaire Initiale', choices=[(level.name, level.value) for level in InitialRegulatoryTrainingLevel], validators=[DataRequired()])
     training_date = DateTimeLocalField('Date de la Formation', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    attachment = FileField('Attestation de Formation (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
-    submit = SubmitField('Enregistrer la Formation Initiale')
+    attachment = FileField('Attestation de Formation (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), DataRequired()])
+    submit = SubmitField('Soumettre')
+
+class InitialRegulatoryTrainingsForm(FlaskForm):
+    initial_trainings = FieldList(FormField(SingleInitialRegulatoryTrainingForm), min_entries=0, label='Initial Regulatory Trainings')
+    submit = SubmitField('Save Initial Trainings')
 
 class SubmitContinuousTrainingAttendanceForm(FlaskForm):
-    event = SelectField('Événement de Formation Continue', validators=[DataRequired()]) # Changed to SelectField
+    event = SelectField('Événement de Formation Continue', validators=[DataRequired()])
     attendance_attachment = FileField('Attestation de Présence (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
     submit = SubmitField('Déclarer ma Présence')
 
@@ -59,12 +63,10 @@ class ExternalTrainingSkillClaimForm(FlaskForm):
     wants_to_be_tutor = BooleanField('Want to be tutor ?')
     practice_date = DateTimeLocalField('Date of Latest Practice', format='%Y-%m-%dT%H:%M', validators=[Optional()])
 
-
-
-
 class ExternalTrainingForm(FlaskForm):
     external_trainer_name = StringField('External Trainer Name', validators=[DataRequired()])
     date = DateTimeLocalField('Date of Training', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    duration_hours = FloatField('Duration (hours)', validators=[DataRequired()])
     skill_claims = FieldList(FormField(ExternalTrainingSkillClaimForm), min_entries=1, label='Skills Claimed')
     attachment = FileField('Certificate/Document Attachment', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
     submit = SubmitField('Submit External Training')
@@ -91,6 +93,8 @@ class EditProfileForm(FlaskForm):
     password2 = PasswordField(
         'Repeat New Password', validators=[Optional(), EqualTo('password', message='Passwords must match.')])
 
+    initial_regulatory_trainings = FieldList(FormField(SingleInitialRegulatoryTrainingForm), min_entries=0, label='Initial Regulatory Trainings')
+
     submit = SubmitField('Save Changes')
 
     def __init__(self, original_email=None, *args, **kwargs):
@@ -110,8 +114,6 @@ class EditProfileForm(FlaskForm):
         # If current password is provided, but no new password, it's also an error
         if current_password.data and not self.password.data:
             raise ValidationError('Please enter a new password if you provide your current password.')
-
-
 
 class ProposeSkillForm(FlaskForm):
     name = StringField('Nom de la Compétence', validators=[DataRequired(), Length(min=2, max=128)])

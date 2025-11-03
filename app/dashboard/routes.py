@@ -1,5 +1,6 @@
 import os
 import io
+import json
 from flask import render_template, flash, redirect, url_for, current_app, request, send_file, abort, jsonify
 from flask_login import login_required, current_user, logout_user
 from werkzeug.utils import secure_filename
@@ -7,6 +8,8 @@ from sqlalchemy import func, extract, case
 import traceback # Import traceback
 from fpdf import FPDF
 from fpdf.html import HTMLMixin
+from fpdf.fonts import FontFace
+import zipfile
 from app import db
 from app.decorators import permission_required
 from app.email import send_email
@@ -21,7 +24,7 @@ from app.models import (
 )
 from app.profile.forms import (
     RequestContinuousTrainingEventForm, SubmitContinuousTrainingAttendanceForm, EditProfileForm,
-    InitialRegulatoryTrainingForm, ProposeSkillForm, ExternalTrainingForm, ExternalTrainingSkillClaimForm
+    SingleInitialRegulatoryTrainingForm, InitialRegulatoryTrainingsForm, ProposeSkillForm, ExternalTrainingForm, ExternalTrainingSkillClaimForm, TrainingRequestForm
 )
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -305,8 +308,8 @@ def dashboard_home():
     upcoming_training_sessions_by_user = [sess for sess in user.attended_training_sessions if sess.start_time > now]
     completed_training_sessions_by_user = [sess for sess in user.attended_training_sessions if sess.start_time <= now]
 
-    # Get initial regulatory training (from dashboard.user_profile)
-    initial_regulatory_training = user.initial_regulatory_training
+    # Get initial regulatory training
+    initial_regulatory_trainings = user.initial_regulatory_trainings
 
     # Get continuous training data (from dashboard.user_profile)
     continuous_trainings_attended = user.continuous_trainings_attended.join(ContinuousTrainingEvent).filter(UserContinuousTraining.status == UserContinuousTrainingStatus.APPROVED).order_by(ContinuousTrainingEvent.event_date.desc()).all()
@@ -348,7 +351,7 @@ def dashboard_home():
                            pending_external_trainings_by_user=pending_external_trainings_by_user,
                            upcoming_training_sessions_by_user=upcoming_training_sessions_by_user,
                            completed_training_sessions_by_user=completed_training_sessions_by_user,
-                           initial_regulatory_training=initial_regulatory_training,
+                           initial_regulatory_trainings=initial_regulatory_trainings,
                            continuous_trainings_attended=continuous_trainings_attended,
                            total_continuous_training_hours_6_years=total_continuous_training_hours_6_years,
                            live_continuous_training_hours_6_years=live_continuous_training_hours_6_years,
@@ -530,16 +533,9 @@ def submit_continuous_training_attendance():
 @permission_required('self_edit_profile')
 def edit_profile():
     form = EditProfileForm(original_email=current_user.email)
-    initial_training_form = InitialRegulatoryTrainingForm()
-    initial_training = current_user.initial_regulatory_training
+    initial_trainings_form = InitialRegulatoryTrainingsForm()
 
-    if initial_training:
-        # Pre-populate initial_training_form if data exists
-        if request.method == 'GET':
-            initial_training_form.level.data = initial_training.level.name
-            initial_training_form.training_date.data = initial_training.training_date
-
-    if form.validate_on_submit() and form.submit.data: # Check which form was submitted
+    if form.validate_on_submit() and initial_trainings_form.validate_on_submit():
         # Handle password change
         if form.password.data:
             if not current_user.check_password(form.current_password.data):
@@ -565,63 +561,100 @@ def edit_profile():
         current_user.study_level = form.study_level.data
         db.session.commit()
         flash('Your changes have been saved.', 'success')
-        return redirect(url_for('dashboard.dashboard_home'))
-    elif initial_training_form.validate_on_submit() and initial_training_form.submit.data: # Handle initial training form submission
-        attachment_path = None
-        if initial_training_form.attachment.data:
-            # Determine content type, date, and user info for folder structure
-            current_utc = datetime.now(timezone.utc)
-            year = current_utc.year
-            month = current_utc.month
-            user_id = current_user.id
-            level_name = initial_training_form.level.data.lower().replace(' ', '_')
-            timestamp = int(current_utc.timestamp())
-            original_filename = secure_filename(initial_training_form.attachment.data.filename)
-            file_extension = os.path.splitext(original_filename)[1]
-            content_type = "initial_regulatory_training"
-            # New folder structure: static/uploads/{content_type}/{year}/{month}/{user_id}/
-            upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', content_type, str(year), str(month), str(user_id))
-            os.makedirs(upload_folder, exist_ok=True)
 
-            # New filename: {user_id}_{content_type}_{level_name}_{timestamp}.{extension}
-            new_filename = f"{user_id}_{content_type}_{level_name}_{timestamp}{file_extension}"
-            file_path = os.path.join(upload_folder, new_filename)
-            initial_training_form.attachment.data.save(file_path)
-            attachment_path = os.path.join('uploads', content_type, str(year), str(month), str(user_id), new_filename)
+        # Handle initial regulatory trainings
+        # Get existing trainings to compare with submitted data
+        existing_trainings = {t.id: t for t in current_user.initial_regulatory_trainings}
+        submitted_training_ids = set()
 
-            # Delete old attachment if exists
-            if initial_training and initial_training.attachment_path:
-                old_path = os.path.join(current_app.root_path, 'static', initial_training.attachment_path)
-                if os.path.exists(old_path):
-                    os.remove(old_path)
-        else:
-            # If no new attachment is provided, preserve the existing one
-            if initial_training and initial_training.attachment_path:
-                attachment_path = initial_training.attachment_path
+        for entry_form in initial_trainings_form.initial_trainings.entries:
+            if entry_form.training_type.data and entry_form.level.data and entry_form.training_date.data:
+                # Find if an existing training matches the submitted data
+                matched_training = None
+                for et in existing_trainings.values():
+                    if et.training_type == entry_form.training_type.data and \
+                       et.level.name == entry_form.level.data and \
+                       et.training_date == entry_form.training_date.data:
+                        matched_training = et
+                        break
 
-        if initial_training:
-            initial_training.level = InitialRegulatoryTrainingLevel[initial_training_form.level.data]
-            initial_training.training_date = initial_training_form.training_date.data
-            initial_training.attachment_path = attachment_path # Always update with the determined path
-        else:
-            initial_training = InitialRegulatoryTraining(
-                user=current_user,
-                level=InitialRegulatoryTrainingLevel[initial_training_form.level.data],
-                training_date=initial_training_form.training_date.data,
-                attachment_path=attachment_path
-            )
-            db.session.add(initial_training)
+                attachment_path = None
+                if entry_form.attachment.data:
+                    current_utc = datetime.now(timezone.utc)
+                    year = current_utc.year
+                    month = current_utc.month
+                    user_id = current_user.id
+                    training_type_slug = secure_filename(entry_form.training_type.data.lower().replace(' ', '_'))[:50]
+                    timestamp = int(current_utc.timestamp())
+                    original_filename = secure_filename(entry_form.attachment.data.filename)
+                    file_extension = os.path.splitext(original_filename)[1]
+                    content_type = "initial_regulatory_training"
+                    upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', content_type, str(year), str(month), str(user_id))
+                    os.makedirs(upload_folder, exist_ok=True)
+
+                    new_filename = f"{user_id}_{content_type}_{training_type_slug}_{timestamp}{file_extension}"
+                    file_path = os.path.join(upload_folder, new_filename)
+                    entry_form.attachment.data.save(file_path)
+                    attachment_path = os.path.join('uploads', content_type, str(year), str(month), str(user_id), new_filename)
+
+                    # Delete old attachment if it exists and is being replaced
+                    if matched_training and matched_training.attachment_path and matched_training.attachment_path != attachment_path:
+                        old_path = os.path.join(current_app.root_path, 'static', matched_training.attachment_path)
+                        if os.path.exists(old_path):
+                            os.remove(old_path)
+                else:
+                    # If no new attachment, keep existing one if updating
+                    if matched_training and matched_training.attachment_path:
+                        attachment_path = matched_training.attachment_path
+
+                if matched_training:
+                    matched_training.training_type = entry_form.training_type.data
+                    matched_training.level = InitialRegulatoryTrainingLevel[entry_form.level.data]
+                    matched_training.training_date = entry_form.training_date.data
+                    matched_training.attachment_path = attachment_path
+                    submitted_training_ids.add(matched_training.id)
+                else:
+                    new_training = InitialRegulatoryTraining(
+                        user=current_user,
+                        training_type=entry_form.training_type.data,
+                        level=InitialRegulatoryTrainingLevel[entry_form.level.data],
+                        training_date=entry_form.training_date.data,
+                        attachment_path=attachment_path
+                    )
+                    db.session.add(new_training)
+                    db.session.flush() # Assign an ID to the new training
+                    submitted_training_ids.add(new_training.id)
+
+        # Delete trainings that were not in the submitted form data
+        for training_id, training_obj in existing_trainings.items():
+            if training_id not in submitted_training_ids:
+                # Delete associated attachment if it exists
+                if training_obj.attachment_path:
+                    old_path = os.path.join(current_app.root_path, 'static', training_obj.attachment_path)
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+                db.session.delete(training_obj)
+
         db.session.commit()
-        flash('Formation réglementaire initiale enregistrée/mise à jour avec succès !', 'success')
+        flash('Vos formations réglementaires initiales ont été enregistrées/mises à jour avec succès !', 'success')
+        
         return redirect(url_for('dashboard.dashboard_home'))
 
     elif request.method == 'GET':
         form.full_name.data = current_user.full_name
         form.study_level.data = current_user.study_level
 
+        # Populate initial_trainings_form with existing data by appending a dictionary
+        for training in current_user.initial_regulatory_trainings:
+            # THIS BLOCK IS NOW CORRECTLY INDENTED
+            initial_trainings_form.initial_trainings.append_entry({
+                'training_type': training.training_type,
+                'level': training.level.name,
+                'training_date': training.training_date
+            })
 
-    return render_template('profile/edit_dashboard.html', title='Edit Profile', form=form, initial_training_form=initial_training_form, initial_training=initial_training, api_key=current_user.api_key)
-
+    return render_template('profile/edit_dashboard.html', title='Edit Profile', form=form, initial_trainings_form=initial_trainings_form, api_key=current_user.api_key, InitialRegulatoryTrainingLevel=InitialRegulatoryTrainingLevel)
+        
 
 @bp.route('/regenerate_api_key', methods=['POST'])
 @login_required
@@ -692,10 +725,12 @@ def submit_training_request():
 
         for skill in selected_skills:
             # Check for existing pending request for the single selected species
-            existing_req = TrainingRequest.query.filter_by(
-                requester=current_user,
-                status=TrainingRequestStatus.PENDING
-            ).join(TrainingRequest.skills_requested).filter(Skill.id == skill.id).join(TrainingRequest.species_requested).filter(Species.id == selected_species.id).first()
+            existing_req = TrainingRequest.query.filter(
+                TrainingRequest.requester == current_user,
+                TrainingRequest.status == TrainingRequestStatus.PENDING,
+                TrainingRequest.skills_requested.any(Skill.id == skill.id),
+                TrainingRequest.species_requested.any(Species.id == selected_species.id)
+            ).first()
 
             if existing_req:
                 existing_requests_messages.append(f"Request for '{skill.name}' on '{selected_species.name}' already exists and is pending.")
@@ -824,6 +859,7 @@ def submit_external_training():
             user=current_user,
             external_trainer_name=form.external_trainer_name.data,
             date=form.date.data,
+            duration_hours=form.duration_hours.data,
             status=ExternalTrainingStatus.PENDING
         )
         if form.attachment.data:
@@ -1018,12 +1054,8 @@ def search_continuous_training_events():
         })
     return jsonify({'results': results})
 
-@bp.route('/competency/<int:competency_id>/certificate.pdf')
-@login_required
-def generate_certificate(competency_id):
+def _generate_certificate_pdf_buffer(competency_id):
     comp = Competency.query.get_or_404(competency_id)
-    if comp.user_id != current_user.id and not current_user.can('view_any_certificate'):
-        abort(403)
 
     pdf = FPDF(orientation='L', unit='mm', format='A4') # Landscape A4
     pdf.add_page()
@@ -1097,28 +1129,42 @@ def generate_certificate(competency_id):
         evaluator_name = comp.evaluator.full_name
     pdf.cell(0, 8, f'Evaluated by: {evaluator_name}', 0, 1, 'C')
 
-    pdf_output = pdf.output(dest='S')
+    pdf_output = pdf.output()
+    pdf_buffer = io.BytesIO(pdf_output)
+    pdf_buffer.seek(0)
+    return pdf_buffer
+
+
+@bp.route('/competency/<int:competency_id>/certificate.pdf')
+@login_required
+def generate_certificate(competency_id):
+    comp = Competency.query.get_or_404(competency_id)
+    if comp.user_id != current_user.id and not current_user.can('view_any_certificate'):
+        abort(403)
+
+    pdf_buffer = _generate_certificate_pdf_buffer(competency_id)
     
-    return send_file(io.BytesIO(pdf_output), as_attachment=True,
+    return send_file(pdf_buffer, as_attachment=True,
                      download_name=f"certificate_{comp.user.full_name.replace(' ', '_')}_{comp.skill.name.replace(' ', '_')}.pdf",
                      mimetype='application/pdf')
 
 
-@bp.route('/<int:user_id>/booklet.pdf')
+@bp.route('/<int:user_id>/booklet.zip')
 @login_required
-def generate_user_booklet_pdf(user_id):
+def generate_user_booklet_zip(user_id):
     if user_id != current_user.id and not current_user.can('view_any_booklet'):
         abort(403)
     user = User.query.get_or_404(user_id)
     
     # --- Data Fetching ---
     competencies = user.competencies
-    initial_training = user.initial_regulatory_training
+    initial_trainings = user.initial_regulatory_trainings
     continuous_trainings = user.continuous_trainings_attended.join(ContinuousTrainingEvent).filter(
         UserContinuousTraining.status == UserContinuousTrainingStatus.APPROVED
     ).order_by(ContinuousTrainingEvent.event_date.desc()).all()
+    external_trainings = user.external_trainings.filter_by(status=ExternalTrainingStatus.APPROVED).all()
 
-    # --- PDF Generation ---
+    # --- PDF Generation (captured in BytesIO) ---
     generation_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     pdf = PDFWithFooter(
         orientation='L', 
@@ -1155,7 +1201,7 @@ def generate_user_booklet_pdf(user_id):
     pdf.set_font('Times', '', 10)
     skills_to_recycle_count = len([c for c in competencies if c.needs_recycling])
     pdf.cell(0, 5, f"- Total Competencies: {len(competencies)}", 0, 1, 'L')
-    pdf.cell(0, 8, f"- Skills Needing Recycling: {skills_to_recycle_count}", 0, 1, 'L')
+    pdf.cell(0, 8, f"- Skills Expired: {skills_to_recycle_count}", 0, 1, 'L')
     
     # --- Competencies Table ---
     pdf.set_font('Times', 'B', 16)
@@ -1222,10 +1268,13 @@ def generate_user_booklet_pdf(user_id):
     # Initial Training Section
     pdf.set_font('Times', 'B', 12)
     pdf.cell(0, 5, 'Initial Regulatory Training', 0, 1, 'L')
-    if initial_training:
-        pdf.set_font('Times', '', 10)
-        pdf.cell(0, 5, f"Level: {initial_training.level.value}", 0, 1, 'L')
-        pdf.cell(0, 5, f"Date: {initial_training.training_date.strftime('%Y-%m-%d')}", 0, 1, 'L')
+    if initial_trainings:
+        for training in initial_trainings:
+            pdf.set_font('Times', '', 10)
+            pdf.cell(0, 5, f"Type: {training.training_type}", 0, 1, 'L')
+            pdf.cell(0, 5, f"Level: {training.level.value}", 0, 1, 'L')
+            pdf.cell(0, 5, f"Date: {training.training_date.strftime('%Y-%m-%d')}", 0, 1, 'L')
+            pdf.ln(2)
     else:
         pdf.set_font('Times', '', 10)
         pdf.cell(0, 5, 'No initial regulatory training recorded.', 0, 1, 'L')
@@ -1259,9 +1308,54 @@ def generate_user_booklet_pdf(user_id):
                     row.cell(datum)
 
     pdf_output = pdf.output()
-    return send_file(io.BytesIO(pdf_output), as_attachment=True,
-                     download_name=f"booklet_{user.full_name.replace(' ', '_')}.pdf",
-                     mimetype='application/pdf')
+    pdf_buffer = io.BytesIO(pdf_output)
+    pdf_buffer.seek(0)
+
+    # --- ZIP File Creation ---
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add the generated PDF booklet
+        zf.writestr(f"booklet_{user.full_name.replace(' ', '_')}.pdf", pdf_buffer.read())
+
+        # Add Initial Regulatory Training attachments
+        for training in initial_trainings:
+            if training.attachment_path:
+                attachment_full_path = os.path.join(current_app.root_path, 'static', training.attachment_path)
+                if os.path.exists(attachment_full_path):
+                    zf.write(attachment_full_path, f"Initial_Training/{training.training_type}_{os.path.basename(training.attachment_path)}")
+
+        # Add Continuous Training attachments
+        for ct in continuous_trainings:
+            if ct.attendance_attachment_path:
+                attachment_full_path = os.path.join(current_app.root_path, 'static', ct.attendance_attachment_path)
+                if os.path.exists(attachment_full_path):
+                    zf.write(attachment_full_path, f"Continuous_Training/{os.path.basename(ct.attendance_attachment_path)}")
+            if ct.event.attachment_path: # Event-level attachment
+                attachment_full_path = os.path.join(current_app.root_path, 'static', ct.event.attachment_path)
+                if os.path.exists(attachment_full_path):
+                    zf.write(attachment_full_path, f"Continuous_Training/Event_Attachments/{os.path.basename(ct.event.attachment_path)}")
+
+        # Add External Training attachments
+        for ext_training in external_trainings:
+            if ext_training.attachment_path:
+                attachment_full_path = os.path.join(current_app.root_path, 'static', ext_training.attachment_path)
+                if os.path.exists(attachment_full_path):
+                    zf.write(attachment_full_path, f"External_Training/{os.path.basename(ext_training.attachment_path)}")
+
+        # Add Competency Certificates (if any)
+        for comp in competencies:
+            try:
+                certificate_pdf_buffer = _generate_certificate_pdf_buffer(comp.id)
+                if certificate_pdf_buffer:
+                    zf.writestr(f"Skills_Certificates/certificate_{comp.user.full_name.replace(' ', '_')}_{comp.skill.name.replace(' ', '_')}.pdf", certificate_pdf_buffer.read())
+            except Exception as e:
+                current_app.logger.error(f"Error generating certificate for competency {comp.id}: {e}")
+
+
+    zip_buffer.seek(0)
+    return send_file(zip_buffer, as_attachment=True,
+                     download_name=f"booklet_{user.full_name.replace(' ', '_')}_{generation_date_str}.zip",
+                     mimetype='application/zip')
 
 
 @bp.route('/training_requests/delete/<int:request_id>', methods=['POST'])

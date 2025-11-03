@@ -6,7 +6,7 @@
         <div class="col-md-8">
             <p>Please use the new XLSX template for importing skills. It includes data validation for predefined fields.</p>
             {% include 'admin/_import_form.html' with context %}
-            <a href="{{ url_for('admin.download_skill_import_template') }}" class="btn btn-info mt-3">Download Skill Import Template (XLSX)</a>
+            <a href="{{ url_for('admin.download_skill_import_template_for_skills_xlsx') }}" class="btn btn-info mt-3">Download Skill Import Template (XLSX)</a>
         </div>
     </div>
     <a href="{{ url_for('admin.index') }}" class="btn btn-secondary mt-3">Retour au Dashboard Admin</a>

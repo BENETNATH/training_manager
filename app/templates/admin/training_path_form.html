@@ -100,6 +100,9 @@ $(document).ready(function() {
                     return "{{ url_for('api.skills_skill_list_resource') }}";
                 }
             },
+            headers: {
+                'X-API-Key': '{{ api_key }}'
+            },
             dataType: 'json',
             delay: 250,
             data: function (params) {
@@ -108,7 +111,8 @@ $(document).ready(function() {
             processResults: function (data) {
                 // Filter out skills that are already selected
                 const filteredData = data.filter(skill => !selectedSkills.some(s => s.skill_id == skill.id));
-                return { results: filteredData };
+                const mappedData = filteredData.map(skill => ({ id: skill.id, text: skill.name }));
+                return { results: mappedData };
             },
             cache: true
             },
@@ -145,18 +149,24 @@ $(document).ready(function() {
         // This part remains the same as it deals with `selectedSkills` array and `skillsContainer`
         $.ajax({
             url: skillSelectData.options.get('ajax.url'),
+            headers: {
+                'X-API-Key': '{{ api_key }}'
+            },
             dataType: 'json',
             data: { q: '' }, // Fetch all skills for the current species
             success: function(data) {
                 const validSkillIds = new Set(data.map(s => s.id));
-                selectedSkills = selectedSkills.filter(s => validSkillIds.has(s.skill_id));
-                
-                // Re-render the selected skills in the container
-                $(skillsContainer).empty();
-                selectedSkills.forEach(skill => {
-                    addSkillToList(skill.skill_id, skill.name, false); // Add without re-updating JSON yet
+                const skillsToRemove = selectedSkills.filter(s => !validSkillIds.has(s.skill_id));
+
+                if (skillsToRemove.length > 0) {
+                    alert('Some selected skills are not valid for the new species and have been removed.');
+                }
+
+                skillsToRemove.forEach(skill => {
+                    selectedSkills = selectedSkills.filter(s => s.skill_id != skill.skill_id);
+                    $(`[data-skill-id=${skill.skill_id}]`).remove();
                 });
-                updateSkillsJson(); // Update JSON once after all re-rendering
+                updateSkillsJson();
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 console.error("Error validating selected skills:", textStatus, errorThrown);
@@ -191,7 +201,7 @@ $(document).ready(function() {
     function addSkillToList(skillId, skillName) {
         // Check for duplicates before adding
         if (selectedSkills.some(s => s.skill_id == skillId)) {
-            alert('Skill list is updated based on species');
+            alert('Skill already added.');
             return;
         }
 

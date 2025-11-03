@@ -4,17 +4,29 @@
 <div class="container">
     <h1 class="mb-4">Modifier le Profil</h1>
 
-    <div class="row">
-        <!-- Column 1: General Information & Password -->
-        <div class="col-md-6">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Informations Générales</h6>
-                </div>
-                <div class="card-body">
-                    <form action="" method="post">
-                        {{ form.hidden_tag() }} <!-- Handles CSRF token and other hidden fields -->
+    <!-- 
+        CHANGE 1: A SINGLE <form> tag now wraps the entire row.
+        This ensures all fields from both columns are submitted together.
+        The enctype is needed for file uploads (the attachments).
+    -->
+    <form method="post" enctype="multipart/form-data" novalidate>
+        
+        <!-- 
+            CHANGE 2: Render the main form's hidden tag ONCE. 
+            This provides the single CSRF token for the entire form.
+        -->
+        {{ form.hidden_tag() }}
 
+        <div class="row">
+            <!-- Column 1: General Information & Password -->
+            <div class="col-md-6">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Informations Générales</h6>
+                    </div>
+                    <div class="card-body">
+                        <!-- Removed the old <form> and hidden tags from here -->
+                        
                         <div class="mb-3">
                             {{ form.full_name.label(class="form-label") }}
                             {{ form.full_name(class="form-control") }}
@@ -59,110 +71,184 @@
                                 <span class="text-danger">{{ error }}</span>
                             {% endfor %}
                         </div>
-                        {{ form.submit(class="btn btn-primary") }}
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Column 2: Initial Training & API Key -->
-        <div class="col-md-6">
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Formation Réglementaire Initiale</h6>
-                </div>
-                <div class="card-body">
-                    <form method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="csrf_token" id="initial_training_csrf_token" value="{{ initial_training_form.csrf_token.data }}">
-                        <div class="mb-3">
-                            {{ initial_training_form.level.label(class="form-label") }}
-                            {{ initial_training_form.level(class="form-control") }}
-                            {% for error in initial_training_form.level.errors %}
-                                <span class="text-danger">{{ error }}</span>
-                            {% endfor %}
-                        </div>
-                        <div class="mb-3">
-                            {{ initial_training_form.training_date.label(class="form-label") }}
-                            {{ initial_training_form.training_date(class="form-control") }}
-                            {% for error in initial_training_form.training_date.errors %}
-                                <span class="text-danger">{{ error }}</span>
-                            {% endfor %}
-                        </div>
-                        <div class="mb-3">
-                            {{ initial_training_form.attachment.label(class="form-label") }}
-                            {{ initial_training_form.attachment(class="form-control") }}
-                            {% for error in initial_training_form.attachment.errors %}
-                                <span class="text-danger">{{ error }}</span>
-                            {% endfor %}
-                            {% if initial_training and initial_training.attachment_path %}
-                                <p class="mt-2">Fichier actuel: <a href="{{ url_for('static', filename=initial_training.attachment_path) }}" target="_blank">Voir l'attestation</a></p>
-                            {% endif %}
-                        </div>
-                        {{ initial_training_form.submit(class="btn btn-primary", id="submit_initial_training") }}
-                    </form>
-                </div>
-            </div>
-
-            <div class="card shadow mb-4">
-                <div class="card-header py-3">
-                    <h6 class="m-0 font-weight-bold text-primary">Gestion de la Clé API</h6>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="api-key-display" class="form-label">Votre Clé API</label>
-                        <div class="input-group">
-                            <input type="text" id="api-key-display" class="form-control" value="{{ api_key }}" readonly>
-                            <button class="btn btn-outline-secondary" type="button" id="copy-api-key-btn" title="Copier la clé API">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </div>
-                        <small class="form-text text-muted">Cette clé est utilisée pour accéder à l'API. Gardez-la secrète.</small>
+                        <!-- Submit button is moved to the bottom, outside the card -->
                     </div>
-                    <button type="button" class="btn btn-warning" id="regenerate-api-key-btn">Regénérer la Clé API</button>
+                </div>
+            </div>
+
+            <!-- Column 2: Initial Training & API Key -->
+            <div class="col-md-6">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 font-weight-bold text-primary">Formations Réglementaires Initiales</h6>
+                        <button type="button" class="btn btn-sm btn-success" id="add-initial-training-btn"><i class="fas fa-plus"></i> Ajouter</button>
+                    </div>
+                    <div class="card-body" id="initial-trainings-container">
+                        <!-- 
+                            CHANGE 3: Use loop.index0 to get the original training object.
+                            This is a reliable way to get the attachment_path for existing records.
+                        -->
+                        {% for training_form in initial_trainings_form.initial_trainings %}
+                            {% set training_obj = current_user.initial_regulatory_trainings[loop.index0] %}
+                            <div class="initial-training-entry card mb-3 p-3 bg-light">
+                                <button type="button" class="btn btn-sm btn-danger remove-initial-training-btn" style="position: absolute; top: 10px; right: 10px;"><i class="fas fa-trash"></i></button>
+                                
+                                <!-- No hidden tag needed for sub-forms -->
+                                <div class="mb-3">
+                                    {{ training_form.training_type.label(class="form-label") }}
+                                    {{ training_form.training_type(class="form-control") }}
+                                    {% for error in training_form.training_type.errors %}
+                                        <span class="text-danger">{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                                <div class="mb-3">
+                                    {{ training_form.level.label(class="form-label") }}
+                                    {{ training_form.level(class="form-control") }}
+                                    {% for error in training_form.level.errors %}
+                                        <span class="text-danger">{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                                <div class="mb-3">
+                                    {{ training_form.training_date.label(class="form-label") }}
+                                    {{ training_form.training_date(class="form-control") }}
+                                    {% for error in training_form.training_date.errors %}
+                                        <span class="text-danger">{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                                <div class="mb-3">
+                                    {{ training_form.attachment.label(class="form-label") }}
+                                    {{ training_form.attachment(class="form-control") }}
+                                    {% for error in training_form.attachment.errors %}
+                                        <span class="text-danger">{{ error }}</span>
+                                    {% endfor %}
+                                    {% if training_obj and training_obj.attachment_path %}
+                                        <p class="mt-2 mb-0">Fichier actuel: <a href="{{ url_for('static', filename=training_obj.attachment_path) }}" target="_blank">Voir l'attestation</a></p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Gestion de la Clé API</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="api-key-display" class="form-label">Votre Clé API</label>
+                            <div class="input-group">
+                                <input type="text" id="api-key-display" class="form-control" value="{{ api_key }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" id="copy-api-key-btn" title="Copier la clé API">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">Cette clé est utilisée pour l'API. Gardez-la secrète.</small>
+                        </div>
+                        <button type="button" class="btn btn-warning" id="regenerate-api-key-btn">Regénérer la Clé API</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+
+        <!-- 
+            CHANGE 4: A single, central submit button for the whole form.
+        -->
+        <div class="mt-3 mb-5 text-center">
+            {{ form.submit(class="btn btn-primary btn-lg", value="Enregistrer Toutes les Modifications") }}
+        </div>
+    </form> <!-- The single form tag closes here -->
 </div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
-    $(document).ready(function() {
-        // API Key Management
-        $(document).on('click', '#copy-api-key-btn', function() {
-            var apiKeyInput = document.getElementById('api-key-display');
-            apiKeyInput.select();
-            apiKeyInput.setSelectionRange(0, 99999); // For mobile devices
-            document.execCommand('copy');
+// CHANGE 5: Prepare the HTML for the dropdown options ONCE, outside the click handler.
+// This prevents mixing server-side Jinja with client-side JavaScript.
+var levelOptionsHtml = `
+    {% for level_member in InitialRegulatoryTrainingLevel %}
+        <option value="{{ level_member.name }}">{{ level_member.value }}</option>
+    {% endfor %}
+`;
+
+$(document).ready(function() {
+    // API Key Management (this code was already correct)
+    $('#copy-api-key-btn').click(function() {
+        var apiKeyInput = document.getElementById('api-key-display');
+        apiKeyInput.select();
+        apiKeyInput.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(apiKeyInput.value).then(function() {
             alert('Clé API copiée dans le presse-papiers !');
         });
-
-        $(document).on('click', '#regenerate-api-key-btn', function() {
-            if (confirm('Voulez-vous vraiment générer une nouvelle clé API ? L\'ancienne sera invalidée et la nouvelle ne sera affichée qu\'une seule fois.')) {
-                fetch("{{ url_for('dashboard.regenerate_api_key') }}", {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': $('meta[name=csrf-token]').attr('content')
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        $('#api-key-display').val(data.api_key);
-                        alert('Nouvelle clé API générée avec succès ! Veuillez la noter : ' + data.api_key);
-                    } else {
-                        alert('Erreur lors de la génération de la clé API.');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Une erreur réseau est survenue.');
-                });
-            }
-        });
     });
+
+    $('#regenerate-api-key-btn').click(function() {
+        if (confirm('Voulez-vous vraiment générer une nouvelle clé API ? L\'ancienne sera invalidée.')) {
+            fetch("{{ url_for('dashboard.regenerate_api_key') }}", {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ form.csrf_token._value() }}' // Get token directly from main form
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    $('#api-key-display').val(data.api_key);
+                    alert('Nouvelle clé API générée avec succès !');
+                } else {
+                    alert('Erreur lors de la génération de la clé API.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur réseau est survenue.');
+            });
+        }
+    });
+
+    // Dynamic Initial Training Forms
+    var initialTrainingCount = {{ initial_trainings_form.initial_trainings|length }};
+    $('#add-initial-training-btn').click(function() {
+        // CHANGE 6: The JavaScript template is now clean and uses the pre-built options.
+        var template = `
+            <div class="initial-training-entry card mb-3 p-3 bg-light">
+                <button type="button" class="btn btn-sm btn-danger remove-initial-training-btn" style="position: absolute; top: 10px; right: 10px;"><i class="fas fa-trash"></i></button>
+                
+                <div class="mb-3">
+                    <label for="initial_trainings-${initialTrainingCount}-training_type" class="form-label">Type de Formation</label>
+                    <input class="form-control" id="initial_trainings-${initialTrainingCount}-training_type" name="initial_trainings-${initialTrainingCount}-training_type" required type="text" value="">
+                </div>
+                <div class="mb-3">
+                    <label for="initial_trainings-${initialTrainingCount}-level" class="form-label">Niveau</label>
+                    <select class="form-control" id="initial_trainings-${initialTrainingCount}-level" name="initial_trainings-${initialTrainingCount}-level" required>
+                        <option value="">-- Choisir un niveau --</option>
+                        ${levelOptionsHtml}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="initial_trainings-${initialTrainingCount}-training_date" class="form-label">Date</label>
+                    <input class="form-control" id="initial_trainings-${initialTrainingCount}-training_date" name="initial_trainings-${initialTrainingCount}-training_date" required type="datetime-local" value="">
+                </div>
+                <div class="mb-3">
+                    <label for="initial_trainings-${initialTrainingCount}-attachment" class="form-label">Attestation</label>
+                    <input class="form-control" id="initial_trainings-${initialTrainingCount}-attachment" name="initial_trainings-${initialTrainingCount}-attachment" type="file">
+                </div>
+            </div>
+        `;
+        $('#initial-trainings-container').append(template);
+        var newEntry = $('#initial-trainings-container').children().last();
+        $('html, body').animate({
+            scrollTop: newEntry.offset().top - 100 // Adjust 100px for some padding
+        }, 500); // 500ms scroll duration
+        initialTrainingCount++;
+    });
+
+    // This code was already correct
+    $(document).on('click', '.remove-initial-training-btn', function() {
+        $(this).closest('.initial-training-entry').remove();
+    });
+});
 </script>
 {% endblock %}
