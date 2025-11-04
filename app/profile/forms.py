@@ -12,7 +12,7 @@ class RequestContinuousTrainingEventForm(FlaskForm):
     location = StringField('Lieu', validators=[Optional(), Length(max=255)])
     training_type = SelectField('Type de Formation', choices=[(tag.name, tag.value) for tag in ContinuousTrainingType], validators=[DataRequired()])
     event_date = DateTimeLocalField('Date de l\'événement', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    attachment = FileField('Programme/Attestation (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), Optional()])
+    attachment = FileField('Programme (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), Optional()])
     notes = TextAreaField('Notes additionnelles', validators=[Optional()], render_kw={"rows": 3})
     submit = SubmitField('Soumettre la Demande d\'Événement')
 

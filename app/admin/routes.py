@@ -218,6 +218,8 @@ def delete_continuous_training_event(event_id):
     event = ContinuousTrainingEvent.query.get_or_404(event_id)
     db.session.delete(event)
     db.session.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'message': 'Événement de formation continue supprimé avec succès !'})
     flash('Événement de formation continue supprimé avec succès !', 'success')
     return redirect(url_for('admin.manage_continuous_training_events'))
 

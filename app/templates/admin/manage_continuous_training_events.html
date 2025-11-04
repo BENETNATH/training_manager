@@ -155,11 +155,13 @@
 
             $('#confirmDeleteBtn').on('click', function() {
                 if (eventToDeleteId) {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
                     fetch(`/admin/continuous_training_events/delete/${eventToDeleteId}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest'
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': csrfToken
                         }
                     })
                     .then(response => response.json())

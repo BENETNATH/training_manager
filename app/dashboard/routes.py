@@ -388,6 +388,7 @@ def request_continuous_training_event():
             timestamp = int(current_utc.timestamp())
             original_filename = secure_filename(form.attachment.data.filename)
             file_extension = os.path.splitext(original_filename)[1]
+            content_type = "continuous_training_events"
 
             upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', content_type, str(year), str(month), str(user_id))
             os.makedirs(upload_folder, exist_ok=True)
