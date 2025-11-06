@@ -917,11 +917,12 @@ def edit_user(item_id):
                     'roles': [r.name for r in user.roles],
                     'continuous_training_summary': {
                         'is_compliant': user.is_continuous_training_compliant,
-                        'is_live_ratio_compliant': user.is_live_training_ratio_compliant,
+                        'is_live_training_compliant': user.is_live_training_compliant,
                         'is_at_risk_next_year': user.is_at_risk_next_year,
                         'total_hours_6_years': user.total_continuous_training_hours_6_years,
                         'required_hours': user.required_continuous_training_hours,
-                        'live_ratio': user.live_training_ratio
+                        'required_live_training_hours': user.required_live_training_hours,
+                        'live_continuous_training_hours_6_years': user.live_continuous_training_hours_6_years
                     }
                 }
             })
@@ -1762,7 +1763,7 @@ def export_user_summary():
         headers = [
             "User ID", "Full Name", "Email", "Team(s)", "Account Status", "Study Level",
             "Initial Training Name", "Initial Training Completion Date",
-            "Compliance", "Ratio Online", "Total Continuous Training Hours (Last 6 Years)"
+            "Compliance", "Live Training Hours", "Required Live Training Hours", "Live Training Compliance", "Total Continuous Training Hours (Last 6 Years)"
         ]
         for i in range(6):
             headers.append(f"Continuous Training Hours ({current_year - i})")
@@ -1792,23 +1793,22 @@ def export_user_summary():
             compliance_status = ""
             if not user.is_continuous_training_compliant:
                 compliance_status = "WARNING"
-            elif not user.is_live_training_ratio_compliant:
-                compliance_status = "OK except ratio"
+            elif not user.is_live_training_compliant:
+                compliance_status = "OK except live hours"
             else:
                 compliance_status = "OK"
 
-            # Ratio Online
-            # user.live_training_ratio is the ratio of live (presential) training
-            # So, 1 - live_training_ratio is the ratio of online training
-            online_ratio = (1 - user.live_training_ratio) * 100 if user.live_training_ratio is not None else 0
-            online_ratio_str = f"{online_ratio:.2f}%"
+            # Live Training Data
+            live_hours_str = f"{user.live_continuous_training_hours_6_years:.2f}"
+            required_live_hours_str = f"{user.required_live_training_hours:.2f}"
+            live_training_compliant_str = "Yes" if user.is_live_training_compliant else "No"
 
             total_continuous_training_6_years = user.get_total_continuous_training_hours_last_six_years()
 
             row_data = [
                 user_id, full_name, email, teams, account_status, study_level,
                 it_name, it_completion_date,
-                compliance_status, online_ratio_str, total_continuous_training_6_years
+                compliance_status, live_hours_str, required_live_hours_str, live_training_compliant_str, total_continuous_training_6_years
             ]
 
             # Continuous Training Annual Hours
@@ -2671,8 +2671,8 @@ def continuous_training_compliance_report():
             'online_hours': user.online_continuous_training_hours_6_years,
             'required_hours': user.required_continuous_training_hours,
             'is_compliant': user.is_continuous_training_compliant,
-            'live_ratio': user.live_training_ratio,
-            'is_live_ratio_compliant': user.is_live_training_ratio_compliant,
+            'required_live_training_hours': user.required_live_training_hours,
+            'is_live_training_compliant': user.is_live_training_compliant,
             'is_at_risk_next_year': user.is_at_risk_next_year
         })
     return render_template('admin/continuous_training_compliance_report.html',

@@ -465,21 +465,22 @@
                                     </td>
                                     {% set summary = {
                                         'is_compliant': user.is_continuous_training_compliant,
-                                        'is_live_ratio_compliant': user.is_live_training_ratio_compliant,
+                                        'is_live_training_compliant': user.is_live_training_compliant,
                                         'is_at_risk_next_year': user.is_at_risk_next_year,
                                         'total_hours_6_years': user.total_continuous_training_hours_6_years,
                                         'required_hours': user.required_continuous_training_hours,
-                                        'live_ratio': user.live_training_ratio
+                                        'live_continuous_training_hours_6_years': user.live_continuous_training_hours_6_years,
+                                        'required_live_training_hours': user.required_live_training_hours
                                     } %}
                                     <td class="text-center">
                                         <span style="display:none;">{{ summary.total_hours_6_years }}</span>
                                         {% set color = 'success' %}
                                         {% if not summary.is_compliant %}
                                             {% set color = 'danger' %}
-                                        {% elif not summary.is_live_ratio_compliant or summary.is_at_risk_next_year %}
+                                        {% elif not summary.is_live_training_compliant or summary.is_at_risk_next_year %}
                                             {% set color = 'warning' %}
                                         {% endif %}
-                                        <span class="badge bg-{{ color }}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: {{ '%.2f'|format(summary.total_hours_6_years) }} / {{ '%.2f'|format(summary.required_hours) }}. Live Ratio: {{ '%.0f'|format(summary.live_ratio * 100) }}%">
+                                        <span class="badge bg-{{ color }}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: {{ '%.2f'|format(summary.total_hours_6_years) }} / {{ '%.2f'|format(summary.required_hours) }}. Live Hours: {{ '%.2f'|format(summary.live_continuous_training_hours_6_years) }} / {{ '%.2f'|format(summary.required_live_training_hours) }}">
                                             <i class="fas fa-info-circle"></i>
                                         </span>
                                     </td>

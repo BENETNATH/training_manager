@@ -46,7 +46,7 @@
     <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="training-summary-tab" data-bs-toggle="tab" data-bs-target="#training-summary-tab-pane" type="button" role="tab" aria-controls="training-summary-tab-pane" aria-selected="true">Synthèse Formations
-                {% if not is_continuous_training_compliant or not is_live_training_ratio_compliant %}
+                {% if not is_continuous_training_compliant or not is_live_training_compliant %}
                     <span class="badge bg-danger rounded-pill ms-1"><i class="fas fa-exclamation-triangle"></i></span>
                 {% endif %}
             </button>
@@ -131,10 +131,10 @@
                                 <hr class="my-2">
                                 <div class="row">
                                     <div class="col-6">
-                                        <h5 class="mt-2 mb-1" style="font-size: 1rem;">Ratio Présentiel</h5>
-                                        <p class="mb-1"><strong>Ratio:</strong> {{ "%.2f"|format(live_training_ratio * 100) }}%</p>
+                                        <h5 class="mt-2 mb-1" style="font-size: 1rem;">Heures Présentiel</h5>
+                                        <p class="mb-1"><strong>Heures:</strong> {{ "%.2f"|format(live_continuous_training_hours_6_years) }} / {{ "%.2f"|format(required_live_training_hours) }}</p>
                                         <p class="mb-1"><strong>Statut:</strong>
-                                            {% if is_live_training_ratio_compliant %}<span class="badge bg-success">Conforme</span>{% else %}<span class="badge bg-warning">Non Conforme</span>{% endif %}
+                                            {% if is_live_training_compliant %}<span class="badge bg-success">Conforme</span>{% else %}<span class="badge bg-warning">Non Conforme</span>{% endif %}
                                         </p>
                                     </div>
                                     <div class="col-6">

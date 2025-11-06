@@ -29,18 +29,130 @@ from app.profile.forms import (
 from collections import defaultdict
 from datetime import datetime, timezone
 
-class PDFWithFooter(FPDF):
-    def __init__(self, orientation='P', unit='mm', format='A4', user_name='', generation_date=''):
+class PDF(FPDF):
+    def __init__(self, orientation='P', unit='mm', format='A4', user_name=''):
         super().__init__(orientation, unit, format)
         self.user_name = user_name
-        self.generation_date = generation_date
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Helvetica', 'I', 8)
-        footer_text = f'Generated for {self.user_name} on {self.generation_date}'
+        generation_date = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+        footer_text = f'Livret de Compétences de {self.user_name} - {generation_date}'
         self.cell(0, 10, footer_text, 0, 0, 'L')
-        self.cell(0, 10, 'Page %s/{nb}' % self.page_no(), 0, 0, 'R')
+        self.cell(0, 10, f'{self.page_no()}/{{nb}}', 0, 0, 'R')
+
+def _generate_booklet_pdf(user):
+    # --- Data Fetching ---
+    competencies = user.competencies
+    initial_trainings = user.initial_regulatory_trainings
+    continuous_trainings = user.continuous_trainings_attended.join(ContinuousTrainingEvent).filter(
+        UserContinuousTraining.status == UserContinuousTrainingStatus.APPROVED
+    ).order_by(ContinuousTrainingEvent.event_date.desc()).all()
+
+    # --- PDF Generation ---
+    pdf = PDF(user_name=user.full_name)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    pdf.set_font('Helvetica', 'B', 16)
+    
+    # --- Header ---
+    pdf.cell(0, 10, 'LIVRET DE COMPETENCES', 0, 1, 'C')
+    pdf.ln(10)
+
+    # --- User Info ---
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 10, 'Informations utilisateur', 0, 1, 'L')
+    pdf.set_font('Helvetica', '', 10)
+    
+    # Basic user info table
+    with pdf.table(col_widths=(40, 150)) as table:
+        row = table.row()
+        row.cell("Nom Prénom")
+        row.cell(user.full_name)
+    pdf.ln(10)
+
+    # --- Formation Initiale : Diplômes ---
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 10, 'Formation Initiale : Diplômes', 0, 1, 'L')
+    pdf.set_font('Helvetica', '', 12)
+    with pdf.table(col_widths=(40, 40, 30, 30, 30, 20)) as table:
+        headings = table.row()
+        for heading in ("Diplôme", "Etablissement", "Pays", "Date de réussite", "Niveau d'étude", "Remarques"):
+            headings.cell(heading)
+        
+        row = table.row()
+        row.cell(user.study_level or "N/A")
+        row.cell("N/A")
+        row.cell("N/A")
+        row.cell("N/A")
+        row.cell("N/A")
+        row.cell("")
+
+    pdf.ln(10)
+
+    # --- Formation spécifique à l'expérimentation animale ---
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 10, "Formation spécifique à l'expérimentation animale", 0, 1, 'L')
+    pdf.set_font('Helvetica', '', 12)
+    with pdf.table(col_widths=(35, 40, 20, 25, 30, 20, 20, 15)) as table:
+        headings = table.row()
+        for heading in ("Niveau", "Module", "Espece", "N° Agrément", "Etablissement", "Formateur", "Date", "jours"):
+            headings.cell(heading)
+        
+        for training in initial_trainings:
+            row = table.row()
+            row.cell(training.level.value if training.level else "N/A")
+            row.cell(training.training_type)
+            row.cell("N/A")
+            row.cell("N/A")
+            row.cell("N/A")
+            row.cell("N/A")
+            row.cell(training.training_date.strftime("%d/%m/%Y") if training.training_date else "N/A")
+            row.cell("N/A")
+    pdf.ln(10)
+
+    # --- Formation Continue ---
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 10, 'Formation Continue', 0, 1, 'L')
+    pdf.set_font('Helvetica', '', 12)
+    with pdf.table(col_widths=(50, 40, 30, 30, 20, 20)) as table:
+        headings = table.row()
+        for heading in ("Nom de la formation", "Thematique", "Type", "Lieu", "Date", "Durée (j)"):
+            headings.cell(heading)
+        for ct in continuous_trainings:
+            row = table.row()
+            row.cell(ct.event.title)
+            row.cell("N/A")
+            row.cell(ct.event.training_type.value)
+            row.cell(ct.event.location or "N/A")
+            row.cell(ct.event.event_date.strftime("%d/%m/%Y"))
+            row.cell(str(round(ct.validated_hours / 7, 2)) if ct.validated_hours else "N/A") # Assuming 7h/day
+    pdf.ln(10)
+
+    # --- Compétences techniques ---
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 10, 'Compétences techniques', 0, 1, 'L')
+    pdf.set_font('Helvetica', '', 12)
+    with pdf.table(col_widths=(40, 50, 20, 25, 25, 30, 20)) as table:
+        headings = table.row()
+        for heading in ("Type de compétence", "Compétence", "Etat", "Date", "Espèces", "Type de formation", "Tuteur"):
+            headings.cell(heading)
+
+        for comp in competencies:
+            row = table.row()
+            row.cell("N/A")
+            row.cell(comp.skill.name)
+            row.cell(comp.level or "N/A")
+            row.cell(comp.evaluation_date.strftime("%d/%m/%Y"))
+            row.cell(", ".join([s.name for s in comp.species]) if comp.species else "N/A")
+            row.cell("N/A")
+            row.cell(comp.evaluator.full_name if comp.evaluator else (comp.external_evaluator_name or "N/A"))
+
+    pdf_output = pdf.output()
+    pdf_buffer = io.BytesIO(pdf_output)
+    pdf_buffer.seek(0)
+    return pdf_buffer
 
 def get_notification_summary_for_user(user):
     notifications = []
@@ -318,8 +430,8 @@ def dashboard_home():
     online_continuous_training_hours_6_years = user.online_continuous_training_hours_6_years
     required_continuous_training_hours = user.required_continuous_training_hours
     is_continuous_training_compliant = user.is_continuous_training_compliant
-    live_training_ratio = user.live_training_ratio
-    is_live_training_ratio_compliant = user.is_live_training_ratio_compliant
+    is_live_training_compliant = user.is_live_training_compliant
+    required_live_training_hours = user.required_live_training_hours
     is_at_risk_next_year = user.is_at_risk_next_year
     continuous_training_summary_by_year = user.continuous_training_summary_by_year
 
@@ -358,8 +470,8 @@ def dashboard_home():
                            online_continuous_training_hours_6_years=online_continuous_training_hours_6_years,
                            required_continuous_training_hours=required_continuous_training_hours,
                            is_continuous_training_compliant=is_continuous_training_compliant,
-                           live_training_ratio=live_training_ratio,
-                           is_live_training_ratio_compliant=is_live_training_ratio_compliant,
+                           is_live_training_compliant=is_live_training_compliant,
+                           required_live_training_hours=required_live_training_hours,
                            is_at_risk_next_year=is_at_risk_next_year,
                            continuous_training_summary_by_year=continuous_training_summary_by_year,
                            training_chart_data=training_chart_data,
@@ -1166,151 +1278,7 @@ def generate_user_booklet_zip(user_id):
     external_trainings = user.external_trainings.filter_by(status=ExternalTrainingStatus.APPROVED).all()
 
     # --- PDF Generation (captured in BytesIO) ---
-    generation_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    pdf = PDFWithFooter(
-        orientation='L', 
-        unit='mm', 
-        format='A4',
-        user_name=user.full_name,
-        generation_date=generation_date_str
-    )
-    pdf.alias_nb_pages()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
-
-    # Colors
-    blue = (0, 123, 255)
-    dark_gray = (52, 58, 64)
-    green = (40, 167, 69)
-    red = (220, 53, 69)
-    orange = (253, 126, 20)
-
-    # --- Title Page ---
-    pdf.set_font('Times', 'B', 24)
-    pdf.set_text_color(*blue)
-    pdf.cell(0, 10, f'Competency Booklet for {user.full_name}', 0, 1, 'C')
-    pdf.set_font('Times', '', 12)
-    pdf.cell(0, 5, f'Generated on: {generation_date_str}', 0, 1, 'C')
-    pdf.ln(1)
-
-    # --- Summary Counters ---
-    pdf.set_font('Times', 'B', 16)
-    pdf.set_text_color(*dark_gray)
-    pdf.cell(0, 5, 'Summary', 0, 1, 'L')
-    pdf.ln(2)
-
-    pdf.set_font('Times', '', 10)
-    skills_to_recycle_count = len([c for c in competencies if c.needs_recycling])
-    pdf.cell(0, 5, f"- Total Competencies: {len(competencies)}", 0, 1, 'L')
-    pdf.cell(0, 8, f"- Skills Expired: {skills_to_recycle_count}", 0, 1, 'L')
-    
-    # --- Competencies Table ---
-    pdf.set_font('Times', 'B', 16)
-    pdf.set_text_color(*dark_gray)
-    pdf.cell(0, 5, 'Overview of Competencies', 0, 1, 'L')
-    pdf.ln(5)
-
-    if not competencies:
-        pdf.set_font('Times', '', 12)
-        pdf.cell(0, 10, 'No competencies recorded.', 0, 1, 'L')
-    else:
-        headings = ("Skill", "Level", "Evaluated", "Evaluator", "Last Practice", "Recycling Due", "Status", "Species", "Recycling (months)")
-        data = []
-        for comp in competencies:
-            recycling_due = "N/A"
-            status_text = "Unlimited"
-            if comp.skill.validity_period_months:
-                recycling_due = comp.recycling_due_date.strftime("%Y-%m-%d")
-                if comp.needs_recycling:
-                    status_text = "Expired"
-                elif comp.warning_date and datetime.now(timezone.utc) > comp.warning_date:
-                    status_text = "Recycling Soon"
-                else:
-                    status_text = "Valid"
-            data.append((
-                comp.skill.name,
-                comp.level or "N/A",
-                comp.evaluation_date.strftime("%Y-%m-%d"),
-                comp.external_evaluator_name if comp.external_evaluator_name else (comp.evaluator.full_name if comp.evaluator else "N/A"),
-                comp.latest_practice_date.strftime("%Y-%m-%d") if comp.latest_practice_date else "N/A",
-                recycling_due,
-                status_text,
-                ", ".join([s.name for s in comp.species]) if comp.species else "N/A",
-                str(comp.skill.validity_period_months) if comp.skill.validity_period_months else "N/A"
-            ))
-        pdf.set_font("Times", size=8)
-        with pdf.table(col_widths=(50, 20, 20, 35, 25, 25, 20, 32, 20), text_align=("LEFT", "CENTER", "CENTER", "CENTER", "CENTER", "CENTER", "CENTER", "CENTER", "CENTER"), headings_style=FontFace(emphasis="B", color=dark_gray, fill_color=(200, 220, 255))) as table:
-            header_row = table.row()
-            for heading in headings:
-                header_row.cell(heading)
-            for data_row in data:
-                row = table.row()
-                for i, datum in enumerate(data_row):
-                    if i == 6: # Status cell
-                        if datum == "Valid": pdf.set_text_color(*green)
-                        elif datum == "Recycling Soon": pdf.set_text_color(*orange)
-                        elif datum == "Expired": pdf.set_text_color(*red)
-                        row.cell(datum)
-                        pdf.set_text_color(*dark_gray)
-                    else:
-                        row.cell(datum)
-
-    # --- Initial and Continuous Training ---
-    pdf.ln(2)
-    pdf.set_font('Times', 'B', 16)
-    pdf.set_text_color(*dark_gray)
-    pdf.cell(0, 5, 'Regulatory and Continuous Training', 0, 1, 'L')
-    pdf.ln(2)
-    pdf.set_font('Times', '', 10)
-    compliance_status = "Compliant" if user.is_continuous_training_compliant else "Not Compliant"
-    pdf.cell(0, 5, f"- Continuous Training Status: {compliance_status} ({user.total_continuous_training_hours_6_years:.2f} / {user.required_continuous_training_hours:.2f} hours)", 0, 1, 'L')
-    pdf.cell(0, 5, f"- Live Training Ratio: {user.live_training_ratio * 100:.2f}%", 0, 1, 'L')
-    pdf.ln(2)
-    # Initial Training Section
-    pdf.set_font('Times', 'B', 12)
-    pdf.cell(0, 5, 'Initial Regulatory Training', 0, 1, 'L')
-    if initial_trainings:
-        for training in initial_trainings:
-            pdf.set_font('Times', '', 10)
-            pdf.cell(0, 5, f"Type: {training.training_type}", 0, 1, 'L')
-            pdf.cell(0, 5, f"Level: {training.level.value}", 0, 1, 'L')
-            pdf.cell(0, 5, f"Date: {training.training_date.strftime('%Y-%m-%d')}", 0, 1, 'L')
-            pdf.ln(2)
-    else:
-        pdf.set_font('Times', '', 10)
-        pdf.cell(0, 5, 'No initial regulatory training recorded.', 0, 1, 'L')
-    pdf.ln(2)
-
-    # Continuous Training Table
-    pdf.set_font('Times', 'B', 12)
-    pdf.cell(0, 5, 'Continuous Training History (Approved)', 0, 1, 'L')
-    pdf.ln(2)
-    if not continuous_trainings:
-        pdf.set_font('Times', '', 10)
-        pdf.cell(0, 8, 'No continuous training records found.', 0, 1, 'L')
-    else:
-        ct_headings = ("Date", "Title", "Type", "Validated Hours")
-        ct_data = []
-        for ct in continuous_trainings:
-            ct_data.append((
-                ct.event.event_date.strftime("%Y-%m-%d"),
-                ct.event.title,
-                ct.event.training_type.value,
-                f"{ct.validated_hours:.2f}"
-            ))
-        pdf.set_font("Times", size=8)
-        with pdf.table(col_widths=(25, 165, 25, 25), text_align=("LEFT", "LEFT", "CENTER", "CENTER"), headings_style=FontFace(emphasis="B", color=dark_gray, fill_color=(200, 220, 255))) as table:
-            header_row = table.row()
-            for heading in ct_headings:
-                header_row.cell(heading)
-            for data_row in ct_data:
-                row = table.row()
-                for datum in data_row:
-                    row.cell(datum)
-
-    pdf_output = pdf.output()
-    pdf_buffer = io.BytesIO(pdf_output)
-    pdf_buffer.seek(0)
+    pdf_buffer = _generate_booklet_pdf(user)
 
     # --- ZIP File Creation ---
     zip_buffer = io.BytesIO()
@@ -1354,6 +1322,7 @@ def generate_user_booklet_zip(user_id):
 
 
     zip_buffer.seek(0)
+    generation_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return send_file(zip_buffer, as_attachment=True,
                      download_name=f"booklet_{user.full_name.replace(' ', '_')}_{generation_date_str}.zip",
                      mimetype='application/zip')

@@ -40,8 +40,8 @@ def team_competencies():
                             'online_hours_6_years': member.online_continuous_training_hours_6_years,
                             'required_hours': member.required_continuous_training_hours,
                             'is_compliant': member.is_continuous_training_compliant,
-                            'live_ratio': member.live_training_ratio,
-                            'is_live_ratio_compliant': member.is_live_training_ratio_compliant,
+                            'required_live_training_hours': member.required_live_training_hours,
+                            'is_live_training_compliant': member.is_live_training_compliant,
                             'is_at_risk_next_year': member.is_at_risk_next_year,
                         }
                     }

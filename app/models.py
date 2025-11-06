@@ -241,8 +241,8 @@ class User(UserMixin, db.Model):
     # Constants for continuous training
     CONTINUOUS_TRAINING_DAYS_REQUIRED = 3
     CONTINUOUS_TRAINING_YEARS_WINDOW = 6
-    HOURS_PER_DAY = 7.15
-    MIN_LIVE_TRAINING_RATIO = 0.70 # 70%
+    HOURS_PER_DAY = 7
+    MIN_LIVE_TRAINING_PERCENTAGE = 1/3 # 1/3 of total required hours, so 7h out of 21h
 
     def get_continuous_training_hours(self, start_date, end_date, training_type=None):
         """
@@ -306,24 +306,18 @@ class User(UserMixin, db.Model):
             self.required_continuous_training_hours
 
     @property
-    def live_training_ratio(self):
+    def required_live_training_hours(self):
         """
-        Calculates the ratio of live training hours to total continuous training hours.
+        Returns the required number of live continuous training hours.
         """
-        total_hours = self.total_continuous_training_hours_6_years
-        if total_hours == 0:
-            return 0.0
-        return self.live_continuous_training_hours_6_years / total_hours
+        return self.required_continuous_training_hours * self.MIN_LIVE_TRAINING_PERCENTAGE
 
     @property
-    def is_live_training_ratio_compliant(self):
+    def is_live_training_compliant(self):
         """
-        Checks if the user is compliant with the live training ratio requirement.
+        Checks if the user is compliant with the live training hours requirement.
         """
-        # If no training, ratio is not applicable
-        if self.total_continuous_training_hours_6_years == 0:
-            return True
-        return self.live_training_ratio >= self.MIN_LIVE_TRAINING_RATIO
+        return self.live_continuous_training_hours_6_years >= self.required_live_training_hours
 
     def get_continuous_training_hours_for_year(self, year):
         """

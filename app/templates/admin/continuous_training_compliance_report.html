@@ -15,14 +15,14 @@
                             <th>Heures En Ligne (6 ans)</th>
                             <th>Heures Requises</th>
                             <th>Conforme ?</th>
-                            <th>Ratio Présentiel</th>
-                            <th>Ratio Conforme ?</th>
+                            <th>Heures Présentiel Requises</th>
+                            <th>Conformité Présentiel</th>
                             <th>À Risque Année Prochaine ?</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for entry in report_data %}
-                            <tr class="{% if not entry.is_compliant %}table-danger{% elif not entry.is_live_ratio_compliant %}table-warning{% elif entry.is_at_risk_next_year %}table-info{% endif %}">
+                            <tr class="{% if not entry.is_compliant %}table-danger{% elif not entry.is_live_training_compliant %}table-warning{% elif entry.is_at_risk_next_year %}table-info{% endif %}">
                                 <td><a href="{{ url_for('dashboard.user_profile', username=entry.user.full_name) }}">{{ entry.user.full_name }}</a></td>
                                 <td>{{ "%.2f"|format(entry.total_hours) }}</td>
                                 <td>{{ "%.2f"|format(entry.live_hours) }}</td>
@@ -35,9 +35,9 @@
                                         <span class="badge badge-danger">Non</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ "%.2f"|format(entry.live_ratio * 100) }}%</td>
+                                <td>{{ "%.2f"|format(entry.live_hours) }} / {{ "%.2f"|format(entry.required_live_training_hours) }}</td>
                                 <td>
-                                    {% if entry.is_live_ratio_compliant %}
+                                    {% if entry.is_live_training_compliant %}
                                         <span class="badge badge-success">Oui</span>
                                     {% else %}
                                         <span class="badge badge-warning">Non</span>
