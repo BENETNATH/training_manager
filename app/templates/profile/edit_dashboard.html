@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container">
-    <h1 class="mb-4">Modifier le Profil</h1>
+    <h1 class="mb-4">{{ _('Modifier le Profil') }}</h1>
 
     <!-- 
         CHANGE 1: A SINGLE <form> tag now wraps the entire row.
@@ -22,7 +22,7 @@
             <div class="col-md-6">
                 <div class="card shadow mb-4">
                     <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">Informations Générales</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">{{ _('Informations Générales') }}</h6>
                     </div>
                     <div class="card-body">
                         <!-- Removed the old <form> and hidden tags from here -->
@@ -31,6 +31,13 @@
                             {{ form.full_name.label(class="form-label") }}
                             {{ form.full_name(class="form-control") }}
                             {% for error in form.full_name.errors %}
+                                <span class="text-danger">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.language.label(class="form-label") }}
+                            {{ form.language(class="form-control") }}
+                            {% for error in form.language.errors %}
                                 <span class="text-danger">{{ error }}</span>
                             {% endfor %}
                         </div>
@@ -49,7 +56,7 @@
                             {% endfor %}
                         </div>
                         <hr>
-                        <h6 class="mt-4">Changer le Mot de Passe</h6>
+                        <h6 class="mt-4">{{ _('Changer le Mot de Passe') }}</h6>
                         <div class="mb-3">
                             {{ form.current_password.label(class="form-label") }}
                             {{ form.current_password(class="form-control") }}
@@ -80,8 +87,8 @@
             <div class="col-md-6">
                 <div class="card shadow mb-4">
                     <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                        <h6 class="m-0 font-weight-bold text-primary">Formations Réglementaires Initiales</h6>
-                        <button type="button" class="btn btn-sm btn-success" id="add-initial-training-btn"><i class="fas fa-plus"></i> Ajouter</button>
+                        <h6 class="m-0 font-weight-bold text-primary">{{ _('Formations Réglementaires Initiales') }}</h6>
+                        <button type="button" class="btn btn-sm btn-success" id="add-initial-training-btn"><i class="fas fa-plus"></i> {{ _('Ajouter') }}</button>
                     </div>
                     <div class="card-body" id="initial-trainings-container">
                         <!-- 
@@ -122,7 +129,7 @@
                                         <span class="text-danger">{{ error }}</span>
                                     {% endfor %}
                                     {% if training_obj and training_obj.attachment_path %}
-                                        <p class="mt-2 mb-0">Fichier actuel: <a href="{{ url_for('static', filename=training_obj.attachment_path) }}" target="_blank">Voir l'attestation</a></p>
+                                        <p class="mt-2 mb-0">{{ _('Fichier actuel') }}: <a href="{{ url_for('static', filename=training_obj.attachment_path) }}" target="_blank">{{ _('Voir l\'attestation') }}</a></p>
                                     {% endif %}
                                 </div>
                             </div>
@@ -132,20 +139,20 @@
 
                 <div class="card shadow mb-4">
                     <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">Gestion de la Clé API</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">{{ _('Gestion de la Clé API') }}</h6>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <label for="api-key-display" class="form-label">Votre Clé API</label>
+                            <label for="api-key-display" class="form-label">{{ _('Votre Clé API') }}</label>
                             <div class="input-group">
                                 <input type="text" id="api-key-display" class="form-control" value="{{ api_key }}" readonly>
-                                <button class="btn btn-outline-secondary" type="button" id="copy-api-key-btn" title="Copier la clé API">
+                                <button class="btn btn-outline-secondary" type="button" id="copy-api-key-btn" title="{{ _('Copier la clé API') }}">
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
-                            <small class="form-text text-muted">Cette clé est utilisée pour l'API. Gardez-la secrète.</small>
+                            <small class="form-text text-muted">{{ _('Cette clé est utilisée pour l\'API. Gardez-la secrète.') }}</small>
                         </div>
-                        <button type="button" class="btn btn-warning" id="regenerate-api-key-btn">Regénérer la Clé API</button>
+                        <button type="button" class="btn btn-warning" id="regenerate-api-key-btn">{{ _('Regénérer la Clé API') }}</button>
                     </div>
                 </div>
             </div>
@@ -155,7 +162,7 @@
             CHANGE 4: A single, central submit button for the whole form.
         -->
         <div class="mt-3 mb-5 text-center">
-            {{ form.submit(class="btn btn-primary btn-lg", value="Enregistrer Toutes les Modifications") }}
+            {{ form.submit(class="btn btn-primary btn-lg", value=_('Enregistrer Toutes les Modifications')) }}
         </div>
     </form> <!-- The single form tag closes here -->
 </div>
@@ -179,12 +186,12 @@ $(document).ready(function() {
         apiKeyInput.select();
         apiKeyInput.setSelectionRange(0, 99999);
         navigator.clipboard.writeText(apiKeyInput.value).then(function() {
-            alert('Clé API copiée dans le presse-papiers !');
+            alert('{{ _('Clé API copiée dans le presse-papiers !') }}');
         });
     });
 
     $('#regenerate-api-key-btn').click(function() {
-        if (confirm('Voulez-vous vraiment générer une nouvelle clé API ? L\'ancienne sera invalidée.')) {
+        if (confirm('{{ _('Voulez-vous vraiment générer une nouvelle clé API ? L\'ancienne sera invalidée.') }}')) {
             fetch("{{ url_for('dashboard.regenerate_api_key') }}", {
                 method: 'POST',
                 headers: {
@@ -196,14 +203,14 @@ $(document).ready(function() {
             .then(data => {
                 if (data.success) {
                     $('#api-key-display').val(data.api_key);
-                    alert('Nouvelle clé API générée avec succès !');
+                    alert('{{ _('Nouvelle clé API générée avec succès !') }}');
                 } else {
-                    alert('Erreur lors de la génération de la clé API.');
+                    alert('{{ _('Erreur lors de la génération de la clé API.') }}');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
+                alert('{{ _('Une erreur réseau est survenue.') }}');
             });
         }
     });
@@ -217,22 +224,22 @@ $(document).ready(function() {
                 <button type="button" class="btn btn-sm btn-danger remove-initial-training-btn" style="position: absolute; top: 10px; right: 10px;"><i class="fas fa-trash"></i></button>
                 
                 <div class="mb-3">
-                    <label for="initial_trainings-${initialTrainingCount}-training_type" class="form-label">Type de Formation</label>
+                    <label for="initial_trainings-${initialTrainingCount}-training_type" class="form-label">{{ _('Type de Formation') }}</label>
                     <input class="form-control" id="initial_trainings-${initialTrainingCount}-training_type" name="initial_trainings-${initialTrainingCount}-training_type" required type="text" value="">
                 </div>
                 <div class="mb-3">
-                    <label for="initial_trainings-${initialTrainingCount}-level" class="form-label">Niveau</label>
+                    <label for="initial_trainings-${initialTrainingCount}-level" class="form-label">{{ _('Niveau') }}</label>
                     <select class="form-control" id="initial_trainings-${initialTrainingCount}-level" name="initial_trainings-${initialTrainingCount}-level" required>
-                        <option value="">-- Choisir un niveau --</option>
+                        <option value="">-- {{ _('Choisir un niveau') }} --</option>
                         ${levelOptionsHtml}
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label for="initial_trainings-${initialTrainingCount}-training_date" class="form-label">Date</label>
+                    <label for="initial_trainings-${initialTrainingCount}-training_date" class="form-label">{{ _('Date') }}</label>
                     <input class="form-control" id="initial_trainings-${initialTrainingCount}-training_date" name="initial_trainings-${initialTrainingCount}-training_date" required type="datetime-local" value="">
                 </div>
                 <div class="mb-3">
-                    <label for="initial_trainings-${initialTrainingCount}-attachment" class="form-label">Attestation</label>
+                    <label for="initial_trainings-${initialTrainingCount}-attachment" class="form-label">{{ _('Attestation') }}</label>
                     <input class="form-control" id="initial_trainings-${initialTrainingCount}-attachment" name="initial_trainings-${initialTrainingCount}-attachment" type="file">
                 </div>
             </div>

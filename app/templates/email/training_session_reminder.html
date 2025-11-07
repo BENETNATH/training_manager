@@ -1,21 +1,21 @@
-<p>Dear {{ user.full_name }},</p>
+<p>{{ _('Dear') }} {{ user.full_name }},</p>
 
-<p>This is a reminder for your upcoming training session:</p>
+<p>{{ _('This is a reminder for your upcoming training session:') }}</p>
 
 <ul>
-    <li><strong>Title:</strong> {{ session.title }}</li>
-    <li><strong>Location:</strong> {{ session.location }}</li>
-    <li><strong>Start Time:</strong> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</li>
-    <li><strong>End Time:</strong> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</li>
-    <li><strong>Tutor:</strong> {{ session.tutor.full_name }}</li>
-    <li><strong>Skills Covered:</strong>
+    <li><strong>{{ _('Title') }}:</strong> {{ session.title }}</li>
+    <li><strong>{{ _('Location') }}:</strong> {{ session.location }}</li>
+    <li><strong>{{ _('Start Time') }}:</strong> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</li>
+    <li><strong>{{ _('End Time') }}:</strong> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</li>
+    <li><strong>{{ _('Tutor') }}:</strong> {{ session.tutor.full_name }}</li>
+    <li><strong>{{ _('Skills Covered') }}:</strong>
         {% for skill in session.skills_covered %}
             <span style="background-color: #e9ecef; padding: 3px 6px; border-radius: 3px; margin-right: 5px;">{{ skill.name }}</span>{% if not loop.last %}, {% endif %}
         {% endfor %}
     </li>
 </ul>
 
-<p>Please find the .ics calendar attachment to add this event to your calendar.</p>
+<p>{{ _('Please find the .ics calendar attachment to add this event to your calendar.') }}</p>
 
-<p>Best regards,<br>
-The Training Manager Team</p>
+<p>{{ _('Best regards,') }}<br>
+{{ _('The Training Manager Team') }}</p>

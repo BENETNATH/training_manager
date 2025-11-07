@@ -16,13 +16,13 @@
     </div>
 </form>
 <hr>
-<p>Can't find your event?</p>
-<button type="button" class="btn btn-outline-primary action-btn" data-action-url="{{ url_for('dashboard.request_continuous_training_event') }}" data-modal-title="Request a Continuous Training Event"><i class="fas fa-plus-circle"></i> Request Event Creation</button>
+<p>{{ _('Can\'t find your event?') }}</p>
+<button type="button" class="btn btn-outline-primary action-btn" data-action-url="{{ url_for('dashboard.request_continuous_training_event') }}" data-modal-title="Request a Continuous Training Event"><i class="fas fa-plus-circle"></i> {{ _('Request Event Creation') }}</button>
 
 <script>
     $(document).ready(function() {
         $('#event').select2({
-            placeholder: "Select an event",
+            placeholder: "{{ _('Select an event') }}",
             allowClear: true,
             width: '100%',
             dropdownParent: $('#action-modal') // Ensure Select2 dropdown renders correctly in modal

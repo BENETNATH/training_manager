@@ -5,16 +5,16 @@
     {% set team = team_data.team %}
     {% set team_members = team_data.members %}
     {% set competency_matrix = team_data.competency_matrix %}
-    <h1 class="mb-4">Matrice des Compétences de l'Équipe {{ team.name }}</h1>
-    <p>Vue d'overview des compétences et de leur statut pour les membres de votre équipe.</p>
+    <h1 class="mb-4">{{ _('Matrice des Compétences de l\'Équipe') }} {{ team.name }}</h1>
+    <p>{{ _('Vue d\'overview des compétences et de leur statut pour les membres de votre équipe.') }}</p>
 
     <div class="mb-3">
-        <label for="competencyFilter-{{ team.id }}" class="form-label">Filter by:</label>
+        <label for="competencyFilter-{{ team.id }}" class="form-label">{{ _('Filter by:') }}</label>
         <select class="form-select competency-filter" id="competencyFilter-{{ team.id }}" data-table-id="team-competencies-table-{{ team.id }}">
-            <option value="">Montrer tous</option>
-            <option value="ct-issue">Problème de Formation Continue</option>
-            <option value="needs-recycling">Compétences à revoir</option>
-            <option value="hide-no-trained">Masquer les compétences sans membre formé</option>
+            <option value="">{{ _('Montrer tous') }}</option>
+            <option value="ct-issue">{{ _('Problème de Formation Continue') }}</option>
+            <option value="needs-recycling">{{ _('Compétences à revoir') }}</option>
+            <option value="hide-no-trained">{{ _('Masquer les compétences sans membre formé') }}</option>
         </select>
     </div>
 
@@ -23,7 +23,7 @@
             <table class="table table-bordered table-striped team-competencies-table" id="team-competencies-table-{{ team.id }}" width="100%" cellspacing="0">
                                             <thead>
                                                 <tr>
-                                                    <th>Skill</th>
+                                                    <th>{{ _('Skill') }}</th>
                                                     {% for member in team_data.members %}
                                                         <th>{{ member.full_name }}</th>
                                                     {% endfor %}
@@ -36,12 +36,12 @@
                                             {% set comp_info = team_data.skill_competency_matrix[skill.id].member_competencies[member.id] %}
                                             <td>
                                                 {% if comp_info.competency %}
-                                                    Level: {{ comp_info.competency.level }}<br>
-                                                    Last Practice: {{ comp_info.latest_practice_date.strftime('%Y-%m-%d') if comp_info.latest_practice_date else 'N/A' }}<br>
+                                                    {{ _('Level') }}: {{ comp_info.competency.level }}<br>
+                                                    {{ _('Last Practice') }}: {{ comp_info.latest_practice_date.strftime('%Y-%m-%d') if comp_info.latest_practice_date else 'N/A' }}<br>
                                                     {% if comp_info.needs_recycling %}
-                                                        <span class="badge bg-danger">Recycling Due: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                        <span class="badge bg-danger">{{ _('Recycling Due') }}: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
                                                     {% elif comp_info.recycling_due_date %}
-                                                        <span class="badge bg-warning">Recycling: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                        <span class="badge bg-warning">{{ _('Recycling') }}: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
                                                     {% endif %}
                                                 {% else %}
                                                     N/A
@@ -59,11 +59,11 @@
             window.skillsWithCompetentMembersIds_{{ team.id }} = {{ team_data.skills_with_competent_members_ids|tojson }};
         </script>
     {% else %}
-        <p>Votre équipe n'a actuellement aucun membre.</p>
+        <p>{{ _('Votre équipe n\'a actuellement aucun membre.') }}</p>
     {% endif %}
     {% endfor %}
 
-    <a href="{{ url_for('dashboard.user_profile', username=current_user.full_name) }}" class="btn btn-secondary mt-3">Retour au Dashboard</a>
+    <a href="{{ url_for('dashboard.user_profile', username=current_user.full_name) }}" class="btn btn-secondary mt-3">{{ _('Retour au Dashboard') }}</a>
 
     <script>
     document.addEventListener('DOMContentLoaded', function () {

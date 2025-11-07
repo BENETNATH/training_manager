@@ -2,10 +2,10 @@
 {% block content %}
     <h1>{{ title }}</h1>
     {% if training_requests %}
-        <p>Creating session for multiple requests:</p>
+        <p>{{ _('Creating session for multiple requests:') }}</p>
         <ul>
             {% for req in training_requests %}
-                <li>Request by <strong>{{ req.requester.full_name }}</strong> for skills:
+                <li>{{ _('Request by') }} <strong>{{ req.requester.full_name }}</strong> {{ _('for skills:') }}
                     {% for skill in req.skills_requested %}
                         <span class="badge bg-info">{{ skill.name }}</span>
                     {% endfor %}
@@ -13,7 +13,7 @@
             {% endfor %}
         </ul>
     {% elif training_request %}
-        <p>Creating session for request by <strong>{{ training_request.requester.full_name }}</strong> for skills:
+        <p>{{ _('Creating session for request by') }} <strong>{{ training_request.requester.full_name }}</strong> {{ _('for skills:') }}
             {% for skill in training_request.skills_requested %}
                 <span class="badge bg-info">{{ skill.name }}</span>
             {% endfor %}

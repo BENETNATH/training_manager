@@ -23,13 +23,13 @@
             {% endfor %}
         </div>
 
-        <h5 class="mt-4">Compétences Acquises</h5>
+        <h5 class="mt-4">{{ _('Compétences Acquises') }}</h5>
         <div id="skill-claims-container">
             {% for skill_claim_form in form.skill_claims %}
                 <div class="card mb-2 p-2 skill-claim-entry">
                     <div class="card-header d-flex justify-content-between align-items-center p-1 bg-light">
-                        <h6 class="mb-0">Compétence #<span class="skill-claim-number">{{ loop.index }}</span></h6>
-                        <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">Supprimer</button>
+                        <h6 class="mb-0">{{ _('Compétence') }} #<span class="skill-claim-number">{{ loop.index }}</span></h6>
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-skill-claim">{{ _('Supprimer') }}</button>
                     </div>
                     <div class="card-body p-2">
                         <div class="row g-2">
@@ -75,7 +75,7 @@
                 </div>
             {% endfor %}
         </div>
-        <button type="button" class="btn btn-primary mt-2" id="add-skill-claim">Ajouter une autre compétence</button>
+        <button type="button" class="btn btn-primary mt-2" id="add-skill-claim">{{ _('Ajouter une autre compétence') }}</button>
 
         <div class="mb-3 mt-4">
             {{ form.attachment.label(class="form-label") }}

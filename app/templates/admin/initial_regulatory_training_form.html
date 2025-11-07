@@ -13,7 +13,7 @@
                     {{ wtf.form_field(form.training_date) }}
                     {{ wtf.form_field(form.attachment) }}
                     {% if initial_training and initial_training.attachment_path %}
-                        <p>Attestation actuelle: <a href="{{ url_for('static', filename=initial_training.attachment_path) }}" target="_blank">Voir</a></p>
+                        <p>{{ _('Attestation actuelle:') }} <a href="{{ url_for('static', filename=initial_training.attachment_path) }}" target="_blank">{{ _('Voir') }}</a></p>
                     {% endif %}
                     {{ wtf.form_field(form.submit, class="btn btn-primary") }}
                 </form>

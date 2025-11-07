@@ -342,12 +342,14 @@ def test_submit_training_request_new(client):
 
     skill = Skill(name='New Skill for Request', complexity=Complexity.SIMPLE)
     species = Species(name='New Species for Request')
+    skill.species.append(species)
     db.session.add_all([skill, species])
     db.session.commit()
 
     data = {
         'species': species.id,
         'skills_requested': [skill.id],
+        'justification': 'Test justification for training request.',
         'submit': True
     }
     response = client.post('/dashboard/request-training', data=data, headers={'X-Requested-With': 'XMLHttpRequest'})
@@ -368,6 +370,7 @@ def test_submit_training_request_duplicate(client):
 
     skill = Skill(name='Duplicate Skill Request', complexity=Complexity.SIMPLE)
     species = Species(name='Duplicate Species Request')
+    skill.species.append(species)
     db.session.add_all([skill, species])
     db.session.commit()
 
@@ -381,6 +384,7 @@ def test_submit_training_request_duplicate(client):
     data = {
         'species': species.id,
         'skills_requested': [skill.id],
+        'justification': 'Test justification for duplicate training request.',
         'submit': True
     }
     response = client.post('/dashboard/request-training', data=data, headers={'X-Requested-With': 'XMLHttpRequest'})
@@ -402,6 +406,8 @@ def test_submit_training_request_update_species(client):
     skill = Skill(name='Update Species Skill', complexity=Complexity.SIMPLE)
     species1 = Species(name='Update Species 1')
     species2 = Species(name='Update Species 2')
+    skill.species.append(species1)
+    skill.species.append(species2)
     db.session.add_all([skill, species1, species2])
     db.session.commit()
 
@@ -415,6 +421,7 @@ def test_submit_training_request_update_species(client):
     data = {
         'species': species2.id,
         'skills_requested': [skill.id],
+        'justification': 'Test justification for updating species in training request.',
         'submit': True
     }
     response = client.post('/dashboard/request-training', data=data, headers={'X-Requested-With': 'XMLHttpRequest'})

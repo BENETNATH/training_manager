@@ -5,36 +5,36 @@
         <div class="card shadow mb-4">
             <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h1 class="card-title mb-0">{{ title }}</h1>
-                <a href="{{ url_for('dashboard.dashboard_home') }}" class="btn btn-light btn-sm">Retour au Profil</a>
+                <a href="{{ url_for('dashboard.dashboard_home') }}" class="btn btn-light btn-sm">{{ _('Retour au Profil') }}</a>
             </div>
             <div class="card-body">
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <p><strong>Soumis par:</strong> {{ external_training.user.full_name }}</p>
-                        <p><strong>Nom du Formateur Externe:</strong> {{ external_training.external_trainer_name or 'N/A' }}</p>
-                        <p><strong>Date de la Formation:</strong> {{ external_training.date.strftime('%Y-%m-%d') }}</p>
-                        <p><strong>Durée (heures):</strong> {{ external_training.duration_hours or 'N/A' }}</p>
+                        <p><strong>{{ _('Soumis par') }}:</strong> {{ external_training.user.full_name }}</p>
+                        <p><strong>{{ _('Nom du Formateur Externe') }}:</strong> {{ external_training.external_trainer_name or 'N/A' }}</p>
+                        <p><strong>{{ _('Date de la Formation') }}:</strong> {{ external_training.date.strftime('%Y-%m-%d') }}</p>
+                        <p><strong>{{ _('Durée (heures)') }}:</strong> {{ external_training.duration_hours or 'N/A' }}</p>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>Statut:</strong> <span class="badge bg-{{ 'success' if external_training.status.name == 'APPROVED' else ('danger' if external_training.status.name == 'REJECTED' else 'warning') }}">{{ external_training.status.value }}</span></p>
-                        <p><strong>Validé par:</strong> {{ external_training.validator.full_name if external_training.validator else 'N/A' }}</p>
+                        <p><strong>{{ _('Statut') }}:</strong> <span class="badge bg-{{ 'success' if external_training.status.name == 'APPROVED' else ('danger' if external_training.status.name == 'REJECTED' else 'warning') }}">{{ external_training.status.value }}</span></p>
+                        <p><strong>{{ _('Validé par') }}:</strong> {{ external_training.validator.full_name if external_training.validator else 'N/A' }}</p>
                         {% if external_training.attachment_path %}
-                            <p><strong>Attestation:</strong> <a href="{{ url_for('static', filename=external_training.attachment_path) }}" target="_blank" class="btn btn-sm btn-info"><i class="fas fa-file-download"></i> Télécharger</a></p>
+                            <p><strong>{{ _('Attestation') }}:</strong> <a href="{{ url_for('static', filename=external_training.attachment_path) }}" target="_blank" class="btn btn-sm btn-info"><i class="fas fa-file-download"></i> {{ _('Télécharger') }}</a></p>
                         {% endif %}
                     </div>
                 </div>
 
-                <h3 class="mb-3">Compétences Déclarées</h3>
+                <h3 class="mb-3">{{ _('Compétences Déclarées') }}</h3>
                 {% if external_training.skill_claims %}
                     <div class="table-responsive">
                         <table class="table table-hover table-striped">
                             <thead>
                                 <tr>
-                                    <th>Compétence</th>
-                                    <th>Niveau</th>
-                                    <th>Espèces</th>
-                                    <th>Veut être Tuteur</th>
-                                    <th>Date de Pratique</th>
+                                    <th>{{ _('Compétence') }}</th>
+                                    <th>{{ _('Niveau') }}</th>
+                                    <th>{{ _('Espèces') }}</th>
+                                    <th>{{ _('Veut être Tuteur') }}</th>
+                                    <th>{{ _('Date de Pratique') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -53,9 +53,9 @@
                                         </td>
                                         <td>
                                             {% if claim.wants_to_be_tutor %}
-                                                <i class="fas fa-check-circle text-success"></i> Oui
+                                                <i class="fas fa-check-circle text-success"></i> {{ _('Oui') }}
                                             {% else %}
-                                                <i class="fas fa-times-circle text-danger"></i> Non
+                                                <i class="fas fa-times-circle text-danger"></i> {{ _('Non') }}
                                             {% endif %}
                                         </td>
                                         <td>{{ claim.practice_date.strftime('%Y-%m-%d') if claim.practice_date else 'N/A' }}</td>
@@ -65,7 +65,7 @@
                         </table>
                     </div>
                 {% else %}
-                    <p>Aucune compétence déclarée pour cette formation externe.</p>
+                    <p>{{ _('Aucune compétence déclarée pour cette formation externe.') }}</p>
                 {% endif %}
             </div>
         </div>

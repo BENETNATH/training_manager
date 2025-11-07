@@ -10,22 +10,22 @@
                     <div class="card-body p-2">
                         <div class="row g-2">
                             <div class="col-md-6">
-                                <label for="level-{{ comp.competency_id }}" class="form-label form-label-sm">Current level: {{ comp.current_level }}</label>
+                                <label for="level-{{ comp.competency_id }}" class="form-label form-label-sm">{{ _('Current level') }}: {{ comp.current_level }}</label>
                                 <select class="form-select form-select-sm" id="level-{{ comp.competency_id }}" name="level-{{ comp.competency_id }}">
-                                    <option value="">Change level (optional)</option>
+                                    <option value="">{{ _('Change level (optional)') }}</option>
                                     <option value="Novice" {% if comp.current_level == 'Novice' %}selected{% endif %}>Novice</option>
                                     <option value="Intermediate" {% if comp.current_level == 'Intermediate' %}selected{% endif %}>Intermediate</option>
                                     <option value="Expert" {% if comp.current_level == 'Expert' %}selected{% endif %}>Expert</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label for="practice_date-{{ comp.competency_id }}" class="form-label form-label-sm">Date of last practice (optional)</label>
+                                <label for="practice_date-{{ comp.competency_id }}" class="form-label form-label-sm">{{ _('Date of last practice (optional)') }}</label>
                                 <input type="datetime-local" class="form-control form-control-sm" id="practice_date-{{ comp.competency_id }}" name="practice_date-{{ comp.competency_id }}" value="{{ comp.latest_practice_date }}" step="1">
                             </div>
                             <div class="col-12 mt-2">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input tutor-checkbox" type="checkbox" id="tutor-{{ comp.competency_id }}" name="tutor-{{ comp.competency_id }}" {% if comp.is_tutor %}checked{% endif %}>
-                                    <label class="form-check-label" for="tutor-{{ comp.competency_id }}">I want to be a tutor for this skill</label>
+                                    <label class="form-check-label" for="tutor-{{ comp.competency_id }}">{{ _('I want to be a tutor for this skill') }}</label>
                                 </div>
                             </div>
                         </div>
@@ -33,7 +33,7 @@
                 </div>
                 {% endfor %}
             {% else %}
-                <p>No competencies to declare.</p>
+                <p>{{ _('No competencies to declare.') }}</p>
             {% endif %}
         </div>
     </form>

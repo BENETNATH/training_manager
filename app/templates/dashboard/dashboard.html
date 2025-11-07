@@ -5,33 +5,33 @@
         <div class="col-md-8">
             <p><b>{{ user.full_name }} </b>- <a href="mailto:{{ user.email }}">{{ user.email }}</a></p>
             {% if user.team %}
-                <p>Équipe : <strong>{{ user.team.name }}</strong></p>
+                <p>{{ _('Team') }} : <strong>{{ user.team.name }}</strong></p>
             {% endif %}
         </div>
         <div class="col-md-4 text-end">
             <div class="d-grid gap-2 d-md-flex justify-content-md-end align-items-center">
                 <div class="btn-group btn-group-sm" role="group" aria-label="Utility actions">
-                    <a href="{{ url_for('dashboard.generate_user_booklet_zip', user_id=current_user.id) }}" target="_blank" class="btn btn-danger" title="Produire mon Livret ZIP">
-                        <i class="fas fa-file-pdf me-1"></i> Livret PDF
+                    <a href="{{ url_for('dashboard.generate_user_booklet_zip', user_id=current_user.id) }}" target="_blank" class="btn btn-danger" title="{{ _('Produce my ZIP Booklet') }}">
+                        <i class="fas fa-file-pdf me-1"></i> {{ _('PDF Booklet') }}
                     </a>
                     {% if current_user.can('admin_access') %}
-                    <a href="{{ url_for('admin.index') }}" class="btn btn-secondary" title="Accès Administration">
-                        <i class="fas fa-user-shield me-1"></i> Admin
+                    <a href="{{ url_for('admin.index') }}" class="btn btn-secondary" title="{{ _('Admin Access') }}">
+                        <i class="fas fa-user-shield me-1"></i> {{ _('Admin') }}
                     </a>
                     {% endif %}
                 </div>
                 <div class="btn-group btn-group-sm">
-                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Actions Rapides">
-                        <i class="fas fa-plus-circle me-1"></i> Actions
+                    <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="{{ _('Quick Actions') }}">
+                        <i class="fas fa-plus-circle me-1"></i> {{ _('Actions') }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.submit_training_request') }}" data-modal-title="Demander une Formation" id="request-training-btn"><i class="fas fa-chalkboard-teacher fa-fw me-2"></i>Demander Formation</button></li>
-                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.declare_skill_practice') }}" data-modal-title="Déclarer une Pratique" id="declare-practice-btn"><i class="fas fa-running fa-fw me-2"></i>Déclarer Pratique</button></li>
+                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.submit_training_request') }}" data-modal-title="{{ _('Request Training') }}" id="request-training-btn"><i class="fas fa-chalkboard-teacher fa-fw me-2"></i>{{ _('Request Training') }}</button></li>
+                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.declare_skill_practice') }}" data-modal-title="{{ _('Declare a Practice') }}" id="declare-practice-btn"><i class="fas fa-running fa-fw me-2"></i>{{ _('Declare Practice') }}</button></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.submit_external_training') }}" data-modal-title="Soumettre une Formation Externe" id="submit-external-training-btn"><i class="fas fa-external-link-alt fa-fw me-2"></i>Formation Externe</button></li>
-                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.submit_continuous_training_attendance') }}" data-modal-title="Déclarer Présence Formation Continue" id="submit-continuous-training-attendance-btn"><i class="fas fa-calendar-check fa-fw me-2"></i>Présence FC</button></li>
-                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.request_continuous_training_event') }}" data-modal-title="Demander un Événement de Formation Continue" id="request-continuous-training-event-btn"><i class="fas fa-calendar-plus fa-fw me-2"></i>Demander Événement FC</button></li>
-                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.propose_skill') }}" data-modal-title="Proposer une Nouvelle Compétence" id="propose-skill-btn"><i class="fas fa-lightbulb fa-fw me-2"></i>Proposer Compétence</button></li>
+                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.submit_external_training') }}" data-modal-title="{{ _('Submit an External Training') }}" id="submit-external-training-btn"><i class="fas fa-external-link-alt fa-fw me-2"></i>{{ _('External Training') }}</button></li>
+                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.submit_continuous_training_attendance') }}" data-modal-title="{{ _('Declare Continuous Training Attendance') }}" id="submit-continuous-training-attendance-btn"><i class="fas fa-calendar-check fa-fw me-2"></i>{{ _('CT Attendance') }}</button></li>
+                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.request_continuous_training_event') }}" data-modal-title="{{ _('Request a Continuous Training Event') }}" id="request-continuous-training-event-btn"><i class="fas fa-calendar-plus fa-fw me-2"></i>{{ _('Request CT Event') }}</button></li>
+                        <li><button class="dropdown-item action-btn" data-action-url="{{ url_for('dashboard.propose_skill') }}" data-modal-title="{{ _('Propose a New Skill') }}" id="propose-skill-btn"><i class="fas fa-lightbulb fa-fw me-2"></i>{{ _('Propose Skill') }}</button></li>
                     </ul>
                 </div>
             </div>
@@ -45,14 +45,14 @@
     <!-- Tab Navigation -->
     <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="training-summary-tab" data-bs-toggle="tab" data-bs-target="#training-summary-tab-pane" type="button" role="tab" aria-controls="training-summary-tab-pane" aria-selected="true">Synthèse Formations
+            <button class="nav-link active" id="training-summary-tab" data-bs-toggle="tab" data-bs-target="#training-summary-tab-pane" type="button" role="tab" aria-controls="training-summary-tab-pane" aria-selected="true">{{ _('Training Summary') }}
                 {% if not is_continuous_training_compliant or not is_live_training_ratio_compliant %}
                     <span class="badge bg-danger rounded-pill ms-1"><i class="fas fa-exclamation-triangle"></i></span>
                 {% endif %}
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="competencies-tab" data-bs-toggle="tab" data-bs-target="#competencies-tab-pane" type="button" role="tab" aria-controls="competencies-tab-pane" aria-selected="false">Mes Compétences
+            <button class="nav-link" id="competencies-tab" data-bs-toggle="tab" data-bs-target="#competencies-tab-pane" type="button" role="tab" aria-controls="competencies-tab-pane" aria-selected="false">{{ _('My Skills') }}
                 {% set skills_needing_recycling_count = 0 %}
                 {% for notification in notification_summary.notifications %}
                     {% if notification.type == 'skills_needing_recycling' %}
@@ -65,7 +65,7 @@
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="training-requests-tab" data-bs-toggle="tab" data-bs-target="#training-requests-tab-pane" type="button" role="tab" aria-controls="training-requests-tab-pane" aria-selected="false">Mes Demandes & Sessions
+            <button class="nav-link" id="training-requests-tab" data-bs-toggle="tab" data-bs-target="#training-requests-tab-pane" type="button" role="tab" aria-controls="training-requests-tab-pane" aria-selected="false">{{ _('My Requests & Sessions') }}
                 {% set user_pending_requests_count = 0 %}
                 {% set user_pending_external_trainings_count = 0 %}
                 {% set upcoming_sessions_count = 0 %}
@@ -88,11 +88,11 @@
 
     <!-- Tab Content -->
     <div class="tab-content" id="dashboardTabsContent">
-        <!-- Synthèse Formations Tab Pane -->
+        <!-- Training Summary Tab Pane -->
         <div class="tab-pane fade show active" id="training-summary-tab-pane" role="tabpanel" aria-labelledby="training-summary-tab" tabindex="0">
             <div class="card shadow mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h6 class="m-0 font-weight-bold">Synthèse des Formations</h6>
+                    <h6 class="m-0 font-weight-bold">{{ _('Training Summary') }}</h6>
                 </div>
                 <div class="card-body">
                     <div class="row">
@@ -105,46 +105,46 @@
                             <div style="font-size: 0.875rem; line-height: 1.4;">
                                 <div class="row">
                                     <div class="col-6">
-                                        <h5 class="mt-0 mb-1" style="font-size: 1rem;">Formation Initiale</h5>
+                                        <h5 class="mt-0 mb-1" style="font-size: 1rem;">{{ _('Initial Training') }}</h5>
                                         {% if initial_regulatory_trainings %}
                                             {% for training in initial_regulatory_trainings %}
-                                                <p class="mb-1"><strong>Type:</strong> {{ training.training_type }}</p>
-                                                <p class="mb-1"><strong>Niveau:</strong> {{ training.level.value }}</p>
-                                                <p class="mb-1"><strong>Date:</strong> {{ training.training_date.strftime('%Y-%m-%d') }}</p>
+                                                <p class="mb-1"><strong>{{ _('Type') }}:</strong> {{ training.training_type }}</p>
+                                                <p class="mb-1"><strong>{{ _('Level') }}:</strong> {{ training.level.value }}</p>
+                                                <p class="mb-1"><strong>{{ _('Date') }}:</strong> {{ training.training_date.strftime('%Y-%m-%d') }}</p>
                                                 {% if training.attachment_path %}
-                                                    <p class="mb-1"><strong>Attestation:</strong> <a href="{{ url_for('static', filename=training.attachment_path) }}" target="_blank">Voir <i class="fas fa-paperclip"></i></a></p>
+                                                    <p class="mb-1"><strong>{{ _('Certificate') }}:</strong> <a href="{{ url_for('static', filename=training.attachment_path) }}" target="_blank">{{ _('View') }} <i class="fas fa-paperclip"></i></a></p>
                                                 {% endif %}
                                                 {% if not loop.last %}<hr class="my-2">{% endif %}
                                             {% endfor %}
                                         {% else %}
-                                            <p class="mb-1 text-muted">Aucune enregistrée.</p>
+                                            <p class="mb-1 text-muted">{{ _('None recorded.') }}</p>
                                         {% endif %}
                                     </div>
                                     <div class="col-6">
-                                        <h5 class="mt-0 mb-1" style="font-size: 1rem;">Conformité Continue</h5>
-                                        <p class="mb-1"><strong>Heures:</strong> {{ "%.2f"|format(total_continuous_training_hours_6_years) }} / {{ "%.2f"|format(required_continuous_training_hours) }}</p>
-                                        <p class="mb-1"><strong>Statut:</strong> 
-                                            {% if is_continuous_training_compliant %}<span class="badge bg-success">Conforme</span>{% else %}<span class="badge bg-danger">Non Conforme</span>{% endif %}
+                                        <h5 class="mt-0 mb-1" style="font-size: 1rem;">{{ _('Continuous Compliance') }}</h5>
+                                        <p class="mb-1"><strong>{{ _('Hours') }}:</strong> {{ "%.2f"|format(total_continuous_training_hours_6_years) }} / {{ "%.2f"|format(required_continuous_training_hours) }}</p>
+                                        <p class="mb-1"><strong>{{ _('Status') }}:</strong>
+                                            {% if is_continuous_training_compliant %}<span class="badge bg-success">{{ _('Compliant') }}</span>{% else %}<span class="badge bg-danger">{{ _('Not Compliant') }}</span>{% endif %}
                                         </p>
                                     </div>
                                 </div>
                                 <hr class="my-2">
                                 <div class="row">
                                     <div class="col-6">
-                                        <h5 class="mt-2 mb-1" style="font-size: 1rem;">Ratio Présentiel</h5>
-                                        <p class="mb-1"><strong>Ratio:</strong> {{ "%.2f"|format(live_training_ratio * 100) }}%</p>
-                                        <p class="mb-1"><strong>Statut:</strong>
-                                            {% if is_live_training_ratio_compliant %}<span class="badge bg-success">Conforme</span>{% else %}<span class="badge bg-warning">Non Conforme</span>{% endif %}
+                                        <h5 class="mt-2 mb-1" style="font-size: 1rem;">{{ _('Live Training Ratio') }}</h5>
+                                        <p class="mb-1"><strong>{{ _('Ratio') }}:</strong> {{ "%.2f"|format(live_training_ratio * 100) }}%</p>
+                                        <p class="mb-1"><strong>{{ _('Status') }}:</strong>
+                                            {% if is_live_training_ratio_compliant %}<span class="badge bg-success">{{ _('Compliant') }}</span>{% else %}<span class="badge bg-warning">{{ _('Not Compliant') }}</span>{% endif %}
                                         </p>
                                     </div>
                                     <div class="col-6">
-                                        <h5 class="mt-2 mb-1" style="font-size: 1rem;">Projection</h5>
-                                        <p class="mb-0"><strong>Risque:</strong>
+                                        <h5 class="mt-2 mb-1" style="font-size: 1rem;">{{ _('Projection') }}</h5>
+                                        <p class="mb-0"><strong>{{ _('Risk') }}:</strong>
                                             {% if is_at_risk_next_year %}
-                                                <span class="badge bg-warning">À risque</span>
-                                                <small class="d-block text-muted" style="line-height: 1.2;">Heures / 5 ans</small>
+                                                <span class="badge bg-warning">{{ _('At risk') }}</span>
+                                                <small class="d-block text-muted" style="line-height: 1.2;">{{ _('Hours / 5 years') }}</small>
                                             {% else %}
-                                                <span class="badge bg-info">Faible</span>
+                                                <span class="badge bg-info">{{ _('Low') }}</span>
                                             {% endif %}
                                         </p>
                                     </div>
@@ -153,17 +153,17 @@
                         </div>
                     </div>
                     <hr>
-                    <h5 class="mt-4">Détail des Formations Continues</h5>
-                    <p class="text-muted">Cliquez sur une année dans le graphique pour filtrer le tableau. Cliquez à nouveau pour réinitialiser.</p>
+                    <h5 class="mt-4">{{ _('Continuous Training Details') }}</h5>
+                    <p class="text-muted">{{ _('Click a year in the chart to filter the table. Click again to reset.') }}</p>
                     <div class="table-responsive">
                         <table class="table table-hover table-sm" id="training-details-table">
                             <thead>
                                 <tr>
-                                    <th>Année</th>
-                                    <th>Titre</th>
-                                    <th>Type</th>
-                                    <th>Heures</th>
-                                    <th>Statut</th>
+                                    <th>{{ _('Year') }}</th>
+                                    <th>{{ _('Title') }}</th>
+                                    <th>{{ _('Type') }}</th>
+                                    <th>{{ _('Hours') }}</th>
+                                    <th>{{ _('Status') }}</th>
                                     <th><i class="fas fa-paperclip"></i></th>
                                 </tr>
                             </thead>
@@ -189,7 +189,7 @@
                                         </td>
                                         <td>
                                             {% if training.attendance_attachment_path %}
-                                                <a href="{{ url_for('static', filename=training.attendance_attachment_path) }}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Voir l'attestation"><i class="fas fa-paperclip"></i></a>
+                                                <a href="{{ url_for('static', filename=training.attendance_attachment_path) }}" target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-1" title="{{ _('View certificate') }}"><i class="fas fa-paperclip"></i></a>
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -201,13 +201,13 @@
             </div>
         </div>
 
-        <!-- Mes Compétences Tab Pane -->
+        <!-- My Skills Tab Pane -->
         <div class="tab-pane fade" id="competencies-tab-pane" role="tabpanel" aria-labelledby="competencies-tab" tabindex="0">
             <div class="row">
-                <!-- Compétences à acquérir -->
+                <!-- Skills to Acquire -->
                 <div class="col-md-6 mb-4">
                     <div class="card shadow h-100">
-                        <div class="card-header bg-primary text-white">Compétences à Acquérir</div>
+                        <div class="card-header bg-primary text-white">{{ _('Skills to Acquire') }}</div>
                         <div class="card-body">
                             {% if required_skills_todo %}
                                 <ul class="list-group list-group-flush">
@@ -227,16 +227,16 @@
                                     {% endfor %}
                                 </ul>
                             {% else %}
-                                <p>Toutes les compétences requises sont acquises !</p>
+                                <p>{{ _('All required skills have been acquired!') }}</p>
                             {% endif %}
                         </div>
                     </div>
                 </div>
 
-                <!-- Compétences à recycler -->
+                <!-- Expired Skills -->
                 <div class="col-md-6 mb-4">
                     <div class="card shadow h-100">
-                        <div class="card-header bg-warning text-white">Compétences expirées</div>
+                        <div class="card-header bg-warning text-white">{{ _('Expired Skills') }}</div>
                         <div class="card-body">
                             {% set skills_to_recycle = [] %}
                             {% for comp in competencies %}
@@ -253,44 +253,44 @@
                                             <div>
                                                 {% if comp.species %}
                                                     {% for species in comp.species %}
-                                                        <a href="#" class="action-btn" data-action-url="{{ url_for('dashboard.submit_training_request', skill_id=comp.skill.id, species_id=species.id) }}" data-modal-title="Demander une Formation">
+                                                        <a href="#" class="action-btn" data-action-url="{{ url_for('dashboard.submit_training_request', skill_id=comp.skill.id, species_id=species.id) }}" data-modal-title="{{ _('Request a Training') }}">
                                                             <span class="badge bg-secondary me-1">{{ species.name }}</span>
                                                         </a>
                                                     {% endfor %}
                                                 {% else %}
                                                     <span class="badge bg-secondary me-1">N/A</span>
                                                 {% endif %}
-                                                <span class="badge bg-danger rounded-pill">Échéance: {{ comp.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                <span class="badge bg-danger rounded-pill">{{ _('Due Date') }}: {{ comp.recycling_due_date.strftime('%Y-%m-%d') }}</span>
                                             </div>
                                         </li>
                                     {% endfor %}
                                 </ul>
                             {% else %}
-                                <p>Aucune compétence.</p>
+                                <p>{{ _('No skills.') }}</p>
                             {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Mes Compétences (Détail) -->
+            <!-- My Skills (Detail) -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-success text-white">Mes Compétences</div>
+                <div class="card-header bg-success text-white">{{ _('My Skills') }}</div>
                 <div class="card-body">
                     {% if competencies %}
                         <div class="table-responsive">
                             <table class="table table-hover table-striped">
                                 <thead>
                                     <tr>
-                                        <th scope="col">Compétence</th>
-                                        <th scope="col">Niveau</th>
-                                        <th scope="col">Évalué le</th>
-                                        <th scope="col">Évaluateur</th>
-                                        <th scope="col">Dernière Pratique</th>
-                                        <th scope="col">Échéance Recyclage</th>
-                                        <th scope="col">Validité</th>
-                                        <th scope="col">Espèces</th>
-                                        <th scope="col">Actions</th>
+                                        <th scope="col">{{ _('Skill') }}</th>
+                                        <th scope="col">{{ _('Level') }}</th>
+                                        <th scope="col">{{ _('Evaluated On') }}</th>
+                                        <th scope="col">{{ _('Evaluator') }}</th>
+                                        <th scope="col">{{ _('Last Practice') }}</th>
+                                        <th scope="col">{{ _('Recycling Due') }}</th>
+                                        <th scope="col">{{ _('Validity') }}</th>
+                                        <th scope="col">{{ _('Species') }}</th>
+                                        <th scope="col">{{ _('Actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -319,14 +319,14 @@
                                             <td>
                                                 {% if comp.skill.validity_period_months %}
                                                     {% if comp.needs_recycling %}
-                                                        <span class="badge bg-danger">Expirée</span>
+                                                        <span class="badge bg-danger">{{ _('Expired') }}</span>
                                                     {% elif comp.warning_date and now > comp.warning_date %}
-                                                        <span class="badge bg-warning">À Recycler Bientôt</span>
+                                                        <span class="badge bg-warning">{{ _('Recycle Soon') }}</span>
                                                     {% else %}
-                                                        <span class="badge bg-success">Valide</span>
+                                                        <span class="badge bg-success">{{ _('Valid') }}</span>
                                                     {% endif %}
                                                 {% else %}
-                                                    <span class="badge bg-info">Illimitée</span>
+                                                    <span class="badge bg-info">{{ _('Unlimited') }}</span>
                                                 {% endif %}
                                             </td>
                                             <td>
@@ -339,11 +339,11 @@
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                <a href="{{ url_for('dashboard.generate_certificate', competency_id=comp.id) }}" target="_blank" class="btn btn-sm btn-primary" title="Télécharger l'attestation"><i class="fas fa-download"></i></a>
+                                                <a href="{{ url_for('dashboard.generate_certificate', competency_id=comp.id) }}" target="_blank" class="btn btn-sm btn-primary" title="{{ _('Download certificate') }}"><i class="fas fa-download"></i></a>
                                                 {% if comp.external_training_id %}
-                                                    <a href="{{ url_for('dashboard.show_external_training', training_id=comp.external_training_id) }}" target="_blank" class="btn btn-sm btn-info ms-1" title="Voir Formation Externe"><i class="fas fa-external-link-alt"></i></a>
+                                                    <a href="{{ url_for('dashboard.show_external_training', training_id=comp.external_training_id) }}" target="_blank" class="btn btn-sm btn-info ms-1" title="{{ _('View External Training') }}"><i class="fas fa-external-link-alt"></i></a>
                                                 {% elif comp.training_session_id %}
-                                                    <a href="{{ url_for('admin.view_training_session_details', session_id=comp.training_session_id) }}" target="_blank" class="btn btn-sm btn-success ms-1" title="Voir Session de Formation"><i class="fas fa-chalkboard-teacher"></i></a>
+                                                    <a href="{{ url_for('admin.view_training_session_details', session_id=comp.training_session_id) }}" target="_blank" class="btn btn-sm btn-success ms-1" title="{{ _('View Training Session') }}"><i class="fas fa-chalkboard-teacher"></i></a>
                                                 {% endif %}
                                             </td>
                                         </tr>
@@ -352,23 +352,23 @@
                             </table>
                         </div>
                     {% else %}
-                        <p>Aucune compétence enregistrée pour le moment.</p>
+                        <p>{{ _('No skills recorded at the moment.') }}</p>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Mes Demandes & Sessions Tab Pane -->
+        <!-- My Requests & Sessions Tab Pane -->
         <div class="tab-pane fade" id="training-requests-tab-pane" role="tabpanel" aria-labelledby="training-requests-tab" tabindex="0">
-            <!-- Demandes de Formation en Cours -->
+            <!-- My Pending Training Requests -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-primary text-white">Mes Demandes de Formation en Cours</div>
+                <div class="card-header bg-primary text-white">{{ _('My Pending Training Requests') }}</div>
                 <div class="card-body">
                     {% if pending_training_requests_by_user %}
                         <ul class="list-group list-group-flush">
                             {% for req in pending_training_requests_by_user %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center" id="training-request-{{ req.id }}">
-                                    Demande du {{ req.request_date.strftime('%Y-%m-%d') }} pour :
+                                    {{ _('Request from') }} {{ req.request_date.strftime('%Y-%m-%d') }} {{ _('for') }} :
                                     <div class="d-flex flex-wrap align-items-center">
                                         {% for skill in req.skills_requested %}
                                             <span class="badge bg-info me-1 mb-1">{{ skill.name }}</span>
@@ -379,14 +379,14 @@
                                             {% endfor %}
                                         {% endif %}
                                         {% if req.status == TrainingRequestStatus.PROPOSED_SKILL %}
-                                            <span class="badge bg-warning me-1 mb-1">Compétence Proposée</span>
+                                            <span class="badge bg-warning me-1 mb-1">{{ _('Proposed Skill') }}</span>
                                         {% else %}
                                             <span class="badge bg-secondary me-1 mb-1">{{ req.status.value }}</span>
                                         {% endif %}
-                                        <button class="btn btn-sm btn-info edit-training-request-btn ms-2" data-action-url="{{ url_for('dashboard.edit_training_request', request_id=req.id) }}" data-modal-title="Modifier la Demande de Formation" title="Modifier la demande">
+                                        <button class="btn btn-sm btn-info edit-training-request-btn ms-2" data-action-url="{{ url_for('dashboard.edit_training_request', request_id=req.id) }}" data-modal-title="{{ _('Edit Training Request') }}" title="{{ _('Edit request') }}">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-danger delete-training-request-btn ms-2" data-request-id="{{ req.id }}" title="Supprimer la demande">
+                                        <button class="btn btn-sm btn-danger delete-training-request-btn ms-2" data-request-id="{{ req.id }}" title="{{ _('Delete request') }}">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -394,29 +394,29 @@
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p>Aucune demande de formation en cours.</p>
+                        <p>{{ _('No pending training requests.') }}</p>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Mes Formations Externes en Cours -->
+            <!-- My Pending External Trainings -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-success text-white">Mes Formations Externes en Cours</div>
+                <div class="card-header bg-success text-white">{{ _('My Pending External Trainings') }}</div>
                 <div class="card-body">
                     {% if pending_external_trainings_by_user %}
                         <ul class="list-group list-group-flush">
                             {% for ext_training in pending_external_trainings_by_user %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center" id="external-training-{{ ext_training.id }}">
-                                    Formation Externe du {{ ext_training.date.strftime('%Y-%m-%d') }} par {{ ext_training.external_trainer_name }}
+                                    {{ _('External Training from') }} {{ ext_training.date.strftime('%Y-%m-%d') }} {{ _('by') }} {{ ext_training.external_trainer_name }}
                                     <div class="d-flex flex-wrap align-items-center">
                                         {% for skill_claim in ext_training.skill_claims %}
                                             <span class="badge bg-info me-1 mb-1">{{ skill_claim.skill.name }} ({{ skill_claim.level }})</span>
                                         {% endfor %}
                                         <span class="badge bg-secondary me-1 mb-1">{{ ext_training.status.value }}</span>
-                                        <button class="btn btn-sm btn-info edit-external-training-btn ms-2" data-action-url="{{ url_for('dashboard.edit_external_training', training_id=ext_training.id) }}" data-modal-title="Modifier la Formation Externe" title="Modifier la formation externe">
+                                        <button class="btn btn-sm btn-info edit-external-training-btn ms-2" data-action-url="{{ url_for('dashboard.edit_external_training', training_id=ext_training.id) }}" data-modal-title="{{ _('Edit External Training') }}" title="{{ _('Edit external training') }}">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-danger delete-external-training-btn ms-2" data-training-id="{{ ext_training.id }}" title="Supprimer la formation externe">
+                                        <button class="btn btn-sm btn-danger delete-external-training-btn ms-2" data-training-id="{{ ext_training.id }}" title="{{ _('Delete external training') }}">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -424,14 +424,14 @@
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p>Aucune formation externe en cours.</p>
+                        <p>{{ _('No pending external trainings.') }}</p>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Sessions de Formation à Venir -->
+            <!-- Upcoming Training Sessions -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-info text-white">Mes Sessions de Formation à Venir</div>
+                <div class="card-header bg-info text-white">{{ _('My Upcoming Training Sessions') }}</div>
                 <div class="card-body">
                     {% if upcoming_training_sessions_by_user %}
                         <ul class="list-group list-group-flush">
@@ -443,26 +443,26 @@
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p>Aucune session de formation à venir.</p>
+                        <p>{{ _('No upcoming training sessions.') }}</p>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Sessions de Formation Réalisées -->
+            <!-- Completed Training Sessions -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-success text-white">Mes Sessions de Formation Réalisées</div>
+                <div class="card-header bg-success text-white">{{ _('My Completed Training Sessions') }}</div>
                 <div class="card-body">
                     {% if completed_training_sessions_by_user %}
                         <ul class="list-group list-group-flush">
                             {% for session in completed_training_sessions_by_user %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     {{ session.title }} ({{ session.end_time.strftime('%Y-%m-%d') }})
-                                    <span class="badge bg-success">Terminée</span>
+                                    <span class="badge bg-success">{{ _('Completed') }}</span>
                                 </li>
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p>Aucune session de formation réalisée.</p>
+                        <p>{{ _('No completed training sessions.') }}</p>
                     {% endif %}
                 </div>
             </div>
@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Heures de formation par an'
+                        text: '{{ _('Training hours per year') }}'
                     },
                     tooltip: {
                         mode: 'index',
@@ -515,7 +515,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         beginAtZero: true,
                         title: {
                             display: true,
-                            text: 'Heures'
+                            text: '{{ _('Hours') }}'
                         }
                     }
                 },
@@ -590,7 +590,7 @@ $(document).ready(function() {
                 var deleteUrl = "{{ url_for('dashboard.delete_training_request', request_id=0) }}".replace('0', requestId);
                 var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-                if (confirm('Êtes-vous sûr de vouloir supprimer cette demande de formation ?')) {
+                if (confirm('{{ _('Are you sure you want to delete this training request?') }}')) {
                     fetch(deleteUrl, {
                         method: 'POST',
                         headers: {
@@ -604,12 +604,12 @@ $(document).ready(function() {
                             $('#training-request-' + requestId).remove();
                             alert(data.message);
                         } else {
-                            alert('Erreur lors de la suppression : ' + (data.message || 'Erreur inconnue.'));
+                            alert('{{ _('Error during deletion') }} : ' + (data.message || '{{ _('Unknown error.') }}'));
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Une erreur réseau est survenue.');
+                        alert('{{ _('A network error occurred.') }}');
                     });
                 }
             });
@@ -657,7 +657,7 @@ $(document).ready(function() {
         })
         .catch(error => {
             console.error('Error loading edit form:', error);
-            alert('Erreur lors du chargement du formulaire de modification.');
+            alert('{{ _('Error loading edit form.') }}');
         });
     });
 
@@ -668,7 +668,7 @@ $(document).ready(function() {
         var deleteUrl = "{{ url_for('dashboard.delete_external_training', training_id=0) }}".replace('0', trainingId);
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette formation externe ?')) {
+        if (confirm('{{ _('Are you sure you want to delete this external training?') }}')) {
             fetch(deleteUrl, {
                 method: 'POST',
                 headers: {
@@ -682,12 +682,12 @@ $(document).ready(function() {
                     $('#external-training-' + trainingId).remove();
                     alert(data.message);
                 } else {
-                    alert('Erreur lors de la suppression : ' + (data.message || 'Erreur inconnue.'));
+                    alert('{{ _('Error during deletion') }} : ' + (data.message || '{{ _('Unknown error.') }}'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
+                alert('{{ _('A network error occurred.') }}');
             });
         }
     });
@@ -770,7 +770,7 @@ $(document).ready(function() {
         })
         .catch(error => {
             console.error('Error loading edit external training form:', error);
-            alert('Erreur lors du chargement du formulaire de modification de formation externe.');
+            alert('{{ _('Error loading the external training edit form.') }}');
         });
     });
 
@@ -796,14 +796,14 @@ $(document).ready(function() {
                         <div class="modal-dialog modal-lg">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title" id="eventDetailsModalLabel">Détails de l'Événement</h5>
+                                    <h5 class="modal-title" id="eventDetailsModalLabel">{{ _('Event Details') }}</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
                                     ${html}
                                 </div>
                                 <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close') }}</button>
                                 </div>
                             </div>
                         </div>
@@ -820,7 +820,7 @@ $(document).ready(function() {
                     $(this).remove();
                 });
             })
-            .catch(error => { console.error('Error loading event details:', error); alert("Erreur lors du chargement des détails de l'événement."); });
+            .catch(error => { console.error('Error loading event details:', error); alert("{{ _('Error loading event details.') }}"); });
     });
 
     var currentFormActionUrl = '';
@@ -1077,7 +1077,7 @@ $(document).ready(function() {
         })
         .catch(error => {
             console.error('Error loading form:', error);
-            alert('Erreur lors du chargement du formulaire.');
+            alert('{{ _('Error loading form.') }}');
         });
     });
 
@@ -1127,7 +1127,7 @@ $(document).ready(function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert(data.message || 'Action effectuée avec succès !');
+                alert(data.message || '{{ _('Action performed successfully!') }}');
                 window.actionModal.hide();
                 location.reload(); // Reload page to reflect changes
             } else {
@@ -1142,13 +1142,13 @@ $(document).ready(function() {
                         form.html(data.form_html); // Re-render form with errors
                     }
                 } else {
-                    alert(data.message || "Erreur lors de l'action.");
+                    alert(data.message || "{{ _('Error performing action.') }}");
                 }
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Une erreur réseau est survenue.');
+            alert('{{ _('A network error occurred.') }}');
         });
     });
 
@@ -1158,7 +1158,7 @@ $(document).ready(function() {
         var button = $(this);
         var actionUrl = "{{ url_for('dashboard.regenerate_api_key') }}"; // Directly use the URL
 
-        if (confirm('Voulez-vous vraiment générer une nouvelle clé API ? L'ancienne sera invalidée et la nouvelle ne sera affichée qu'une seule fois.')) {
+        if (confirm('{{ _('Do you really want to generate a new API key? The old one will be invalidated and the new one will only be displayed once.') }}')) {
             fetch(actionUrl, {
                 method: 'POST',
                 headers: {
@@ -1169,16 +1169,16 @@ $(document).ready(function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Nouvelle clé API générée avec succès ! Veuillez la noter : ' + data.api_key);
+                    alert('{{ _('New API key generated successfully! Please write it down: ') }}' + data.api_key);
                     // Update the displayed API key
                     $('#api-key-display').val(data.api_key);
                 } else {
-                    alert('Erreur lors de la génération de la clé API.');
+                    alert('{{ _('Error generating API key.') }}');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
+                alert('{{ _('A network error occurred.') }}');
             });
         }
     });

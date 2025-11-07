@@ -10,7 +10,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Pending Training</div>
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">{{ _('Pending Training') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pending_requests_count }}</div>
                         </div>
                         <div class="col-auto">
@@ -26,7 +26,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Users Pending Approval</div>
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">{{ _('Users Pending Approval') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pending_user_approvals_count }}</div>
                         </div>
                         <div class="col-auto">
@@ -42,7 +42,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Skills without Tutor</div>
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">{{ _('Skills without Tutor') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ skills_without_tutors_count }}</div>
                         </div>
                         <div class="col-auto">
@@ -58,8 +58,8 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Recycling Required</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ users_needing_recycling|length }} users / {{ recycling_needed_count }} skills</div>
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">{{ _('Recycling Required') }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ users_needing_recycling|length }} {{ _('users') }} / {{ recycling_needed_count }} {{ _('skills') }}</div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-sync-alt fa-2x text-gray-300"></i>
@@ -74,7 +74,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">External Trainings to Validate</div>
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">{{ _('External Trainings to Validate') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pending_external_trainings_count }}</div>
                         </div>
                         <div class="col-auto">
@@ -90,12 +90,12 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Next session</div>
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">{{ _('Next session') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">
                                 {% if next_session %}
                                     {{ next_session.start_time.strftime('%Y-%m-%d %H:%M') }}
                                 {% else %}
-                                    None
+                                    {{ _('None') }}
                                 {% endif %}
                             </div>
                         </div>
@@ -112,7 +112,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Sessions to be finalized</div>
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">{{ _('Sessions to be finalized') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ sessions_to_be_finalized_count }}</div>
                         </div>
                         <div class="col-auto">
@@ -128,7 +128,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Proposed skills</div>
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">{{ _('Proposed skills') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800">{{ proposed_skills_count }}</div>
                         </div>
                         <div class="col-auto">
@@ -142,18 +142,18 @@
         <div class="col-md-4 mb-4">
             <div class="card text-white bg-danger shadow">
                 <div class="card-body">
-                    <h5 class="card-title">Pending FC Validations</h5>
+                    <h5 class="card-title">{{ _('Pending FC Validations') }}</h5>
                     <p class="card-text display-4">{{ pending_continuous_training_validations_count }}</p>
-                    <a href="{{ url_for('admin.validate_continuous_trainings') }}" class="text-white stretched-link">Validate attendances</a>
+                    <a href="{{ url_for('admin.validate_continuous_trainings') }}" class="text-white stretched-link">{{ _('Validate attendances') }}</a>
                 </div>
             </div>
         </div>
         <div class="col-md-4 mb-4">
             <div class="card text-white bg-secondary shadow">
                 <div class="card-body">
-                    <h5 class="card-title">Pending FC Event Requests</h5>
+                    <h5 class="card-title">{{ _('Pending FC Event Requests') }}</h5>
                     <p class="card-text display-4">{{ pending_continuous_event_requests_count }}</p>
-                    <a href="{{ url_for('admin.manage_continuous_training_events') }}" class="text-white stretched-link">Manage events</a>
+                    <a href="{{ url_for('admin.manage_continuous_training_events') }}" class="text-white stretched-link">{{ _('Manage events') }}</a>
                 </div>
             </div>
         </div>
@@ -164,7 +164,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">FC Compliance Report</div>
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">{{ _('FC Compliance Report') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800"><i class="fas fa-chart-line"></i></div>
                         </div>
                         <div class="col-auto">
@@ -181,7 +181,7 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Manage FC Events</div>
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">{{ _('Manage FC Events') }}</div>
                             <div class="h5 mb-0 font-weight-bold text-gray-800"><i class="fas fa-calendar-plus"></i></div>
                         </div>
                         <div class="col-auto">
@@ -196,18 +196,18 @@
     <!-- Section: Team Management -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold text-primary">Team Management</h6>
-            <button class="btn btn-primary btn-sm" id="add-team-btn">Create a team</button>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Team Management') }}</h6>
+            <button class="btn btn-primary btn-sm" id="add-team-btn">{{ _('Create a team') }}</button>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered" id="teams-table" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Nb Members</th>
-                            <th>Team Leads</th>
-                            <th>Actions</th>
+                            <th>{{ _('Name') }}</th>
+                            <th>{{ _('Nb Members') }}</th>
+                            <th>{{ _('Team Leads') }}</th>
+                            <th>{{ _('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -219,15 +219,15 @@
                                 {% for lead in team.team_leads %}
                                     <a href="{{ url_for('dashboard.user_profile', username=lead.full_name) }}" class="badge bg-primary text-decoration-none">{{ lead.full_name }}</a>
                                 {% else %}
-                                    None
+                                    {{ _('None') }}
                                 {% endfor %}
                             </td>
                             <td>
-                                <a href="{{ url_for('admin.edit_team', id=team.id) }}" class="btn btn-sm btn-warning" title="Edit"><i class="fa fa-edit"></i></a>
-                                <button class="btn btn-sm btn-info add-user-to-team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" title="Add User to Team"><i class="fas fa-user-plus"></i></button>
+                                <a href="{{ url_for('admin.edit_team', id=team.id) }}" class="btn btn-sm btn-warning" title="{{ _('Edit') }}"><i class="fa fa-edit"></i></a>
+                                <button class="btn btn-sm btn-info add-user-to-team-btn" data-team-id="{{ team.id }}" data-team-name="{{ team.name }}" title="{{ _('Add User to Team') }}"><i class="fas fa-user-plus"></i></button>
                                 <form action="{{ url_for('admin.delete_team', id=team.id) }}" method="post" style="display:inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete"><i class="fa fa-trash"></i></button>
+                                    <button type="submit" class="btn btn-sm btn-danger" title="{{ _('Delete') }}"><i class="fa fa-trash"></i></button>
                                 </form>
                             </td>
                         </tr>
@@ -241,18 +241,18 @@
     <!-- Section 2: User Management Table -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold text-primary">User Management</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('User Management') }}</h6>
             <div>
-                <button class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#import-users-modal">Import</button>
+                <button class="btn btn-success btn-sm me-2" data-bs-toggle="modal" data-bs-target="#import-users-modal">{{ _('Import') }}</button>
                 <div class="btn-group me-2">
                     <button type="button" class="btn btn-info btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        Export
+                        {{ _('Export') }}
                     </button>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('admin.export_users_xlsx') }}">Export Excel</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.export_users_xlsx') }}">{{ _('Export Excel') }}</a></li>
                     </ul>
                 </div>
-                <button class="btn btn-primary btn-sm" id="add-user-btn">Create a user</button>
+                <button class="btn btn-primary btn-sm" id="add-user-btn">{{ _('Create a user') }}</button>
             </div>
         </div>
         <div class="card-body">
@@ -260,11 +260,11 @@
                 <table class="table table-bordered" id="users-table" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>Full Name</th>
-                            <th>Email</th>
-                            <th>Team</th>
-                            <th>Roles</th>
-                            <th>Actions</th>
+                            <th>{{ _('Full Name') }}</th>
+                            <th>{{ _('Email') }}</th>
+                            <th>{{ _('Team') }}</th>
+                            <th>{{ _('Roles') }}</th>
+                            <th>{{ _('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -276,7 +276,7 @@
                                 {% for team in user.teams %}
                                     <span class="badge bg-secondary">{{ team.name }}</span>
                                 {% else %}
-                                    None
+                                    {{ _('None') }}
                                 {% endfor %}
                             </td>
                             <td>
@@ -288,10 +288,10 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{{ url_for('dashboard.user_profile', username=user.full_name) }}" target="_blank" class="btn btn-sm btn-info" title="View booklet"><i class="fa fa-eye"></i></a>
-                                <button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="{{ url_for('admin.edit_user', item_id=user.id) }}" title="Edit"><i class="fa fa-edit"></i></button>
-                                <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="{{ user.id }}" data-delete-url="{{ url_for('admin.delete_user', item_id=user.id) }}" title="Delete"><i class="fa fa-trash"></i></button>
-                                <a href="{{ url_for('dashboard.generate_user_booklet_zip', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="Generate PDF"><i class="fa fa-file-pdf"></i></a>
+                                <a href="{{ url_for('dashboard.user_profile', username=user.full_name) }}" target="_blank" class="btn btn-sm btn-info" title="{{ _('View booklet') }}"><i class="fa fa-eye"></i></a>
+                                <button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="{{ url_for('admin.edit_user', item_id=user.id) }}" title="{{ _('Edit') }}"><i class="fa fa-edit"></i></button>
+                                <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="{{ user.id }}" data-delete-url="{{ url_for('admin.delete_user', item_id=user.id) }}" title="{{ _('Delete') }}"><i class="fa fa-trash"></i></button>
+                                <a href="{{ url_for('dashboard.generate_user_booklet_zip', user_id=user.id) }}" target="_blank" class="btn btn-sm btn-secondary" title="{{ _('Generate PDF') }}"><i class="fa fa-file-pdf"></i></a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -304,18 +304,18 @@
     <!-- Section 3: Skill Management Table -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold text-primary">Skill Management</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Skill Management') }}</h6>
             <div>
-                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#import-skills-modal">Import</button>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#import-skills-modal">{{ _('Import') }}</button>
                 <div class="btn-group">
                     <button type="button" class="btn btn-info btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        Export
+                        {{ _('Export') }}
                     </button>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('admin.export_skills_xlsx') }}">Export Excel</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin.export_skills_xlsx') }}">{{ _('Export Excel') }}</a></li>
                     </ul>
                 </div>
-                <button class="btn btn-primary btn-sm" id="add-skill-btn">Create a skill</button>
+                <button class="btn btn-primary btn-sm" id="add-skill-btn">{{ _('Create a skill') }}</button>
             </div>
         </div>
         <div class="card-body">
@@ -323,11 +323,11 @@
                 <table class="table table-bordered" id="skills-table" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th width="40%">Description</th>
-                            <th>Species</th>
-                            <th>Tutors</th>
-                            <th>Actions</th>
+                            <th>{{ _('Name') }}</th>
+                            <th width="40%">{{ _('Description') }}</th>
+                            <th>{{ _('Species') }}</th>
+                            <th>{{ _('Tutors') }}</th>
+                            <th>{{ _('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -339,7 +339,7 @@
                                 {% for species in skill.species %}
                                     <span class="badge bg-secondary">{{ species.name }}</span>
                                 {% else %}
-                                    None
+                                    {{ _('None') }}
                                 {% endfor %}
                             </td>
                             <td>
@@ -350,12 +350,12 @@
                                         <span class="badge bg-dark">{{ tutor.full_name }}</span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="badge bg-warning">None</span>
+                                    <span class="badge bg-warning">{{ _('None') }}</span>
                                 {% endfor %}
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="{{ url_for('admin.edit_skill', item_id=skill.id) }}" title="Edit"><i class="fa fa-edit"></i></button>
-                                <button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="{{ skill.id }}" data-delete-url="{{ url_for('admin.delete_skill', item_id=skill.id) }}" title="Delete"><i class="fa fa-trash"></i></button>
+                                <button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="{{ url_for('admin.edit_skill', item_id=skill.id) }}" title="{{ _('Edit') }}"><i class="fa fa-edit"></i></button>
+                                <button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="{{ skill.id }}" data-delete-url="{{ url_for('admin.delete_skill', item_id=skill.id) }}" title="{{ _('Delete') }}"><i class="fa fa-trash"></i></button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -373,15 +373,15 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="user-edit-modal-label">Edit User</h5>
+                    <h5 class="modal-title" id="user-edit-modal-label">{{ _('Edit User') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- User form will be loaded here via AJAX -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="save-user-changes-btn">Save</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+                    <button type="button" class="btn btn-primary" id="save-user-changes-btn">{{ _('Save') }}</button>
                 </div>
             </div>
         </div>
@@ -392,15 +392,15 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="skill-edit-modal-label">Edit Skill</h5>
+                    <h5 class="modal-title" id="skill-edit-modal-label">{{ _('Edit Skill') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Skill form will be loaded here via AJAX -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="save-skill-changes-btn">Save</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+                    <button type="button" class="btn btn-primary" id="save-skill-changes-btn">{{ _('Save') }}</button>
                 </div>
             </div>
         </div>
@@ -411,7 +411,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="import-users-modal-label">Import Users</h5>
+                    <h5 class="modal-title" id="import-users-modal-label">{{ _('Import Users') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -426,7 +426,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="import-skills-modal-label">Import Skills</h5>
+                    <h5 class="modal-title" id="import-skills-modal-label">{{ _('Import Skills') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -441,15 +441,15 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="team-add-modal-label">Create a Team</h5>
+                    <h5 class="modal-title" id="team-add-modal-label">{{ _('Create a Team') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Team form will be loaded here via AJAX -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="submit-team-form-btn">Create</button>
+                    <button type="button" class="btn-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+                    <button type="button" class="btn btn-primary" id="submit-team-form-btn">{{ _('Create') }}</button>
                 </div>
             </div>
         </div>
@@ -460,15 +460,15 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="add-users-to-team-modal-label">Add Users to Team</h5>
+                    <h5 class="modal-title" id="add-users-to-team-modal-label">{{ _('Add Users to Team') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Add Users to Team form will be loaded here via AJAX -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="submit-add-users-to-team-form-btn">Add Users</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+                    <button type="button" class="btn btn-primary" id="submit-add-users-to-team-form-btn">{{ _('Add Users') }}</button>
                 </div>
             </div>
         </div>
@@ -479,15 +479,15 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="team-edit-modal-label">Edit Team</h5>
+                    <h5 class="modal-title" id="team-edit-modal-label">{{ _('Edit Team') }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Team edit form will be loaded here via AJAX -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="submit-team-edit-form-btn">Save</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Cancel') }}</button>
+                    <button type="button" class="btn btn-primary" id="submit-team-edit-form-btn">{{ _('Save') }}</button>
                 </div>
             </div>
         </div>

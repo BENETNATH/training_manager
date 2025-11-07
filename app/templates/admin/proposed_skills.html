@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1 class="mb-4">Compétences proposées</h1>
+    <h1 class="mb-4">{{ _('Compétences proposées') }}</h1>
 
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Liste des propositions</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Liste des propositions') }}</h6>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered" id="proposed-skills-table" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>Demandeur</th>
-                            <th>Nom de la Compétence</th>
-                            <th>Description</th>
-                            <th>Date</th>
-                            <th>Actions</th>
+                            <th>{{ _('Demandeur') }}</th>
+                            <th>{{ _('Nom de la Compétence') }}</th>
+                            <th>{{ _('Description') }}</th>
+                            <th>{{ _('Date') }}</th>
+                            <th>{{ _('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -27,8 +27,8 @@
                             <td>{{ proposal.skill_description }}</td>
                             <td>{{ proposal.request_date.strftime('%Y-%m-%d') }}</td>
                             <td>
-                                <a href="{{ url_for('admin.add_skill', from_proposal=proposal.id) }}" class="btn btn-success btn-sm">Approuver</a>
-                                <button class="btn btn-danger btn-sm reject-proposal-btn" data-proposal-id="{{ proposal.id }}" data-delete-url="{{ url_for('admin.reject_training_request', request_id=proposal.id) }}">Rejeter</button>
+                                <a href="{{ url_for('admin.add_skill', from_proposal=proposal.id) }}" class="btn btn-success btn-sm">{{ _('Approuver') }}</a>
+                                <button class="btn btn-danger btn-sm reject-proposal-btn" data-proposal-id="{{ proposal.id }}" data-delete-url="{{ url_for('admin.reject_training_request', request_id=proposal.id) }}">{{ _('Rejeter') }}</button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -45,19 +45,19 @@
 $(document).ready(function() {
     // Setup for DataTable
     var frenchLanguage = {
-        "sEmptyTable":     "Aucune donnée disponible dans le tableau",
-        "sInfo":           "Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments",
-        "sInfoEmpty":      "Affichage de l'élément 0 à 0 sur 0 élément",
-        "sInfoFiltered":   "(filtré de _MAX_ éléments au total)",
+        "sEmptyTable":     "{{ _('Aucune donnée disponible dans le tableau') }}",
+        "sInfo":           "{{ _('Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments') }}",
+        "sInfoEmpty":      "{{ _('Affichage de l'élément 0 à 0 sur 0 élément') }}",
+        "sInfoFiltered":   "{{ _('(filtré de _MAX_ éléments au total)') }}",
         "sInfoPostFix":    "",
         "sInfoThousands":  ",",
-        "sLengthMenu":     "Afficher _MENU_ éléments",
-        "sLoadingRecords": "Chargement...",
-        "sProcessing":     "Traitement...",
-        "sSearch":         "Rechercher :",
-        "sZeroRecords":    "Aucun élément correspondant trouvé",
-        "oPaginate": { "sFirst": "Premier", "sLast": "Dernier", "sNext": "Suivant", "sPrevious": "Précédent" },
-        "oAria": { "sSortAscending": ": activer pour trier la colonne par ordre croissant", "sSortDescending": ": activer pour trier la colonne par ordre décroissant" }
+        "sLengthMenu":     "{{ _('Afficher _MENU_ éléments') }}",
+        "sLoadingRecords": "{{ _('Chargement...') }}",
+        "sProcessing":     "{{ _('Traitement...') }}",
+        "sSearch":         "{{ _('Rechercher :') }}",
+        "sZeroRecords":    "{{ _('Aucun élément correspondant trouvé') }}",
+        "oPaginate": { "sFirst": "{{ _('Premier') }}", "sLast": "{{ _('Dernier') }}", "sNext": "{{ _('Suivant') }}", "sPrevious": "{{ _('Précédent') }}" },
+        "oAria": { "sSortAscending": "{{ _(': activer pour trier la colonne par ordre croissant') }}", "sSortDescending": "{{ _(': activer pour trier la colonne par ordre décroissant') }}" }
     };
     $('#proposed-skills-table').DataTable({ language: frenchLanguage });
 
@@ -68,7 +68,7 @@ $(document).ready(function() {
         var deleteUrl = button.data('delete-url');
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir rejeter cette proposition ?')) {
+        if (confirm("{{ _('Êtes-vous sûr de vouloir rejeter cette proposition ?') }}")) {
             fetch(deleteUrl, { 
                 method: 'POST', 
                 headers: { 
@@ -82,12 +82,12 @@ $(document).ready(function() {
                     $('#proposed-skills-table').DataTable().row('#proposal-row-' + proposalId).remove().draw();
                     // Optionally, show a success flash message
                 } else {
-                    alert('Erreur: ' + (data.message || 'Inconnue.'));
+                    alert("{{ _('Erreur: ') }}" + (data.message || "{{ _('Inconnue.') }}"));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
+                alert("{{ _('Une erreur réseau est survenue.') }}");
             });
         }
     });

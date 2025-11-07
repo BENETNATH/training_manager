@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1 class="mb-4">Rapport de Recyclage</h1>
+    <h1 class="mb-4">{{ _('Recycling Report') }}</h1>
 
     {% if report_data %}
         <form id="recycling-form">
             {% for species, skills_data in report_data.items() %}
                 <div class="card shadow mb-4">
                     <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                        <h6 class="m-0 font-weight-bold text-primary">Espèce : {{ species.name }}</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">{{ _('Species:') }} {{ species.name }}</h6>
                         <button type="button" class="btn btn-primary btn-sm create-session-btn" data-species-id="{{ species.id }}">
-                            Créer une session pour {{ species.name }}
+                            {{ _('Create Session for') }} {{ species.name }}
                         </button>
                     </div>
                     <div class="card-body">
@@ -19,9 +19,9 @@
                                 <thead>
                                     <tr>
                                         <th><input type="checkbox" class="select-all-skills" data-species-id="{{ species.id }}"></th>
-                                        <th>Compétence</th>
-                                        <th>Personnes à Recycler</th>
-                                        <th>Liste des Personnes</th>
+                                        <th>{{ _('Skill') }}</th>
+                                        <th>{{ _('People to Recycle') }}</th>
+                                        <th>{{ _('List of People') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -45,7 +45,7 @@
             {% endfor %}
         </form>
     {% else %}
-        <div class="alert alert-info">Aucun besoin de recyclage pour le moment.</div>
+        <div class="alert alert-info">{{ _('No recycling needs at the moment.') }}</div>
     {% endif %}
 {% endblock %}
 
@@ -63,7 +63,7 @@ $(document).ready(function() {
         var selectedSkills = $(`input[name='skill_${speciesId}']:checked`);
         
         if (selectedSkills.length === 0) {
-            alert('Veuillez sélectionner au moins une compétence.');
+            alert("{{ _('Please select at least one skill.') }}");
             return;
         }
 

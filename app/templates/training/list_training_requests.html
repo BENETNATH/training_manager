@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Pending Training Requests</h1>
-    <p>Review and manage training requests submitted by users.</p>
+    <h1>{{ _('Pending Training Requests') }}</h1>
+    <p>{{ _('Review and manage training requests submitted by users.') }}</p>
 
     {% if requests %}
     <table class="table table-striped">
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Requester</th>
-                <th>Request Date</th>
-                <th>Skills Requested</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>{{ _('ID') }}</th>
+                <th>{{ _('Requester') }}</th>
+                <th>{{ _('Request Date') }}</th>
+                <th>{{ _('Skills Requested') }}</th>
+                <th>{{ _('Status') }}</th>
+                <th>{{ _('Actions') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -31,7 +31,7 @@
                 </td>
                 <td>{{ req.status.value }}</td>
                 <td>
-                    <a href="{{ url_for('training.create_training_session_from_request', request_id=req.id) }}" class="btn btn-sm btn-primary">Create Session</a>
+                    <a href="{{ url_for('training.create_training_session_from_request', request_id=req.id) }}" class="btn btn-sm btn-primary">{{ _('Create Session') }}</a>
                     {# TODO: Add options to reject/approve request without creating session #}
                 </td>
             </tr>
@@ -39,8 +39,8 @@
         </tbody>
     </table>
     {% else %}
-    <p>No pending training requests.</p>
+    <p>{{ _('No pending training requests.') }}</p>
     {% endif %}
 
-    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary mt-3">{{ _('Back to Dashboard') }}</a>
 {% endblock %}

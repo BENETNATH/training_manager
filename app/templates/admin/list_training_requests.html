@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1 class="mb-4">Demandes de Formation en Attente</h1>
+    <h1 class="mb-4">{{ _('Pending Training Requests') }}</h1>
 
     <div class="mb-3">
         <button id="create-session-from-selected-btn" class="btn btn-success" disabled>
-            Créer une session à partir des sélectionnées
+            {{ _('Create Session from Selected') }}
         </button>
     </div>
 
@@ -13,11 +13,11 @@
         {% for species, requests in requests_by_species.items() %}
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                    <h6 class="m-0 font-weight-bold text-primary">Espèce : {{ species.name }}</h6>
+                    <h6 class="m-0 font-weight-bold text-primary">{{ _('Species:') }} {{ species.name }}</h6>
                     {% with user_ids = requests|map(attribute='requester_id')|unique|join(',') %}
                     {% with skill_ids = requests|map(attribute='skills_requested')|sum(start=[])|map(attribute='id')|unique|join(',') %}
                         <a href="{{ url_for('admin.create_training_session', species_id=species.id, user_ids=user_ids, skill_ids=skill_ids) }}" class="btn btn-primary btn-sm">
-                            Créer une session pour {{ species.name }}
+                            {{ _('Create Session for') }} {{ species.name }}
                         </a>
                     {% endwith %}
                     {% endwith %}
@@ -28,12 +28,12 @@
                             <thead>
                                 <tr>
                                     <th><input type="checkbox" class="select-all-requests"></th>
-                                    <th>ID</th>
-                                    <th>Demandeur</th>
-                                    <th>Compétences Demandées</th>
-                                    <th>Justification</th>
-                                    <th>Date de Demande</th>
-                                    <th>Actions</th>
+                                    <th>{{ _('ID') }}</th>
+                                    <th>{{ _('Requester') }}</th>
+                                    <th>{{ _('Requested Skills') }}</th>
+                                    <th>{{ _('Justification') }}</th>
+                                    <th>{{ _('Request Date') }}</th>
+                                    <th>{{ _('Actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -52,7 +52,7 @@
                                     </td>
                                     <td>{{ req.request_date.strftime('%Y-%m-%d') }}</td>
                                     <td>
-                                        <button class="btn btn-sm btn-danger reject-training-request-btn" data-request-id="{{ req.id }}" title="Rejeter"><i class="fas fa-times"></i></button>
+                                        <button class="btn btn-sm btn-danger reject-training-request-btn" data-request-id="{{ req.id }}" title="{{ _('Reject') }}"><i class="fas fa-times"></i></button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -63,7 +63,7 @@
             </div>
         {% endfor %}
     {% else %}
-        <div class="alert alert-info">Aucune demande de formation en attente.</div>
+        <div class="alert alert-info">{{ _('No pending training requests.') }}</div>
     {% endif %}
 {% endblock %}
 
@@ -105,7 +105,7 @@ $(document).ready(function() {
             const requestIdsParam = selectedRequestIds.join(',');
             window.location.href = "{{ url_for('admin.create_training_session') }}?request_ids=" + requestIdsParam;
         } else {
-            alert('Veuillez sélectionner au moins une demande de formation.');
+            alert("{{ _('Please select at least one training request.') }}");
         }
     });
 
@@ -116,7 +116,7 @@ $(document).ready(function() {
         var rejectUrl = "{{ url_for('admin.reject_training_request', request_id=0) }}".replace('0', requestId);
         var csrfToken = $('meta[name="csrf-token"]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir rejeter cette demande de formation ?')) {
+        if (confirm("{{ _('Are you sure you want to reject this training request?') }}")) {
             fetch(rejectUrl, {
                 method: 'POST',
                 headers: {
@@ -132,12 +132,12 @@ $(document).ready(function() {
                     alert(data.message);
                     updateCreateSessionButtonState(); // Update button state after removal
                 } else {
-                    alert('Erreur lors du rejet : ' + (data.message || 'Erreur inconnue.'));
+                    alert("{{ _('Error during rejection: ') }}" + (data.message || "{{ _('Unknown error.') }}"));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
+                alert("{{ _('A network error occurred.') }}");
             });
         }
     });

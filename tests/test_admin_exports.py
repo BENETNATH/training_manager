@@ -1,11 +1,12 @@
 import pytest
 from flask import url_for
-from app.models import User, ContinuousTrainingEvent, UserContinuousTraining, ContinuousTrainingType, UserContinuousTrainingStatus
+from app.models import User, ContinuousTrainingEvent, UserContinuousTraining, ContinuousTrainingType, UserContinuousTrainingStatus, ContinuousTrainingEventStatus
 from datetime import datetime, timedelta, timezone
 import openpyxl
 import io
+from app import db
 
-def test_export_user_summary(client, admin_user, user_factory, db):
+def test_export_user_summary(client, admin_user, user_factory):
     """
     Test the export_user_summary functionality to ensure it includes
     study level and total continuous training hours for the last 6 years.
@@ -17,8 +18,6 @@ def test_export_user_summary(client, admin_user, user_factory, db):
         study_level="Master's Degree",
         is_approved=True
     )
-    db.session.add(test_user)
-    db.session.commit()
 
     # Add continuous training data for the test user
     # Training 1: 3 years ago, 10 hours, Presential
@@ -30,7 +29,7 @@ def test_export_user_summary(client, admin_user, user_factory, db):
         event_date=event1_date,
         duration_hours=10.0,
         creator=admin_user,
-        status=UserContinuousTrainingStatus.APPROVED
+            status=ContinuousTrainingEventStatus.APPROVED
     )
     db.session.add(event1)
     db.session.flush() # To get event1.id
@@ -54,7 +53,7 @@ def test_export_user_summary(client, admin_user, user_factory, db):
         event_date=event2_date,
         duration_hours=5.0,
         creator=admin_user,
-        status=UserContinuousTrainingStatus.APPROVED
+            status=ContinuousTrainingEventStatus.APPROVED
     )
     db.session.add(event2)
     db.session.flush() # To get event2.id
@@ -71,9 +70,10 @@ def test_export_user_summary(client, admin_user, user_factory, db):
     db.session.commit()
 
     # Log in as admin
-    with client.session_transaction() as sess:
-        sess['user_id'] = admin_user.id
-        sess['_fresh'] = True
+    client.post(url_for('auth.login'), data={
+        'email': admin_user.email,
+        'password': 'admin_password'
+    }, follow_redirects=True)
 
     # Make the request to the export endpoint
     response = client.get(url_for('admin.export_user_summary'))

@@ -6,7 +6,7 @@
 
     <div class="card shadow mb-3">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Proposer une Nouvelle Compétence</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Proposer une Nouvelle Compétence') }}</h6>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('dashboard.propose_skill') }}">
@@ -32,19 +32,19 @@
 
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Liste des Compétences</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Liste des Compétences') }}</h6>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered" id="skillsTable" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>Compétence</th>
-                            <th>Description</th>
-                            <th>Espèces Associées</th>
-                            <th>Période de Validité (mois)</th>
-                            <th>Utilisateurs Compétents</th>
-                            <th>Tuteurs</th>
+                            <th>{{ _('Compétence') }}</th>
+                            <th>{{ _('Description') }}</th>
+                            <th>{{ _('Espèces Associées') }}</th>
+                            <th>{{ _('Période de Validité (mois)') }}</th>
+                            <th>{{ _('Utilisateurs Compétents') }}</th>
+                            <th>{{ _('Tuteurs') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -61,7 +61,7 @@
                                     N/A
                                 {% endif %}
                             </td>
-                            <td>{{ skill.validity_period_months or 'Illimitée' }}</td>
+                            <td>{{ skill.validity_period_months or _('Illimitée') }}</td>
                             <td>{{ user_count }}</td>
                             <td>{{ tutor_count }}</td>
                         </tr>
@@ -82,26 +82,26 @@
     $(document).ready(function() {
         $('#skillsTable').DataTable({
             "language": {
-                "sEmptyTable":     "Aucune donnée disponible dans le tableau",
-                "sInfo":           "Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments",
-                "sInfoEmpty":      "Affichage de l'élément 0 à 0 sur 0 élément",
-                "sInfoFiltered":   "(filtré de _MAX_ éléments au total)",
+                "sEmptyTable":     "{{ _('Aucune donnée disponible dans le tableau') }}",
+                "sInfo":           "{{ _('Affichage de l\'élément _START_ à _END_ sur _TOTAL_ éléments') }}",
+                "sInfoEmpty":      "{{ _('Affichage de l\'élément 0 à 0 sur 0 élément') }}",
+                "sInfoFiltered":   "{{ _('(filtré de _MAX_ éléments au total)') }}",
                 "sInfoPostFix":    "",
                 "sInfoThousands":  ",",
-                "sLengthMenu":     "Afficher _MENU_ éléments",
-                "sLoadingRecords": "Chargement...",
-                "sProcessing":     "Traitement...",
-                "sSearch":         "Rechercher :",
-                "sZeroRecords":    "Aucun élément correspondant trouvé",
+                "sLengthMenu":     "{{ _('Afficher _MENU_ éléments') }}",
+                "sLoadingRecords": "{{ _('Chargement...') }}",
+                "sProcessing":     "{{ _('Traitement...') }}",
+                "sSearch":         "{{ _('Rechercher :') }}",
+                "sZeroRecords":    "{{ _('Aucun élément correspondant trouvé') }}",
                 "oPaginate": {
-                    "sFirst":    "Premier",
-                    "sLast":     "Dernier",
-                    "sNext":     "Suivant",
-                    "sPrevious": "Précédent"
+                    "sFirst":    "{{ _('Premier') }}",
+                    "sLast":     "{{ _('Dernier') }}",
+                    "sNext":     "{{ _('Suivant') }}",
+                    "sPrevious": "{{ _('Précédent') }}"
                 },
                 "oAria": {
-                    "sSortAscending":  ": activer pour trier la colonne par ordre croissant",
-                    "sSortDescending": ": activer pour trier la colonne par ordre décroissant"
+                    "sSortAscending":  ": {{ _('activer pour trier la colonne par ordre croissant') }}",
+                    "sSortDescending": ": {{ _('activer pour trier la colonne par ordre décroissant') }}"
                 }
             }
         });

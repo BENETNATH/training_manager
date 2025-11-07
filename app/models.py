@@ -176,6 +176,7 @@ class User(UserMixin, db.Model):
     api_key = db.Column(db.String(64), unique=True, nullable=True)
     new_email = db.Column(db.String(120), index=True, unique=True, nullable=True)
     email_confirmation_token = db.Column(db.String(128), unique=True, nullable=True)
+    language = db.Column(db.String(5), nullable=True)
 
     teams = db.relationship('Team', secondary=user_team_membership, back_populates='members')
 

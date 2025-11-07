@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1 class="mb-4">Validation de la Session de Formation</h1>
+    <h1 class="mb-4">{{ _('Validation de la Session de Formation') }}</h1>
 
     <div class="card shadow mb-4">
         <div class="card-header py-3">
@@ -10,19 +10,19 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-6">
-                    <p><strong>Lieu :</strong> {{ session.location }}</p>
-                    <p><strong>Début :</strong> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
-                    <p><strong>Fin :</strong> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p><strong>{{ _('Lieu') }} :</strong> {{ session.location }}</p>
+                    <p><strong>{{ _('Début') }} :</strong> {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                    <p><strong>{{ _('Fin') }} :</strong> {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</p>
                 </div>
                 <div class="col-md-6">
-                    <p><strong>Espèce Principale :</strong> {{ session.main_species.name if session.main_species else 'N/A' }}</p>
+                    <p><strong>{{ _('Espèce Principale') }} :</strong> {{ session.main_species.name if session.main_species else 'N/A' }}</p>
                 </div>
             </div>
 
             <hr>
 
             {% if can_validate_session %}
-            <h5 class="mt-4">Validation des Compétences</h5>
+            <h5 class="mt-4">{{ _('Validation des Compétences') }}</h5>
             <form method="POST" action="">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
@@ -33,9 +33,9 @@
                             <table class="table table-sm">
                                 <thead>
                                     <tr>
-                                        <th>Compétence</th>
-                                        <th>Acquis</th>
-                                        <th>Niveau</th>
+                                        <th>{{ _('Compétence') }}</th>
+                                        <th>{{ _('Acquis') }}</th>
+                                        <th>{{ _('Niveau') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -69,15 +69,15 @@
                     </div>
                 {% endfor %}
 
-                <button type="submit" class="btn btn-primary mt-3" {% if not can_validate_session %}disabled{% endif %}>Valider les Compétences</button>
+                <button type="submit" class="btn btn-primary mt-3" {% if not can_validate_session %}disabled{% endif %}>{{ _('Valider les Compétences') }}</button>
             </form>
             {% else %}
                 <div class="alert alert-info mt-4" role="alert">
-                    Vous n'êtes pas autorisé à valider les compétences pour cette session.
+                    {{ _('Vous n\'êtes pas autorisé à valider les compétences pour cette session.') }}
                 </div>
             {% endif %}
 
-            <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary mt-3">Retour à la liste des sessions</a>
+            <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary mt-3">{{ _('Retour à la liste des sessions') }}</a>
         </div>
     </div>
 {% endblock %}

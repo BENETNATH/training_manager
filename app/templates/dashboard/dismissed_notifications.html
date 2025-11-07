@@ -2,15 +2,15 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4">Your Dismissed Notifications</h1>
+    <h1 class="mb-4">{{ _('Your Dismissed Notifications') }}</h1>
 
     <div class="row mb-3">
         <div class="col-md-6">
-            <input type="text" id="notification-search" class="form-control" placeholder="Search notifications...">
+            <input type="text" id="notification-search" class="form-control" placeholder="{{ _('Search notifications...') }}">
         </div>
         <div class="col-md-6">
             <select id="notification-filter" class="form-select">
-                <option value="">All Types</option>
+                <option value="">{{ _('All Types') }}</option>
                 {% set unique_types = dismissed_notifications | map(attribute='notification_type') | unique | list %}
                 {% for type in unique_types %}
                 <option value="{{ type }}">{{ type | replace('_', ' ') | title }}</option>
@@ -25,10 +25,10 @@
         <a href="{{ notification.notification_url if notification.notification_url else '#' }}" class="list-group-item list-group-item-action flex-column align-items-start py-2 notification-item" data-notification-type="{{ notification.notification_type }}">
             <div class="d-flex w-100 justify-content-between">
                 <h5 class="mb-1">{{ notification.notification_type | replace('_', ' ') | title }}</h5>
-                <small class="text-muted">Dismissed: {{ notification.dismissed_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                <small class="text-muted">{{ _('Dismissed') }}: {{ notification.dismissed_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
             </div>
             {% if notification.notification_url %}
-            <small class="mb-1 text-muted">Link: <span class="text-primary">{{ notification.notification_url }}</span></small>
+            <small class="mb-1 text-muted">{{ _('Link') }}: <span class="text-primary">{{ notification.notification_url }}</span></small>
             {% endif %}
             {# Add more details here if available in the UserDismissedNotification object #}
             {# For example, if you stored a 'message' or 'context' field #}
@@ -37,7 +37,7 @@
         {% endfor %}
     </div>
     {% else %}
-    <p>You have no dismissed notifications.</p>
+    <p>{{ _('You have no dismissed notifications.') }}</p>
     {% endif %}
 </div>
 {% endblock %}

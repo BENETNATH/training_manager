@@ -1,29 +1,29 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1 class="mb-4">Gestion des Sessions de Formation</h1>
+    <h1 class="mb-4">{{ _('Gestion des Sessions de Formation') }}</h1>
 
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold text-primary">Toutes les Sessions de Formation</h6>
-            <a href="{{ url_for('admin.create_training_session') }}" class="btn btn-primary btn-sm">Créer une session</a>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Toutes les Sessions de Formation') }}</h6>
+            <a href="{{ url_for('admin.create_training_session') }}" class="btn btn-primary btn-sm">{{ _('Créer une session') }}</a>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered" id="training-sessions-table" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>Titre</th>
-                            <th>Lieu</th>
-                            <th>Début</th>
-                            <th>Fin</th>
-                            <th>Tuteur</th>
-                            <th>Approbation Éthique</th>
-                            <th>Nb Animaux</th>
-                            <th>Participants</th>
-                            <th>Compétences Couvertes</th>
-                            <th>Espèce(s)</th>
-                            <th>Actions</th>
+                            <th>{{ _('Titre') }}</th>
+                            <th>{{ _('Lieu') }}</th>
+                            <th>{{ _('Début') }}</th>
+                            <th>{{ _('Fin') }}</th>
+                            <th>{{ _('Tuteur') }}</th>
+                            <th>{{ _('Approbation Éthique') }}</th>
+                            <th>{{ _('Nb Animaux') }}</th>
+                            <th>{{ _('Participants') }}</th>
+                            <th>{{ _('Compétences Couvertes') }}</th>
+                            <th>{{ _('Espèce(s)') }}</th>
+                            <th>{{ _('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -37,7 +37,7 @@
                                 {% for tutor in session.tutors %}
                                     <span class="badge bg-info">{{ tutor.full_name }}</span>
                                 {% else %}
-                                    N/A
+                                    {{ _('N/A') }}
                                 {% endfor %}
                             </td>
                             <td>{{ session.ethical_authorization_id if session.ethical_authorization_id else 'N/A' }}</td>
@@ -46,9 +46,9 @@
                             <td>{{ session.skills_covered|length }}</td>
                             <td>{{ session.main_species.name if session.main_species else 'N/A' }}</td>
                             <td>
-                                <a href="{{ url_for('admin.view_training_session_details', session_id=session.id) }}" class="btn btn-sm btn-info" title="Voir détails"><i class="fa fa-eye"></i></a>
-                                <a href="{{ url_for('admin.edit_training_session', session_id=session.id) }}" class="btn btn-sm btn-warning" title="Éditer"><i class="fa fa-edit"></i></a>
-                                <button class="btn btn-sm btn-danger delete-session-btn" data-session-id="{{ session.id }}" data-delete-url="{{ url_for('admin.delete_training_session', session_id=session.id) }}" title="Supprimer"><i class="fa fa-trash"></i></button>
+                                <a href="{{ url_for('admin.view_training_session_details', session_id=session.id) }}" class="btn btn-sm btn-info" title="{{ _('Voir détails') }}"><i class="fa fa-eye"></i></a>
+                                <a href="{{ url_for('admin.edit_training_session', session_id=session.id) }}" class="btn btn-sm btn-warning" title="{{ _('Éditer') }}"><i class="fa fa-edit"></i></a>
+                                <button class="btn btn-sm btn-danger delete-session-btn" data-session-id="{{ session.id }}" data-delete-url="{{ url_for('admin.delete_training_session', session_id=session.id) }}" title="{{ _('Supprimer') }}"><i class="fa fa-trash"></i></button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -65,26 +65,26 @@
 <script>
 $(document).ready(function() {
     var frenchLanguage = {
-        "sEmptyTable":     "Aucune donnée disponible dans le tableau",
-        "sInfo":           "Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments",
-        "sInfoEmpty":      "Affichage de l'élément 0 à 0 sur 0 élément",
-        "sInfoFiltered":   "(filtré de _MAX_ éléments au total)",
+        "sEmptyTable":     "{{ _('Aucune donnée disponible dans le tableau') }}",
+        "sInfo":           "{{ _('Affichage de l'élément _START_ à _END_ sur _TOTAL_ éléments') }}",
+        "sInfoEmpty":      "{{ _('Affichage de l'élément 0 à 0 sur 0 élément') }}",
+        "sInfoFiltered":   "{{ _('(filtré de _MAX_ éléments au total)') }}",
         "sInfoPostFix":    "",
         "sInfoThousands":  ",",
-        "sLengthMenu":     "Afficher _MENU_ éléments",
-        "sLoadingRecords": "Chargement...",
-        "sProcessing":     "Traitement...",
-        "sSearch":         "Rechercher :",
-        "sZeroRecords":    "Aucun élément correspondant trouvé",
+        "sLengthMenu":     "{{ _('Afficher _MENU_ éléments') }}",
+        "sLoadingRecords": "{{ _('Chargement...') }}",
+        "sProcessing":     "{{ _('Traitement...') }}",
+        "sSearch":         "{{ _('Rechercher :') }}",
+        "sZeroRecords":    "{{ _('Aucun élément correspondant trouvé') }}",
         "oPaginate": {
-            "sFirst":    "Premier",
-            "sLast":     "Dernier",
-            "sNext":     "Suivant",
-            "sPrevious": "Précédent"
+            "sFirst":    "{{ _('Premier') }}",
+            "sLast":     "{{ _('Dernier') }}",
+            "sNext":     "{{ _('Suivant') }}",
+            "sPrevious": "{{ _('Précédent') }}"
         },
         "oAria": {
-            "sSortAscending":  ": activer pour trier la colonne par ordre croissant",
-            "sSortDescending": ": activer pour trier la colonne par ordre décroissant"
+            "sSortAscending":  "{{ _(': activer pour trier la colonne par ordre croissant') }}",
+            "sSortDescending": "{{ _(': activer pour trier la colonne par ordre décroissant') }}"
         }
     };
 
@@ -99,7 +99,7 @@ $(document).ready(function() {
         var sessionId = button.data('session-id');
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette session ?')) {
+        if (confirm("{{ _('Êtes-vous sûr de vouloir supprimer cette session ?') }}")) {
             fetch(deleteUrl, {
                 method: 'POST', // Or 'DELETE', depending on your backend implementation
                 headers: {
@@ -113,14 +113,14 @@ $(document).ready(function() {
                     // Remove the row from the table
                     var table = $('#training-sessions-table').DataTable();
                     table.row('#session-row-' + sessionId).remove().draw();
-                    alert('Session supprimée avec succès.');
+                    alert("{{ _('Session supprimée avec succès.') }}");
                 } else {
-                    alert(data.message || 'Erreur lors de la suppression de la session.');
+                    alert(data.message || "{{ _('Erreur lors de la suppression de la session.') }}");
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Une erreur réseau est survenue.');
+                alert("{{ _('Une erreur réseau est survenue.') }}");
             });
         }
     });

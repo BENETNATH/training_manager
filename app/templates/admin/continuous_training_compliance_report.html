@@ -9,15 +9,15 @@
                 <table class="table table-striped table-hover">
                     <thead>
                         <tr>
-                            <th>Utilisateur</th>
-                            <th>Total Heures (6 ans)</th>
-                            <th>Heures Présentielles (6 ans)</th>
-                            <th>Heures En Ligne (6 ans)</th>
-                            <th>Heures Requises</th>
-                            <th>Conforme ?</th>
-                            <th>Ratio Présentiel</th>
-                            <th>Ratio Conforme ?</th>
-                            <th>À Risque Année Prochaine ?</th>
+                            <th>{{ _('Utilisateur') }}</th>
+                            <th>{{ _('Total Heures (6 ans)') }}</th>
+                            <th>{{ _('Heures Présentielles (6 ans)') }}</th>
+                            <th>{{ _('Heures En Ligne (6 ans)') }}</th>
+                            <th>{{ _('Heures Requises') }}</th>
+                            <th>{{ _('Conforme ?') }}</th>
+                            <th>{{ _('Ratio Présentiel') }}</th>
+                            <th>{{ _('Ratio Conforme ?') }}</th>
+                            <th>{{ _('À Risque Année Prochaine ?') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -30,24 +30,24 @@
                                 <td>{{ "%.2f"|format(entry.required_hours) }}</td>
                                 <td>
                                     {% if entry.is_compliant %}
-                                        <span class="badge badge-success">Oui</span>
+                                        <span class="badge badge-success">{{ _('Oui') }}</span>
                                     {% else %}
-                                        <span class="badge badge-danger">Non</span>
+                                        <span class="badge badge-danger">{{ _('Non') }}</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ "%.2f"|format(entry.live_ratio * 100) }}%</td>
                                 <td>
                                     {% if entry.is_live_ratio_compliant %}
-                                        <span class="badge badge-success">Oui</span>
+                                        <span class="badge badge-success">{{ _('Oui') }}</span>
                                     {% else %}
-                                        <span class="badge badge-warning">Non</span>
+                                        <span class="badge badge-warning">{{ _('Non') }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if entry.is_at_risk_next_year %}
-                                        <span class="badge badge-info">Oui</span>
+                                        <span class="badge badge-info">{{ _('Oui') }}</span>
                                     {% else %}
-                                        <span class="badge badge-success">Non</span>
+                                        <span class="badge badge-success">{{ _('Non') }}</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -56,7 +56,7 @@
                 </table>
             </div>
         {% else %}
-            <p>Aucune donnée de conformité de formation continue disponible.</p>
+            <p>{{ _('Aucune donnée de conformité de formation continue disponible.') }}</p>
         {% endif %}
     </div>
 {% endblock %}

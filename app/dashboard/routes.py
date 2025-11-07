@@ -441,19 +441,19 @@ def request_continuous_training_event():
                 )
                 current_app.logger.info(f"Email sent to CT managers for new event request by {current_user.full_name}")
 
-        flash("Votre demande d'événement de formation continue a été soumise pour validation !", 'success')
+        flash(_('Your request for a continuous training event has been submitted for validation!'), 'success')
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': "Votre demande d'événement de formation continue a été soumise pour validation !", 'redirect_url': url_for('dashboard.dashboard_home')})
+            return jsonify({'success': True, 'message': _('Your request for a continuous training event has been submitted for validation!'), 'redirect_url': url_for('dashboard.dashboard_home')})
         return redirect(url_for('dashboard.dashboard_home'))
     elif request.method == 'POST': # Validation failed for POST request
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form_html = render_template('profile/request_continuous_training_event.html', form=form)
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+            return jsonify({'success': False, 'form_html': form_html, 'message': _('Please correct the form errors.')}), 400
 
     # For GET requests or non-AJAX POST with validation errors
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/request_continuous_training_event.html', form=form)
-    return render_template('profile/request_continuous_training_event.html', title='Demander un Événement de Formation Continue', form=form)
+    return render_template('profile/request_continuous_training_event.html', title=_('Request a Continuous Training Event'), form=form)
 
 
 @bp.route('/submit_continuous_training_attendance', methods=['GET', 'POST'])
@@ -502,9 +502,9 @@ def submit_continuous_training_attendance():
         # Fetch the ContinuousTrainingEvent object using the ID from form.event.data
         selected_event = ContinuousTrainingEvent.query.get(form.event.data)
         if not selected_event:
-            flash("L'événement de formation continue sélectionné est introuvable.", 'danger')
+            flash(_('The selected continuous training event could not be found.'), 'danger')
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({'success': False, 'message': "L'événement de formation continue sélectionné est introuvable."}), 400
+                return jsonify({'success': False, 'message': _('The selected continuous training event could not be found.')}), 400
             return redirect(url_for('dashboard.dashboard_home'))
 
         user_ct = UserContinuousTraining(
@@ -515,19 +515,19 @@ def submit_continuous_training_attendance():
         )
         db.session.add(user_ct)
         db.session.commit()
-        flash('Votre participation à la formation continue a été soumise pour validation !', 'success')
+        flash(_('Your attendance for the continuous training has been submitted for validation!'), 'success')
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Votre participation à la formation continue a été soumise pour validation !', 'redirect_url': url_for('dashboard.dashboard_home')})
+            return jsonify({'success': True, 'message': _('Your attendance for the continuous training has been submitted for validation!'), 'redirect_url': url_for('dashboard.dashboard_home')})
         return redirect(url_for('dashboard.dashboard_home'))
     elif request.method == 'POST': # Validation failed for POST request
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form_html = render_template('profile/_submit_continuous_training_attendance_form.html', form=form)
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+            return jsonify({'success': False, 'form_html': form_html, 'message': _('Please correct the form errors.')}), 400
 
     # For GET requests or non-AJAX POST with validation errors
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/_submit_continuous_training_attendance_form.html', form=form)
-    return render_template('profile/submit_continuous_training_attendance.html', title='Soumettre une Participation à une Formation Continue', form=form)
+    return render_template('profile/submit_continuous_training_attendance.html', title=_('Submit Continuous Training Attendance'), form=form)
 
 @bp.route('/edit_profile', methods=['GET', 'POST'])
 @login_required
@@ -637,7 +637,7 @@ def edit_profile():
                 db.session.delete(training_obj)
 
         db.session.commit()
-        flash('Vos formations réglementaires initiales ont été enregistrées/mises à jour avec succès !', 'success')
+        flash(_('Your initial regulatory trainings have been successfully saved/updated!'), 'success')
         
         return redirect(url_for('dashboard.dashboard_home'))
 
@@ -662,7 +662,7 @@ def edit_profile():
 def regenerate_api_key():
     new_key = current_user.generate_api_key()
     db.session.commit()
-    return jsonify({'success': True, 'message': 'Nouvelle clé API générée avec succès !', 'api_key': new_key})
+    return jsonify({'success': True, 'message': _('New API key generated successfully!'), 'api_key': new_key})
 
 
 @bp.route('/confirm_email/<token>')
@@ -734,7 +734,7 @@ def submit_training_request():
             ).first()
 
             if existing_req:
-                existing_requests_messages.append(f"Request for '{skill.name}' on '{selected_species.name}' already exists and is pending.")
+                existing_requests_messages.append(f'Request for "{skill.name}" on "{selected_species.name}" already exists and is pending.')
                 continue # Skip creating this request
 
             # Create new TrainingRequest
@@ -748,7 +748,7 @@ def submit_training_request():
             req.skills_requested.append(skill)
             req.species_requested.append(selected_species) # Append the single selected species
 
-            successful_requests_messages.append(f"Request for '{skill.name}' on '{selected_species.name}' created.")
+            successful_requests_messages.append(f'Request for "{skill.name}" on "{selected_species.name}" created.')
             current_app.logger.info(f"Created new TrainingRequest: {req} for skill: {skill.name} and species: {selected_species.name}")
 
         try:
@@ -787,12 +787,12 @@ def submit_training_request():
     elif request.method == 'POST': # Validation failed
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form_html = render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'})
+            return jsonify({'success': False, 'form_html': form_html, 'message': _('Please correct the form errors.')})
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
 
-    return render_template('profile/_training_request_form.html', title='Submit Training Request', form=form)
+    return render_template('profile/_training_request_form.html', title=_('Submit Training Request'), form=form)
 
 
 @bp.route('/propose-skill', methods=['GET', 'POST'])
@@ -836,18 +836,18 @@ def propose_skill():
                 current_app.logger.info(f"Email sent to skill managers for new skill proposal by {current_user.full_name}")
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Votre proposition de compétence a été soumise aux administrateurs.', 'redirect_url': url_for('dashboard.dashboard_home')})
-        flash('Votre proposition de compétence a été soumise aux administrateurs.', 'success')
+            return jsonify({'success': True, 'message': _('Your skill proposal has been submitted to the administrators.'), 'redirect_url': url_for('dashboard.dashboard_home')})
+        flash(_('Your skill proposal has been submitted to the administrators.'), 'success')
         return redirect(url_for('dashboard.dashboard_home'))
     elif request.method == 'POST': # Validation failed
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form_html = render_template('profile/_propose_skill_form.html', form=form)
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'})
+            return jsonify({'success': False, 'form_html': form_html, 'message': _('Please correct the form errors.')})
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/_propose_skill_form.html', form=form)
 
-    return render_template('profile/propose_skill.html', title='Proposer une Compétence', form=form)
+    return render_template('profile/propose_skill.html', title=_('Propose a Skill'), form=form)
 
 
 @bp.route('/submit-external-training', methods=['GET', 'POST'])
@@ -896,13 +896,13 @@ def submit_external_training():
 
         db.session.commit()
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Votre formation externe a été soumise pour validation.', 'redirect_url': url_for('dashboard.dashboard_home')})
+            return jsonify({'success': True, 'message': _('Your external training has been submitted for validation.'), 'redirect_url': url_for('dashboard.dashboard_home')})
         flash('External training submitted for validation!', 'success')
         return redirect(url_for('dashboard.dashboard_home'))
     elif request.method == 'POST': # Validation failed
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form_html = render_template('profile/_external_training_form.html', form=form)
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'})
+            return jsonify({'success': False, 'form_html': form_html, 'message': _('Please correct the form errors.')})
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         all_skills = [{'id': skill.id, 'name': skill.name} for skill in Skill.query.order_by(Skill.name).all()]
@@ -967,11 +967,11 @@ def declare_skill_practice():
                         competency.skill.tutors.remove(current_user)
 
             db.session.commit()
-            return jsonify({'success': True, 'message': 'Pratiques et niveaux mis à jour avec succès !', 'redirect_url': url_for('dashboard.dashboard_home')})
+            return jsonify({'success': True, 'message': _('Practices and levels updated successfully!'), 'redirect_url': url_for('dashboard.dashboard_home')})
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error updating practices: {e}")
-            return jsonify({'success': False, 'message': f'Erreur lors de la mise à jour des pratiques: {str(e)}'}), 500
+            return jsonify({'success': False, 'message': f'{_("Error updating practices")}: {str(e)}'}), 500
 
     # GET Request handling
     user_competencies = current_user.competencies
@@ -1411,19 +1411,19 @@ def edit_training_request(request_id):
             training_request.species_requested.append(form.species.data)
 
         db.session.commit()
-        flash('Demande de formation mise à jour avec succès !', 'success')
+        flash(_('Training request updated successfully!'), 'success')
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Demande de formation mise à jour avec succès !', 'redirect_url': url_for('dashboard.dashboard_home')})
+            return jsonify({'success': True, 'message': _('Training request updated successfully!'), 'redirect_url': url_for('dashboard.dashboard_home')})
         return redirect(url_for('dashboard.dashboard_home'))
     elif request.method == 'POST': # Validation failed for POST request
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             form_html = render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+            return jsonify({'success': False, 'form_html': form_html, 'message': _('Please correct the form errors.')}), 400
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return render_template('profile/_training_request_form.html', form=form, api_key=current_user.api_key)
 
-    return render_template('profile/_training_request_form.html', title='Modifier Demande de Formation', form=form)
+    return render_template('profile/_training_request_form.html', title=_('Edit Training Request'), form=form)
 
 
 @bp.route('/external_training/delete/<int:training_id>', methods=['POST'])
@@ -1441,7 +1441,7 @@ def delete_external_training(training_id):
 
     db.session.delete(external_training)
     db.session.commit()
-    return jsonify({'success': True, 'message': 'Formation externe supprimée avec succès !'})
+    return jsonify({'success': True, 'message': _('External training deleted successfully!')})
 
 
 @bp.route('/edit_external_training/<int:training_id>', methods=['GET', 'POST'])
@@ -1525,9 +1525,9 @@ def edit_external_training(training_id):
             external_training.skill_claims.append(skill_claim)
 
         db.session.commit()
-        flash('Formation externe mise à jour avec succès !', 'success')
+        flash(_('External training updated successfully!'), 'success')
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': True, 'message': 'Formation externe mise à jour avec succès !', 'redirect_url': url_for('dashboard.dashboard_home')})
+            return jsonify({'success': True, 'message': _('External training updated successfully!'), 'redirect_url': url_for('dashboard.dashboard_home')})
         return redirect(url_for('dashboard.dashboard_home'))
     elif request.method == 'POST': # Validation failed for POST request
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1535,7 +1535,7 @@ def edit_external_training(training_id):
             all_skills = [{'id': skill.id, 'name': skill.name} for skill in Skill.query.order_by(Skill.name).all()]
             all_species = [{'id': species.id, 'name': species.name} for species in Species.query.order_by(Species.name).all()]
             form_html = render_template('profile/_external_training_form.html', form=form, all_skills_json=json.dumps(all_skills), all_species_json=json.dumps(all_species))
-            return jsonify({'success': False, 'form_html': form_html, 'message': 'Veuillez corriger les erreurs du formulaire.'}), 400
+            return jsonify({'success': False, 'form_html': form_html, 'message': _('Please correct the form errors.')}), 400
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         all_skills = [{'id': skill.id, 'name': skill.name} for skill in Skill.query.order_by(Skill.name).all()]
@@ -1544,7 +1544,7 @@ def edit_external_training(training_id):
 
     all_skills = [{'id': skill.id, 'name': skill.name} for skill in Skill.query.order_by(Skill.name).all()]
     all_species = [{'id': species.id, 'name': species.name} for species in Species.query.order_by(Species.name).all()]
-    return render_template('profile/submit_external_training.html', title='Modifier Formation Externe', form=form, all_skills_json=json.dumps(all_skills), all_species_json=json.dumps(all_species))
+    return render_template('profile/submit_external_training.html', title=_('Edit External Training'), form=form, all_skills_json=json.dumps(all_skills), all_species_json=json.dumps(all_species))
 
 
 @bp.route('/external_training/<int:training_id>')

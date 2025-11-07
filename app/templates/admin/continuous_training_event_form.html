@@ -16,11 +16,11 @@
                     {{ wtf.form_field(form.duration_hours) }}
                     {{ wtf.form_field(form.attachment) }}
                     {% if event and event.attachment_path %}
-                        <p>Programme actuel: <a href="{{ url_for('static', filename=event.attachment_path) }}" target="_blank">Voir</a></p>
+                        <p>{{ _('Programme actuel:') }} <a href="{{ url_for('static', filename=event.attachment_path) }}" target="_blank">{{ _('Voir') }}</a></p>
                     {% endif %}
                     {{ wtf.form_field(form.submit, class="btn btn-primary") }}
                     {% if event and event.status.name == 'PENDING' %}
-                        <button type="submit" class="btn btn-success" name="validate_event" value="true">Valider l'événement</button>
+                        <button type="submit" class="btn btn-success" name="validate_event" value="true">{{ _('Valider l'événement') }}</button>
                     {% endif %}
                 </form>
             </div>
