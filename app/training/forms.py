@@ -5,6 +5,7 @@ from wtforms_sqlalchemy.fields import QuerySelectMultipleField, QuerySelectField
 from flask_wtf.file import FileField, FileAllowed
 from app.models import User, Skill, TrainingRequest, tutor_skill_association, Species # Added tutor_skill_association, Species
 from sqlalchemy import or_ # Added this import
+from flask_babel import lazy_gettext as _
 
 def get_users():
     return User.query.order_by(User.full_name).all()
@@ -31,4 +32,4 @@ class TrainingSessionForm(FlaskForm):
 
     def validate_end_time(self, field):
         if field.data <= self.start_time.data:
-            raise ValidationError('L\'heure de fin doit être postérieure à l\'heure de début.')
+            raise ValidationError(_('End time must be after start time.'))

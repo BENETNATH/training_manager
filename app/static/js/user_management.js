@@ -10,11 +10,11 @@ $(document).ready(function() {
         fetch(addUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
-            $('#user-edit-modal-label').text('Créer un Utilisateur');
+            $('#user-edit-modal-label').text('Create User');
             $('#user-edit-modal .modal-body').html(`<form id="modal-user-form" action="${addUrl}" method="post" novalidate>${html}</form>`);
             if (window.userModal) window.userModal.show();
         })
-        .catch(error => { console.error('Error loading user form:', error); alert('Erreur lors du chargement du formulaire.'); });
+        .catch(error => { console.error('Error loading user form:', error); alert('Error loading form.'); });
     });
 
     // Handle modal opening for EDITING a user
@@ -26,11 +26,11 @@ $(document).ready(function() {
         fetch(editUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
-            $('#user-edit-modal-label').text('Éditer l\'Utilisateur');
+            $('#user-edit-modal-label').text('Edit User');
             $('#user-edit-modal .modal-body').html(`<form id="modal-user-form" action="${editUrl}" method="post" novalidate>${html}</form>`);
             if (window.userModal) window.userModal.show();
         })
-        .catch(error => { console.error('Error loading user form:', error); alert('Erreur lors du chargement du formulaire.'); });
+        .catch(error => { console.error('Error loading user form:', error); alert('Error loading form.'); });
     });
 
     // Handle SAVE button click in the user modal
@@ -50,7 +50,7 @@ $(document).ready(function() {
             if (data.success) {
                 var user = data.user;
                 var table = $('#users-table').DataTable();
-                var teamsHtml = user.teams && user.teams.length > 0 ? user.teams.map(name => `<span class="badge bg-secondary">${name}</span>`).join(' ') : 'Aucune';
+                var teamsHtml = user.teams && user.teams.length > 0 ? user.teams.map(name => `<span class="badge bg-secondary">${name}</span>`).join(' ') : 'None';
                 var rolesHtml = (user.is_admin ? '<span class="badge bg-primary">Admin</span> ' : '') +
                                 (user.teams_as_lead && user.teams_as_lead.length > 0 ? user.teams_as_lead.map(name => `<span class="badge bg-info">Lead: ${name}</span>`).join(' ') : '');
                 
@@ -66,9 +66,9 @@ $(document).ready(function() {
                 var statusFcHtml = `<span style="display:none;">${summary.total_hours_6_years}</span>` +
                                  `<span class="badge bg-${color}" data-bs-toggle="tooltip" data-bs-placement="top" title="Total Hours: ${summary.total_hours_6_years.toFixed(2)} / ${summary.required_hours.toFixed(2)}. Live Ratio: ${(summary.live_ratio * 100).toFixed(0)}%"><i class="fas fa-info-circle"></i></span>`;
 
-                var actionsHtml = `<button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="/admin/users/edit/${user.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
-                                  `<button class="btn btn-sm btn-danger delete-user-btn" data-user-id="${user.id}" data-delete-url="/admin/users/delete/${user.id}" title="Supprimer"><i class="fa fa-trash"></i></button> ` +
-                                  `<a href="/profile/${user.id}/booklet.pdf" target="_blank" class="btn btn-sm btn-secondary" title="Générer PDF"><i class="fa fa-file-pdf"></i></a>`;
+                var actionsHtml = `<button class="btn btn-sm btn-warning edit-user-btn" data-edit-url="/admin/users/edit/${user.id}" title="Edit"><i class="fa fa-edit"></i></button> ` +
+                                  `<button class="btn btn-sm btn-danger delete-user-btn" data-user-id="${user.id}" data-delete-url="/admin/users/delete/${user.id}" title="Delete"><i class="fa fa-trash"></i></button> ` +
+                                  `<a href="/profile/${user.id}/booklet.pdf" target="_blank" class="btn btn-sm btn-secondary" title="Generate PDF"><i class="fa fa-file-pdf"></i></a>`;
                 
                 var rowData = [user.full_name, user.email, teamsHtml, rolesHtml, statusFcHtml, actionsHtml];
 
@@ -83,10 +83,10 @@ $(document).ready(function() {
 
             } else {
                 if (data.form_html) { form.html(data.form_html); } 
-                else { alert(data.message || 'Erreur lors de la sauvegarde.'); }
+                else { alert(data.message || 'Error while saving.'); }
             }
         })
-        .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
+        .catch(error => { console.error('Error:', error); alert('A network error has occurred.'); });
     });
 
     // Handle AJAX deletion for users
@@ -96,15 +96,15 @@ $(document).ready(function() {
         var deleteUrl = button.data('delete-url');
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
+        if (confirm('Are you sure you want to delete this user?')) {
             fetch(deleteUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken } })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     $('#users-table').DataTable().row('#user-row-' + userId).remove().draw();
-                } else { alert('Erreur: ' + (data.message || 'Inconnue.')); }
+                } else { alert('Error: ' + (data.message || 'Unknown.')); }
             })
-            .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
+            .catch(error => { console.error('Error:', error); alert('A network error has occurred.'); });
         }
     });
 

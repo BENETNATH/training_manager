@@ -1,4 +1,5 @@
 from flask import render_template, flash, redirect, url_for
+from flask_babel import lazy_gettext as _
 from flask_login import login_required, current_user
 from app.team import bp
 from app.models import User, Team, Competency, Skill, SkillPracticeEvent, UserContinuousTraining, UserContinuousTrainingStatus, ContinuousTrainingEvent, ContinuousTrainingType, ExternalTrainingSkillClaim, ExternalTrainingStatus, ExternalTraining
@@ -15,7 +16,7 @@ def team_competencies():
     led_teams = current_user.teams_as_lead # Get all teams the user leads
 
     if not led_teams:
-        flash('You are not currently leading any teams.', 'warning')
+        flash(_('You are not currently leading any teams.'), 'warning')
         return redirect(url_for('dashboard.user_profile', username=current_user.full_name))
 
     all_skills = Skill.query.order_by(Skill.name).all()

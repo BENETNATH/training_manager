@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="mb-4">{% if session %}Modifier{% else %}Créer{% endif %} une Session de Formation</h1>
+<h1 class="mb-4">{% if session %}{{ _('Edit') }}{% else %}{{ _('Create') }}{% endif %} {{ _('Training Session') }}</h1>
 
 <form id="create-session-form" action="{% if session %}{{ url_for('admin.edit_training_session', session_id=session.id) }}{% else %}{{ url_for('admin.create_training_session') }}{% endif %}" method="post" novalidate enctype="multipart/form-data">
     {{ form.hidden_tag() }}
@@ -9,7 +9,7 @@
     <!-- Administrative Details -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Détails Administratifs</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Administrative Details') }}</h6>
         </div>
         <div class="card-body">
             <div class="row">
@@ -50,19 +50,19 @@
     <!-- Training Program -->
     <div class="card shadow mb-4">
         <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Programme de Formation</h6>
+            <h6 class="m-0 font-weight-bold text-primary">{{ _('Training Program') }}</h6>
         </div>
         <div class="card-body" id="training-program-card-body">
             <div class="mb-3">
-                <label for="main-species-select" class="form-label">Espèce</label>
+                <label for="main-species-select" class="form-label">{{ _('Species') }}</label>
                 <select id="main-species-select" name="main_species" class="form-control"></select>
             </div>
             <hr>
-            <h6>Compétences et Tuteurs</h6>
+            <h6>{{ _('Skills and Tutors') }}</h6>
             <div id="skill-tutor-rows">
                 <!-- Dynamic rows will be inserted here -->
             </div>
-            <button type="button" id="add-skill-btn" class="btn btn-success mt-2">Ajouter une compétence</button>
+            <button type="button" id="add-skill-btn" class="btn btn-success mt-2">{{ _('Add Skill') }}</button>
             <hr>
              <div class="mb-3">
                 {{ form.attendees.label(class="form-label") }}
@@ -72,8 +72,8 @@
     </div>
 
     <div class="mt-4">
-        <button type="submit" class="btn btn-primary">{% if session %}Mettre à jour{% else %}Créer{% endif %} la Session</button>
-        <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary">Annuler</a>
+        <button type="submit" class="btn btn-primary">{% if session %}{{ _('Update') }}{% else %}{{ _('Create') }}{% endif %} {{ _('Session') }}</button>
+        <a href="{{ url_for('admin.manage_training_sessions') }}" class="btn btn-secondary">{{ _('Cancel') }}</a>
     </div>
 </form>
 {% endblock %}
@@ -84,7 +84,7 @@
 $(document).ready(function() {
     // Initialization
     $('#main-species-select, #attendees').select2({
-        placeholder: "Sélectionner...",
+        placeholder: "{{ _('Select...') }}",
         allowClear: true,
         dropdownParent: $('#training-program-card-body')
     }).on('select2:open', function(e) {
@@ -203,7 +203,7 @@ $(document).ready(function() {
                     <select name="program-${skillRowCounter}-tutor" id="${tutorSelectId}" class="form-control tutor-select"></select>
                 </div>
                 <div class="col-md-2">
-                    <button type="button" class="btn btn-danger remove-skill-btn">Retirer</button>
+                    <button type="button" class="btn btn-danger remove-skill-btn">{{ _('Remove') }}</button>
                 </div>
             </div>
         `;
@@ -213,7 +213,7 @@ $(document).ready(function() {
         const skillSelect = $(`#${skillSelectId}`);
         const tutorSelect = $(`#${tutorSelectId}`);
 
-        skillSelect.select2({ placeholder: "Choisir une compétence", allowClear: true, dropdownParent: $('#training-program-card-body') }).on('select2:open', function(e) {
+        skillSelect.select2({ placeholder: "{{ _('Choose a skill') }}", allowClear: true, dropdownParent: $('#training-program-card-body') }).on('select2:open', function(e) {
             const parent = $(this).data('select2').$dropdown;
             setTimeout(function() {
                 const search = parent.find('.select2-search__field');
@@ -222,7 +222,7 @@ $(document).ready(function() {
                 }
             }, 0);
         });
-        tutorSelect.select2({ placeholder: "Choisir un tuteur", allowClear: true, dropdownParent: $('#training-program-card-body') }).on('select2:open', function(e) {
+        tutorSelect.select2({ placeholder: "{{ _('Choose a tutor') }}", allowClear: true, dropdownParent: $('#training-program-card-body') }).on('select2:open', function(e) {
             const parent = $(this).data('select2').$dropdown;
             setTimeout(function() {
                 const search = parent.find('.select2-search__field');
@@ -278,7 +278,7 @@ $(document).ready(function() {
                             data.forEach(tutor => {
                                 let tutorName = tutor.full_name;
                                 if (!tutor.is_valid) {
-                                    tutorName += ' (⚠️ Recyclage requis)';
+                                    tutorName += ' (⚠️ {{ _('Recycling required') }})';
                                 }
                                 const option = new Option(tutorName, tutor.id, false, false);
                                 tutorSelect.append(option);
@@ -317,7 +317,7 @@ $(document).ready(function() {
         const startTime = new Date($('#start_time').val());
         const endTime = new Date($('#end_time').val());
         if (endTime <= startTime) {
-            alert('L\'heure de fin doit être postérieure à l\'heure de début.');
+            alert("{{ _('End time must be after start time.') }}");
             e.preventDefault();
         }
     });

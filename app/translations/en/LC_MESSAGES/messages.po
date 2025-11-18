@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-03 12:03+0000\n"
+"POT-Creation-Date: 2025-11-13 10:34+0000\n"
 "PO-Revision-Date: 2025-09-23 15:07+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -17,4 +17,486 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
+
+#: app/models.py:145
+msgid "Moderate"
+msgstr ""
+
+#: app/admin/forms.py:239 app/admin/forms.py:271
+msgid "User"
+msgstr ""
+
+#: app/admin/forms.py:241 app/profile/forms.py:46
+msgid "Initial Regulatory Training Level"
+msgstr ""
+
+#: app/admin/forms.py:244 app/profile/forms.py:47
+msgid "Training Date"
+msgstr ""
+
+#: app/admin/forms.py:246 app/profile/forms.py:48
+msgid "Training Certificate (PDF, DOCX, Images)"
+msgstr ""
+
+#: app/admin/forms.py:249
+msgid "Save Initial Training"
+msgstr ""
+
+#: app/admin/forms.py:253 app/profile/forms.py:12
+msgid "Event Title"
+msgstr ""
+
+#: app/admin/forms.py:255
+msgid "Description"
+msgstr ""
+
+#: app/admin/forms.py:256 app/dashboard/routes.py:140 app/profile/forms.py:14
+msgid "Training Type"
+msgstr ""
+
+#: app/admin/forms.py:259
+msgid "Location (if presential)"
+msgstr ""
+
+#: app/admin/forms.py:260
+msgid "Event Date and Time"
+msgstr ""
+
+#: app/admin/forms.py:262
+msgid "Duration (hours)"
+msgstr ""
+
+#: app/admin/forms.py:263
+msgid "Program/Document (PDF, DOCX, Images)"
+msgstr ""
+
+#: app/admin/forms.py:266
+msgid "Save Event"
+msgstr ""
+
+#: app/admin/forms.py:272
+msgid "Event"
+msgstr ""
+
+#: app/admin/forms.py:273 app/profile/forms.py:15
+msgid "Event Date"
+msgstr ""
+
+#: app/admin/forms.py:275
+msgid "Validated Hours"
+msgstr ""
+
+#: app/admin/forms.py:277 app/dashboard/routes.py:140
+msgid "Status"
+msgstr ""
+
+#: app/admin/forms.py:280
+msgid "Validate"
+msgstr ""
+
+#: app/admin/forms.py:285
+msgid "Validate Selection"
+msgstr ""
+
+#: app/admin/routes.py:71
+msgid "Manage Continuous Training Events"
+msgstr ""
+
+#: app/admin/routes.py:152
+msgid "Continuous training event added successfully!"
+msgstr ""
+
+#: app/admin/routes.py:155
+msgid "Add Continuous Training Event"
+msgstr ""
+
+#: app/admin/routes.py:168
+msgid "Duration in hours is mandatory to validate the event."
+msgstr ""
+
+#: app/admin/routes.py:170 app/admin/routes.py:212
+msgid "Edit Continuous Training Event"
+msgstr ""
+
+#: app/admin/routes.py:175
+msgid "Continuous training event validated successfully!"
+msgstr ""
+
+#: app/admin/routes.py:177
+msgid "Continuous training event updated successfully!"
+msgstr ""
+
+#: app/admin/routes.py:223 app/admin/routes.py:224
+msgid "Continuous training event deleted successfully!"
+msgstr ""
+
+#: app/admin/routes.py:234
+msgid "Manage Initial Regulatory Trainings"
+msgstr ""
+
+#: app/admin/routes.py:263
+msgid "Initial regulatory training added successfully!"
+msgstr ""
+
+#: app/admin/routes.py:266
+msgid "Add Initial Regulatory Training"
+msgstr ""
+
+#: app/admin/routes.py:297
+msgid "Initial regulatory training updated successfully!"
+msgstr ""
+
+#: app/admin/routes.py:305
+msgid "Edit Initial Regulatory Training"
+msgstr ""
+
+#: app/admin/routes.py:315
+msgid "Initial regulatory training deleted successfully!"
+msgstr ""
+
+#: app/admin/routes.py:358
+msgid "Validate Continuous Trainings"
+msgstr ""
+
+#: app/admin/routes.py:376
+msgid "Continuous trainings validated successfully!"
+msgstr ""
+
+#: app/admin/routes.py:378
+msgid "Error validating continuous trainings."
+msgstr ""
+
+#: app/admin/routes.py:402
+msgid "Invalid validated hours. Must be a positive number."
+msgstr ""
+
+#: app/admin/routes.py:442
+msgid "Continuous training validated successfully!"
+msgstr ""
+
+#: app/admin/routes.py:447
+#, python-format
+msgid "Database error during validation: %(error)s"
+msgstr ""
+
+#: app/admin/routes.py:489
+msgid "Continuous training rejected successfully!"
+msgstr ""
+
+#: app/dashboard/routes.py:42
+#, python-format
+msgid "Skills Booklet of %(user_name)s - %(generation_date)s"
+msgstr ""
+
+#: app/dashboard/routes.py:61
+msgid "SKILLS BOOKLET"
+msgstr ""
+
+#: app/dashboard/routes.py:66
+msgid "User Information"
+msgstr ""
+
+#: app/dashboard/routes.py:72
+msgid "Full Name"
+msgstr ""
+
+#: app/dashboard/routes.py:78
+msgid "Initial Training: Diplomas"
+msgstr ""
+
+#: app/dashboard/routes.py:82
+msgid "Diploma"
+msgstr ""
+
+#: app/dashboard/routes.py:82 app/dashboard/routes.py:101
+msgid "Establishment"
+msgstr ""
+
+#: app/dashboard/routes.py:82
+msgid "Country"
+msgstr ""
+
+#: app/dashboard/routes.py:82
+msgid "Date of Success"
+msgstr ""
+
+#: app/dashboard/routes.py:82
+msgid "Level of Study"
+msgstr ""
+
+#: app/dashboard/routes.py:82
+msgid "Remarks"
+msgstr ""
+
+#: app/dashboard/routes.py:97
+msgid "Specific training in animal experimentation"
+msgstr ""
+
+#: app/dashboard/routes.py:101
+msgid "Level"
+msgstr ""
+
+#: app/dashboard/routes.py:101
+msgid "Module"
+msgstr ""
+
+#: app/dashboard/routes.py:101 app/dashboard/routes.py:140
+#: app/templates/base.html:41
+msgid "Species"
+msgstr ""
+
+#: app/dashboard/routes.py:101
+msgid "Approval No."
+msgstr ""
+
+#: app/dashboard/routes.py:101
+msgid "Trainer"
+msgstr ""
+
+#: app/dashboard/routes.py:101 app/dashboard/routes.py:122
+#: app/dashboard/routes.py:140
+msgid "Date"
+msgstr ""
+
+#: app/dashboard/routes.py:101
+msgid "days"
+msgstr ""
+
+#: app/dashboard/routes.py:118
+msgid "Continuous Training"
+msgstr ""
+
+#: app/dashboard/routes.py:122
+msgid "Training Name"
+msgstr ""
+
+#: app/dashboard/routes.py:122
+msgid "Thematic"
+msgstr ""
+
+#: app/dashboard/routes.py:122
+msgid "Type"
+msgstr ""
+
+#: app/dashboard/routes.py:122 app/profile/forms.py:13
+msgid "Location"
+msgstr ""
+
+#: app/dashboard/routes.py:122
+msgid "Duration (d)"
+msgstr ""
+
+#: app/dashboard/routes.py:136
+msgid "Technical Skills"
+msgstr ""
+
+#: app/dashboard/routes.py:140
+msgid "Skill Type"
+msgstr ""
+
+#: app/dashboard/routes.py:140
+msgid "Skill"
+msgstr ""
+
+#: app/dashboard/routes.py:140
+msgid "Tutor"
+msgstr ""
+
+#: app/dashboard/routes.py:557 app/dashboard/routes.py:559
+msgid "Your continuous training event request has been submitted for validation!"
+msgstr ""
+
+#: app/dashboard/routes.py:564 app/dashboard/routes.py:638
+#: app/dashboard/routes.py:958 app/dashboard/routes.py:1018
+#: app/dashboard/routes.py:1391 app/dashboard/routes.py:1508
+msgid "Please correct the form errors."
+msgstr ""
+
+#: app/dashboard/routes.py:569
+msgid "Request a Continuous Training Event"
+msgstr ""
+
+#: app/dashboard/routes.py:618 app/dashboard/routes.py:620
+msgid "The selected continuous training event cannot be found."
+msgstr ""
+
+#: app/dashboard/routes.py:631 app/dashboard/routes.py:633
+msgid ""
+"Your participation in the continuous training has been submitted for "
+"validation!"
+msgstr ""
+
+#: app/dashboard/routes.py:643
+msgid "Submit a Continuous Training Attendance"
+msgstr ""
+
+#: app/dashboard/routes.py:753
+msgid "Your initial regulatory trainings have been successfully saved/updated!"
+msgstr ""
+
+#: app/dashboard/routes.py:778
+msgid "New API key generated successfully!"
+msgstr ""
+
+#: app/dashboard/routes.py:952 app/dashboard/routes.py:953
+msgid "Your skill proposal has been submitted to the administrators."
+msgstr ""
+
+#: app/dashboard/routes.py:963
+msgid "Propose a Skill"
+msgstr ""
+
+#: app/dashboard/routes.py:1012
+msgid "Your external training has been submitted for validation."
+msgstr ""
+
+#: app/dashboard/routes.py:1083
+msgid "Practices and levels updated successfully!"
+msgstr ""
+
+#: app/dashboard/routes.py:1087
+#, python-format
+msgid "Error while updating practices: %(error)s"
+msgstr ""
+
+#: app/dashboard/routes.py:1384 app/dashboard/routes.py:1386
+msgid "Training request updated successfully!"
+msgstr ""
+
+#: app/dashboard/routes.py:1396
+msgid "Edit Training Request"
+msgstr ""
+
+#: app/dashboard/routes.py:1414
+msgid "External training deleted successfully!"
+msgstr ""
+
+#: app/dashboard/routes.py:1498 app/dashboard/routes.py:1500
+msgid "External training updated successfully!"
+msgstr ""
+
+#: app/dashboard/routes.py:1517
+msgid "Edit External Training"
+msgstr ""
+
+#: app/profile/forms.py:16
+msgid "Program (PDF, DOCX, Images)"
+msgstr ""
+
+#: app/profile/forms.py:17
+msgid "Additional Notes"
+msgstr ""
+
+#: app/profile/forms.py:18
+msgid "Submit Event Request"
+msgstr ""
+
+#: app/profile/forms.py:45
+msgid "Initial Training Type"
+msgstr ""
+
+#: app/profile/forms.py:49 app/templates/base.html:117
+msgid "Submit"
+msgstr ""
+
+#: app/profile/forms.py:56
+msgid "Continuous Training Event"
+msgstr ""
+
+#: app/profile/forms.py:57
+msgid "Attendance Certificate (PDF, DOCX, Images)"
+msgstr ""
+
+#: app/profile/forms.py:58
+msgid "Declare my Presence"
+msgstr ""
+
+#: app/profile/forms.py:120
+msgid "Skill Name"
+msgstr ""
+
+#: app/profile/forms.py:121
+msgid "Description (optional)"
+msgstr ""
+
+#: app/profile/forms.py:122
+msgid "Propose Skill"
+msgstr ""
+
+#: app/team/routes.py:19
+msgid "You are not currently leading any teams."
+msgstr ""
+
+#: app/templates/base.html:8 app/templates/base.html:10
+#: app/templates/base.html:20
+msgid "Training Manager"
+msgstr ""
+
+#: app/templates/base.html:28
+msgid "Mon Espace Personnel"
+msgstr ""
+
+#: app/templates/base.html:31
+msgid "Skills"
+msgstr ""
+
+#: app/templates/base.html:37
+msgid "Admin"
+msgstr ""
+
+#: app/templates/base.html:40
+msgid "Dashboard"
+msgstr ""
+
+#: app/templates/base.html:42
+msgid "Training Paths"
+msgstr ""
+
+#: app/templates/base.html:43
+msgid "Training Sessions"
+msgstr ""
+
+#: app/templates/base.html:44
+msgid "Roles"
+msgstr ""
+
+#: app/templates/base.html:45
+msgid "Permissions"
+msgstr ""
+
+#: app/templates/base.html:51
+msgid "Team"
+msgstr ""
+
+#: app/templates/base.html:59
+msgid "Language"
+msgstr ""
+
+#: app/templates/base.html:69
+msgid "Login"
+msgstr ""
+
+#: app/templates/base.html:78 app/templates/base.html:191
+msgid "No new notifications"
+msgstr ""
+
+#: app/templates/base.html:82
+msgid "Edit Profile"
+msgstr ""
+
+#: app/templates/base.html:85
+msgid "Logout"
+msgstr ""
+
+#: app/templates/base.html:116
+msgid "Close"
+msgstr ""
+
+#: app/templates/base.html:197
+msgid "Error loading notifications"
+msgstr ""
+
+#: app/training/forms.py:35
+msgid "End time must be after start time."
+msgstr ""
 

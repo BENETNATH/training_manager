@@ -1,27 +1,27 @@
 {% extends "base.html" %} 
 
 {% block content %}
-    <h1>{{ title }}</h1>
+    <h1>{{ _(title) }}</h1>
 
     {% if teams_competency_data %}
         {% for team_id, data in teams_competency_data.items() %}
             <div class="card shadow mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h3>Team: {{ data.team.name }}</h3>
+                    <h3>{{ _('Team: %(team_name)s', team_name=data.team.name) }}</h3>
                 </div>
                                     <div class="card-body">
-                                    <h4 class="mb-3">Continuous Training Summaries</h4>
+                                    <h4 class="mb-3">{{ _('Continuous Training Summaries') }}</h4>
                                     <div class="table-responsive mb-4">
                                         <table class="table table-bordered" id="team-ct-summary-table-{{ team_id }}" width="100%" cellspacing="0">
                                             <thead>
                                                 <tr>
-                                                    <th>Member</th>
-                                                    <th>CT Total Hrs (6Y)</th>
-                                                    <th>CT Req. Hrs</th>
-                                                    <th>CT Compliant</th>
-                                                    <th>CT Live Ratio</th>
-                                                    <th>CT Live Ratio Compliant</th>
-                                                    <th>CT At Risk Next Year</th>
+                                                    <th>{{ _('Member') }}</th>
+                                                    <th>{{ _('CT Total Hrs (6Y)') }}</th>
+                                                    <th>{{ _('CT Req. Hrs') }}</th>
+                                                    <th>{{ _('CT Compliant') }}</th>
+                                                    <th>{{ _('CT Live Ratio') }}</th>
+                                                    <th>{{ _('CT Live Ratio Compliant') }}</th>
+                                                    <th>{{ _('CT At Risk Next Year') }}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -33,24 +33,24 @@
                                                         <td>{{ "%.2f"|format(ct_summary.required_hours) }}</td>
                                                         <td>
                                                             {% if ct_summary.is_compliant %}
-                                                                <span class="badge bg-success">Yes</span>
+                                                                <span class="badge bg-success">{{ _('Yes') }}</span>
                                                             {% else %}
-                                                                <span class="badge bg-danger">No</span>
+                                                                <span class="badge bg-danger">{{ _('No') }}</span>
                                                             {% endif %}
                                                         </td>
                                                         <td>{{ "%.2f%%"|format(ct_summary.live_ratio * 100) }}</td>
                                                         <td>
                                                             {% if ct_summary.is_live_ratio_compliant %}
-                                                                <span class="badge bg-success">Yes</span>
+                                                                <span class="badge bg-success">{{ _('Yes') }}</span>
                                                             {% else %}
-                                                                <span class="badge bg-danger">No</span>
+                                                                <span class="badge bg-danger">{{ _('No') }}</span>
                                                             {% endif %}
                                                         </td>
                                                         <td>
                                                             {% if ct_summary.is_at_risk_next_year %}
-                                                                <span class="badge bg-warning">Yes</span>
+                                                                <span class="badge bg-warning">{{ _('Yes') }}</span>
                                                             {% else %}
-                                                                <span class="badge bg-info">No</span>
+                                                                <span class="badge bg-info">{{ _('No') }}</span>
                                                             {% endif %}
                                                         </td>
                                                     </tr>
@@ -59,11 +59,11 @@
                                         </table>
                                     </div>
                 
-                                    <h4 class="mb-3">Skill Competency Matrix</h4>
+                                    <h4 class="mb-3">{{ _('Skill Competency Matrix') }}</h4>
                                     <div class="table-responsive">                        <table class="table table-bordered" id="team-competencies-table-{{ team_id }}" width="100%" cellspacing="0">
                             <thead>
                                 <tr>
-                                    <th>Skill</th>
+                                    <th>{{ _('Skill') }}</th>
                                     {% for member in data.members %}
                                         <th>{{ member.full_name }}</th>
                                     {% endfor %}
@@ -77,15 +77,15 @@
                                             {% set comp_info = data.skill_competency_matrix[skill.id].member_competencies[member.id] %}
                                             <td>
                                                 {% if comp_info.competency %}
-                                                    Level: {{ comp_info.competency.level }}<br>
-                                                    Last Practice: {{ comp_info.latest_practice_date.strftime('%Y-%m-%d') if comp_info.latest_practice_date else 'N/A' }}<br>
+                                                    {{ _('Level: %(level)s', level=comp_info.competency.level) }}<br>
+                                                    {{ _('Last Practice: %(date)s', date=(comp_info.latest_practice_date.strftime('%Y-%m-%d') if comp_info.latest_practice_date else _('N/A'))) }}<br>
                                                     {% if comp_info.needs_recycling %}
-                                                        <span class="badge bg-danger">Expired on: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                        <span class="badge bg-danger">{{ _('Expired on: %(date)s', date=comp_info.recycling_due_date.strftime('%Y-%m-%d')) }}</span>
                                                     {% elif comp_info.recycling_due_date %}
-                                                        <span class="badge bg-warning">Expiration: {{ comp_info.recycling_due_date.strftime('%Y-%m-%d') }}</span>
+                                                        <span class="badge bg-warning">{{ _('Expiration: %(date)s', date=comp_info.recycling_due_date.strftime('%Y-%m-%d')) }}</span>
                                                     {% endif %}
                                                 {% else %}
-                                                    N/A
+                                                    {{ _('N/A') }}
                                                 {% endif %}
                                             </td>
                                         {% endfor %}
@@ -98,7 +98,7 @@
             </div>
         {% endfor %}
     {% else %}
-        <p>You are not currently leading any teams or there are no members in your led teams.</p>
+        <p>{{ _('You are not currently leading any teams or there are no members in your led teams.') }}</p>
     {% endif %}
 {% endblock %}
 

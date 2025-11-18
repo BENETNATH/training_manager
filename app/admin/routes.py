@@ -20,6 +20,7 @@ from openpyxl.comments import Comment
 from openpyxl.worksheet.datavalidation import DataValidation
 from sqlalchemy import func, case, distinct
 from werkzeug.utils import secure_filename
+from flask_babel import lazy_gettext as _
 
 # First-party imports
 from app import db
@@ -67,7 +68,7 @@ def manage_continuous_training_events():
     statuses = [s.name for s in ContinuousTrainingEventStatus]
     
     return render_template('admin/manage_continuous_training_events.html',
-                           title='Gérer les Événements de Formation Continue',
+                           title=_('Manage Continuous Training Events'),
                            events=events_with_attendee_count, # Pass events with attendee count
                            statuses=statuses,
                            current_status=status_filter)
@@ -148,10 +149,10 @@ def add_continuous_training_event():
         )
         db.session.add(event)
         db.session.commit()
-        flash('Événement de formation continue ajouté avec succès !', 'success')
+        flash(_('Continuous training event added successfully!'), 'success')
         return redirect(url_for('admin.manage_continuous_training_events'))
     return render_template('admin/continuous_training_event_form.html',
-                           title='Ajouter un Événement de Formation Continue', form=form)
+                           title=_('Add Continuous Training Event'), form=form)
 
 @bp.route('/continuous_training_events/edit/<int:event_id>', methods=['GET', 'POST'])
 @login_required
@@ -164,16 +165,16 @@ def edit_continuous_training_event(event_id):
         # Handle "Validate Event" button submission
         if request.form.get('validate_event') == 'true':
             if not form.duration_hours.data:
-                flash('La durée en heures est obligatoire pour valider l\'événement.', 'danger')
+                flash(_('Duration in hours is mandatory to validate the event.'), 'danger')
                 return render_template('admin/continuous_training_event_form.html',
-                                       title='Éditer un Événement de Formation Continue',
+                                       title=_('Edit Continuous Training Event'),
                                        form=form, event=event)
             
             event.status = ContinuousTrainingEventStatus.APPROVED
             event.validator = current_user
-            flash('Événement de formation continue validé avec succès !', 'success')
+            flash(_('Continuous training event validated successfully!'), 'success')
         else: # Regular "Save Event" submission
-            flash('Événement de formation continue mis à jour avec succès !', 'success')
+            flash(_('Continuous training event updated successfully!'), 'success')
 
         event.title = form.title.data
         event.description = form.description.data
@@ -208,7 +209,7 @@ def edit_continuous_training_event(event_id):
         form.duration_hours.data = event.duration_hours
 
     return render_template('admin/continuous_training_event_form.html',
-                           title='Éditer un Événement de Formation Continue',
+                           title=_('Edit Continuous Training Event'),
                            form=form, event=event)
 @bp.route('/continuous_training_events/delete/<int:event_id>', methods=['POST'])
 @login_required
@@ -219,8 +220,8 @@ def delete_continuous_training_event(event_id):
     db.session.delete(event)
     db.session.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'success': True, 'message': 'Événement de formation continue supprimé avec succès !'})
-    flash('Événement de formation continue supprimé avec succès !', 'success')
+        return jsonify({'success': True, 'message': _('Continuous training event deleted successfully!')})
+    flash(_('Continuous training event deleted successfully!'), 'success')
     return redirect(url_for('admin.manage_continuous_training_events'))
 
 @bp.route('/initial_regulatory_trainings')
@@ -230,7 +231,7 @@ def manage_initial_regulatory_trainings():
     """Manages initial regulatory training records."""
     initial_trainings = InitialRegulatoryTraining.query.order_by(InitialRegulatoryTraining.training_date.desc()).all()
     return render_template('admin/manage_initial_regulatory_trainings.html',
-                           title='Gérer les Formations Réglementaires Initiales',
+                           title=_('Manage Initial Regulatory Trainings'),
                            initial_trainings=initial_trainings)
 
 @bp.route('/initial_regulatory_trainings/add', methods=['GET', 'POST'])
@@ -259,10 +260,10 @@ def add_initial_regulatory_training():
         )
         db.session.add(initial_training)
         db.session.commit()
-        flash('Formation réglementaire initiale ajoutée avec succès !', 'success')
+        flash(_('Initial regulatory training added successfully!'), 'success')
         return redirect(url_for('admin.manage_initial_regulatory_trainings'))
     return render_template('admin/initial_regulatory_training_form.html',
-                           title='Ajouter une Formation Réglementaire Initiale', form=form)
+                           title=_('Add Initial Regulatory Training'), form=form)
 
 @bp.route('/initial_regulatory_trainings/edit/<int:training_id>', methods=['GET', 'POST'])
 @login_required
@@ -293,7 +294,7 @@ def edit_initial_regulatory_training(training_id):
             initial_training.attachment_path = f"uploads/initial_regulatory_training/{filename}"
         
         db.session.commit()
-        flash('Formation réglementaire initiale mise à jour avec succès !', 'success')
+        flash(_('Initial regulatory training updated successfully!'), 'success')
         return redirect(url_for('admin.manage_initial_regulatory_trainings'))
     elif request.method == 'GET':
         form.user.data = initial_training.user
@@ -301,7 +302,7 @@ def edit_initial_regulatory_training(training_id):
         form.training_date.data = initial_training.training_date
 
     return render_template('admin/initial_regulatory_training_form.html',
-                           title='Éditer une Formation Réglementaire Initiale',
+                           title=_('Edit Initial Regulatory Training'),
                            form=form, initial_training=initial_training)
 @bp.route('/initial_regulatory_trainings/delete/<int:training_id>', methods=['POST'])
 @login_required
@@ -311,7 +312,7 @@ def delete_initial_regulatory_training(training_id):
     initial_training = InitialRegulatoryTraining.query.get_or_404(training_id)
     db.session.delete(initial_training)
     db.session.commit()
-    flash('Formation réglementaire initiale supprimée avec succès !', 'success')
+    flash(_('Initial regulatory training deleted successfully!'), 'success')
     return redirect(url_for('admin.manage_initial_regulatory_trainings'))
 
 @bp.route('/api/initial_regulatory_training/<int:training_id>')
@@ -354,7 +355,7 @@ def validate_continuous_trainings():
         form.entries.append_entry(entry_form)
 
     return render_template('admin/validate_continuous_trainings.html',
-                           title='Valider Formations Continues',
+                           title=_('Validate Continuous Trainings'),
                            form=form, pending_user_cts=pending_user_cts)
 @bp.route('/validate_continuous_trainings/batch', methods=['POST'])
 @login_required
@@ -372,9 +373,9 @@ def batch_validate_continuous_trainings():
                 user_ct.validation_date = datetime.now(timezone.utc)
                 db.session.add(user_ct)
         db.session.commit()
-        flash('Formations continues validées avec succès !', 'success')
+        flash(_('Continuous trainings validated successfully!'), 'success')
         return redirect(url_for('admin.validate_continuous_trainings'))
-    flash('Erreur lors de la validation des formations continues.', 'danger')
+    flash(_('Error validating continuous trainings.'), 'danger')
     return redirect(url_for('admin.validate_continuous_trainings'))
 
 @bp.route('/validate_continuous_trainings/single/<int:user_ct_id>', methods=['POST'])
@@ -398,7 +399,7 @@ def single_validate_continuous_training(user_ct_id):
             raise ValueError("Validated hours cannot be negative.")
     except (ValueError, TypeError):
         return jsonify({'success': False,
-                        'message': 'Heures validées invalides. Doit être un nombre positif.'}), 400
+                        'message': _('Invalid validated hours. Must be a positive number.')}), 400
     
     try:
         status = UserContinuousTrainingStatus[status_str]
@@ -438,12 +439,12 @@ def single_validate_continuous_training(user_ct_id):
             current_app.logger.info(f"Email sent to {user_ct.user.full_name} for approved CT attendance {user_ct.event.title}")
 
         current_app.logger.debug(f"UserContinuousTraining {user_ct_id} validated successfully.")
-        return jsonify({'success': True, 'message': 'Formation continue validée avec succès !'})
+        return jsonify({'success': True, 'message': _('Continuous training validated successfully!')})
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Database error during single validation for user_ct_id {user_ct_id}: {e}")
         return jsonify({'success': False,
-                        'message': f'Erreur de base de données lors de la validation: {str(e)}'}), 500
+                        'message': _('Database error during validation: %(error)s', error=str(e))}), 500
 @bp.route('/validate_continuous_trainings/reject/<int:user_ct_id>', methods=['POST'])
 @login_required
 @permission_required('continuous_training_validate')
@@ -485,7 +486,7 @@ def reject_continuous_training(user_ct_id):
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'success': True, 'message': 'Continuous training rejected successfully!'})
-    flash('Formation continue rejetée avec succès !', 'info')
+    flash(_('Continuous training rejected successfully!'), 'info')
     return redirect(url_for('admin.validate_continuous_trainings'))
 
 @bp.route('/')

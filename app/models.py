@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer as Serializer
+from flask_babel import lazy_gettext as _
 
 from app import db, login
 
@@ -141,7 +142,7 @@ class Complexity(enum.Enum):
     Enum for skill complexity levels.
     """
     SIMPLE = 'Simple'
-    MODERATE = 'Modéré'
+    MODERATE = _('Moderate')
     COMPLEX = 'Complexe'
 
 class TrainingRequestStatus(enum.Enum):

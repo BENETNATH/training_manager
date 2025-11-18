@@ -3,15 +3,15 @@
 
 {% block content %}
     <div class="container">
-        <h1 class="mt-4">{{ title }}</h1>
+        <h1 class="mt-4">{{ _(title) }}</h1>
         <p>
-            <a href="{{ url_for('admin.add_continuous_training_event') }}" class="btn btn-primary">Ajouter un Événement de Formation Continue</a>
+            <a href="{{ url_for('admin.add_continuous_training_event') }}" class="btn btn-primary">{{ _('Add Continuous Training Event') }}</a>
         </p>
 
         <div class="row mb-1">
             <div class="col-md-3">
                 <select id="status-filter" class="form-select">
-                    <option value="">All Statuses</option>
+                    <option value="">{{ _('All Statuses') }}</option>
                     {% for status in statuses %}
                     <option value="{{ status }}" {% if status == current_status %}selected{% endif %}>{{ status }}</option>
                     {% endfor %}
@@ -25,16 +25,16 @@
                 <table class="table table-striped table-hover" id="events-table">
                     <thead>
                         <tr>
-                            <th>Titre</th>
-                            <th>Type</th>
-                            <th>Lieu</th>
-                            <th>Date</th>
-                            <th>Durée (heures)</th>
-                            <th>Créateur</th>
-                            <th>Statut</th>
-                            <th>Attachement</th>
-                            <th>Participants Approuvés</th>
-                            <th>Actions</th>
+                            <th>{{ _('Title') }}</th>
+                            <th>{{ _('Type') }}</th>
+                            <th>{{ _('Location') }}</th>
+                            <th>{{ _('Date') }}</th>
+                            <th>{{ _('Duration (hours)') }}</th>
+                            <th>{{ _('Creator') }}</th>
+                            <th>{{ _('Status') }}</th>
+                            <th>{{ _('Attachment') }}</th>
+                            <th>{{ _('Approved Participants') }}</th>
+                            <th>{{ _('Actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -48,11 +48,11 @@
                                 <td>{{ event.creator.full_name }}</td>
                                 <td>
                                     {% if event.status.name == 'PENDING' %}
-                                        <span class="badge bg-warning">En Attente</span>
+                                        <span class="badge bg-warning">{{ _('Pending') }}</span>
                                     {% elif event.status.name == 'APPROVED' %}
-                                        <span class="badge bg-success">Approuvé</span>
+                                        <span class="badge bg-success">{{ _('Approved') }}</span>
                                     {% elif event.status.name == 'REJECTED' %}
-                                        <span class="badge bg-danger">Rejeté</span>
+                                        <span class="badge bg-danger">{{ _('Rejected') }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -68,10 +68,10 @@
                                 <td>
                                     <div class="btn-group" role="group">
                                         {% if event.status.name == 'PENDING' %}
-                                        <button type="button" class="btn btn-sm btn-success quick-validate-btn" data-id="{{ event.id }}" title="Valider rapidement"><i class="fas fa-check"></i></button>
+                                        <button type="button" class="btn btn-sm btn-success quick-validate-btn" data-id="{{ event.id }}" title="{{ _('Quick Validate') }}"><i class="fas fa-check"></i></button>
                                         {% endif %}
-                                        <a href="{{ url_for('admin.edit_continuous_training_event', event_id=event.id) }}" class="btn btn-sm btn-warning" title="Éditer"><i class="fa fa-edit"></i></a>
-                                        <button type="button" class="btn btn-sm btn-danger delete-ct-event-btn" data-id="{{ event.id }}" title="Supprimer"><i class="fa fa-trash"></i></button>
+                                        <a href="{{ url_for('admin.edit_continuous_training_event', event_id=event.id) }}" class="btn btn-sm btn-warning" title="{{ _('Edit') }}"><i class="fa fa-edit"></i></a>
+                                        <button type="button" class="btn btn-sm btn-danger delete-ct-event-btn" data-id="{{ event.id }}" title="{{ _('Delete') }}"><i class="fa fa-trash"></i></button>
                                     </div>
                                 </td>
                             </tr>
@@ -80,7 +80,7 @@
                 </table>
             </div>
         {% else %}
-            <p>Aucun événement de formation continue enregistré.</p>
+            <p>{{ _('No continuous training events recorded.') }}</p>
         {% endif %}
     </div>
 
@@ -89,17 +89,17 @@
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirmer la Suppression</h5>
+                    <h5 class="modal-title" id="deleteConfirmationModalLabel">{{ _('Confirm Deletion') }}</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
                 <div class="modal-body">
-                    Êtes-vous sûr de vouloir supprimer cet événement de formation continue ? Cette action est irréversible.
+                    {{ _('Are you sure you want to delete this continuous training event? This action is irreversible.') }}
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Annuler</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Supprimer</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">{{ _('Cancel') }}</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">{{ _('Delete') }}</button>
                 </div>
             </div>
         </div>
@@ -110,7 +110,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="attendeesModalLabel">Approved Attendees for Event: <span id="event-title-in-modal"></span></h5>
+                    <h5 class="modal-title" id="attendeesModalLabel">{{ _('Approved Attendees for Event:') }} <span id="event-title-in-modal"></span></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -119,7 +119,7 @@
                     </ul>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close') }}</button>
                 </div>
             </div>
         </div>
@@ -169,12 +169,12 @@
                         if (data.success) {
                             location.reload();
                         } else {
-                            alert('Erreur lors de la suppression: ' + data.message);
+                            alert('{{ _('Error during deletion: ') }}' + data.message);
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Une erreur est survenue lors de la suppression.');
+                        alert('{{ _('An error occurred during deletion.') }}');
                     })
                     .finally(() => {
                         $('#deleteConfirmationModal').modal('hide');
@@ -205,12 +205,12 @@
                                 `);
                             });
                         } else {
-                            $('#attendees-list').append('<li class="list-group-item">No approved attendees for this event.</li>');
+                            $('#attendees-list').append('<li class="list-group-item">{{ _('No approved attendees for this event.') }}</li>');
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching attendees:', error);
-                        $('#attendees-list').append('<li class="list-group-item text-danger">Error loading attendees.</li>');
+                        $('#attendees-list').append('<li class="list-group-item text-danger">{{ _('Error loading attendees.') }}</li>');
                     });
             });
 
@@ -220,7 +220,7 @@
                 const userId = $(this).data('user-id');
                 const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-                if (confirm('Are you sure you want to remove this attendee from the event?')) {
+                if (confirm('{{ _('Are you sure you want to remove this attendee from the event?') }}')) {
                     fetch(`/admin/continuous_training_events/${eventId}/remove_attendee/${userId}`, {
                         method: 'POST',
                         headers: {
@@ -237,12 +237,12 @@
                             // Trigger the attendees-count-link click again to refresh the list
                             $(`a.attendees-count-link[data-event-id="${eventId}"]`).trigger('click');
                         } else {
-                            alert('Error removing attendee: ' + data.message);
+                            alert('{{ _('Error removing attendee: ') }}' + data.message);
                         }
                     })
                     .catch(error => {
                         console.error('Error removing attendee:', error);
-                        alert('An error occurred while removing the attendee.');
+                        alert('{{ _('An error occurred while removing the attendee.') }}');
                     });
                 }
             });
@@ -274,7 +274,7 @@
                 })
                 .catch(error => {
                     console.error('Error during quick validation:', error);
-                    alert('Une erreur est survenue lors de la validation rapide.');
+                    alert('{{ _('An error occurred during quick validation.') }}');
                 });
             });
         });

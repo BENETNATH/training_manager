@@ -12,6 +12,7 @@ from wtforms import (
 from wtforms.validators import DataRequired, ValidationError, Email, Length, Optional, NumberRange
 from wtforms_sqlalchemy.fields import QuerySelectField, QuerySelectMultipleField
 from wtforms import FieldList, FormField
+from flask_babel import lazy_gettext as _
 
 # First-party imports
 from app import db
@@ -235,50 +236,50 @@ class PermissionForm(FlaskForm):
 
 class AdminInitialRegulatoryTrainingForm(FlaskForm):
     """Form for administering initial regulatory training records."""
-    user = QuerySelectField('Utilisateur', query_factory=get_users,
+    user = QuerySelectField(_('User'), query_factory=get_users,
                             get_label='full_name', validators=[DataRequired()])
-    level = SelectField('Niveau de Formation Réglementaire Initiale',
+    level = SelectField(_('Initial Regulatory Training Level'),
                         choices=[(level.name, level.value) for level in InitialRegulatoryTrainingLevel],
                         validators=[DataRequired()])
-    training_date = DateTimeLocalField('Date de la Formation', format='%Y-%m-%dT%H:%M',
+    training_date = DateTimeLocalField(_('Training Date'), format='%Y-%m-%dT%H:%M',
                                        validators=[DataRequired()])
-    attachment = FileField('Attestation de Formation (PDF, DOCX, Images)',
+    attachment = FileField(_('Training Certificate (PDF, DOCX, Images)'),
                            validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
                                                    'PDF, DOCX, Images only!')])
-    submit = SubmitField('Enregistrer la Formation Initiale')
+    submit = SubmitField(_('Save Initial Training'))
 
 class ContinuousTrainingEventForm(FlaskForm):
     """Form for creating and editing continuous training events."""
-    title = StringField("Titre de l'événement",
+    title = StringField(_("Event Title"),
                         validators=[DataRequired(), Length(min=2, max=128)])
-    description = TextAreaField('Description', validators=[Optional()])
-    training_type = SelectField('Type de Formation',
+    description = TextAreaField(_('Description'), validators=[Optional()])
+    training_type = SelectField(_('Training Type'),
                                 choices=[(t.name, t.value) for t in ContinuousTrainingType],
                                 validators=[DataRequired()])
-    location = StringField("Lieu (si présentiel)", validators=[Optional(), Length(max=128)])
-    event_date = DateTimeLocalField("Date et Heure de l'événement",
+    location = StringField(_("Location (if presential)"), validators=[Optional(), Length(max=128)])
+    event_date = DateTimeLocalField(_("Event Date and Time"),
                                     format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    duration_hours = FloatField('Durée (heures)', validators=[DataRequired(), NumberRange(min=0)])
-    attachment = FileField('Programme/Document (PDF, DOCX, Images)',
+    duration_hours = FloatField(_('Duration (hours)'), validators=[DataRequired(), NumberRange(min=0)])
+    attachment = FileField(_('Program/Document (PDF, DOCX, Images)'),
                            validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
                                                    'PDF, DOCX, Images only!'), Optional()])
-    submit = SubmitField("Enregistrer l'événement")
+    submit = SubmitField(_("Save Event"))
 
 class ValidateUserContinuousTrainingEntryForm(FlaskForm):
     """Subform for validating a single user's continuous training entry."""
     user_ct_id = HiddenField()
-    user_full_name = StringField('Utilisateur', render_kw={'readonly': True})
-    event_title = StringField('Événement', render_kw={'readonly': True})
-    event_date = StringField("Date de l'événement", render_kw={'readonly': True})
+    user_full_name = StringField(_('User'), render_kw={'readonly': True})
+    event_title = StringField(_('Event'), render_kw={'readonly': True})
+    event_date = StringField(_("Event Date"), render_kw={'readonly': True})
     attendance_attachment_path = HiddenField()
-    validated_hours = FloatField('Heures Validées',
+    validated_hours = FloatField(_('Validated Hours'),
                                  validators=[DataRequired(), NumberRange(min=0)])
-    status = SelectField('Statut',
+    status = SelectField(_('Status'),
                          choices=[(s.name, s.value) for s in UserContinuousTrainingStatus],
                          validators=[DataRequired()])
-    submit = SubmitField('Valider')
+    submit = SubmitField(_('Validate'))
 
 class BatchValidateUserContinuousTrainingForm(FlaskForm):
     """Form for batch validating continuous training entries."""
     entries = FieldList(FormField(ValidateUserContinuousTrainingEntryForm))
-    submit_batch = SubmitField('Valider la Sélection')
+    submit_batch = SubmitField(_('Validate Selection'))

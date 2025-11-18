@@ -4,17 +4,18 @@ from wtforms.validators import DataRequired, Optional, Length, EqualTo, Email, V
 from wtforms_sqlalchemy.fields import QuerySelectMultipleField, QuerySelectField
 from flask_wtf.file import FileField, FileAllowed
 from app.models import Skill, User, Species, ExternalTrainingSkillClaim, InitialRegulatoryTrainingLevel, ContinuousTrainingEvent, ContinuousTrainingType # Added new models and enums, including ContinuousTrainingType
+from flask_babel import lazy_gettext as _
 
 # ... existing form definitions ...
 
 class RequestContinuousTrainingEventForm(FlaskForm):
-    title = StringField('Titre de l\'événement', validators=[DataRequired(), Length(min=2, max=255)])
-    location = StringField('Lieu', validators=[Optional(), Length(max=255)])
-    training_type = SelectField('Type de Formation', choices=[(tag.name, tag.value) for tag in ContinuousTrainingType], validators=[DataRequired()])
-    event_date = DateTimeLocalField('Date de l\'événement', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    attachment = FileField('Programme (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), Optional()])
-    notes = TextAreaField('Notes additionnelles', validators=[Optional()], render_kw={"rows": 3})
-    submit = SubmitField('Soumettre la Demande d\'Événement')
+    title = StringField(_('Event Title'), validators=[DataRequired(), Length(min=2, max=255)])
+    location = StringField(_('Location'), validators=[Optional(), Length(max=255)])
+    training_type = SelectField(_('Training Type'), choices=[(tag.name, tag.value) for tag in ContinuousTrainingType], validators=[DataRequired()])
+    event_date = DateTimeLocalField(_('Event Date'), format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    attachment = FileField(_('Program (PDF, DOCX, Images)'), validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), Optional()])
+    notes = TextAreaField(_('Additional Notes'), validators=[Optional()], render_kw={"rows": 3})
+    submit = SubmitField(_('Submit Event Request'))
 
 def get_skills():
     return Skill.query.order_by(Skill.name).all()
@@ -41,20 +42,20 @@ class TrainingRequestForm(FlaskForm):
     submit = SubmitField('Submit Training Request')
 
 class SingleInitialRegulatoryTrainingForm(FlaskForm):
-    training_type = StringField('Type de Formation Initiale', validators=[DataRequired(), Length(min=2, max=128)])
-    level = SelectField('Niveau de Formation Réglementaire Initiale', choices=[(level.name, level.value) for level in InitialRegulatoryTrainingLevel], validators=[DataRequired()])
-    training_date = DateTimeLocalField('Date de la Formation', format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
-    attachment = FileField('Attestation de Formation (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), DataRequired()])
-    submit = SubmitField('Soumettre')
+    training_type = StringField(_('Initial Training Type'), validators=[DataRequired(), Length(min=2, max=128)])
+    level = SelectField(_('Initial Regulatory Training Level'), choices=[(level.name, level.value) for level in InitialRegulatoryTrainingLevel], validators=[DataRequired()])
+    training_date = DateTimeLocalField(_('Training Date'), format='%Y-%m-%dT%H:%M', validators=[DataRequired()])
+    attachment = FileField(_('Training Certificate (PDF, DOCX, Images)'), validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!'), DataRequired()])
+    submit = SubmitField(_('Submit'))
 
 class InitialRegulatoryTrainingsForm(FlaskForm):
     initial_trainings = FieldList(FormField(SingleInitialRegulatoryTrainingForm), min_entries=0, label='Initial Regulatory Trainings')
     submit = SubmitField('Save Initial Trainings')
 
 class SubmitContinuousTrainingAttendanceForm(FlaskForm):
-    event = SelectField('Événement de Formation Continue', validators=[DataRequired()])
-    attendance_attachment = FileField('Attestation de Présence (PDF, DOCX, Images)', validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
-    submit = SubmitField('Déclarer ma Présence')
+    event = SelectField(_('Continuous Training Event'), validators=[DataRequired()])
+    attendance_attachment = FileField(_('Attendance Certificate (PDF, DOCX, Images)'), validators=[FileAllowed(['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], 'PDF, DOCX, Images only!')])
+    submit = SubmitField(_('Declare my Presence'))
 
 class ExternalTrainingSkillClaimForm(FlaskForm):
     skill = QuerySelectField('Skill', query_factory=get_skills, get_label='name', validators=[DataRequired()])
@@ -116,6 +117,6 @@ class EditProfileForm(FlaskForm):
             raise ValidationError('Please enter a new password if you provide your current password.')
 
 class ProposeSkillForm(FlaskForm):
-    name = StringField('Nom de la Compétence', validators=[DataRequired(), Length(min=2, max=128)])
-    description = TextAreaField('Description (optionnel)', validators=[Optional()], render_kw={"rows": 3})
-    submit = SubmitField('Proposer la Compétence')
+    name = StringField(_('Skill Name'), validators=[DataRequired(), Length(min=2, max=128)])
+    description = TextAreaField(_('Description (optional)'), validators=[Optional()], render_kw={"rows": 3})
+    submit = SubmitField(_('Propose Skill'))

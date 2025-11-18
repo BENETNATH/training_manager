@@ -20,229 +20,229 @@ msgstr ""
 
 #: app/models.py:145
 msgid "Moderate"
-msgstr "Modéré"
+msgstr ""
 
 #: app/admin/forms.py:239 app/admin/forms.py:271
 msgid "User"
-msgstr "Utilisateur"
+msgstr ""
 
 #: app/admin/forms.py:241 app/profile/forms.py:46
 msgid "Initial Regulatory Training Level"
-msgstr "Niveau de Formation Réglementaire Initiale"
+msgstr ""
 
 #: app/admin/forms.py:244 app/profile/forms.py:47
 #, fuzzy
 msgid "Training Date"
-msgstr "Date de la Formation"
+msgstr "Parcours de formation"
 
 #: app/admin/forms.py:246 app/profile/forms.py:48
 msgid "Training Certificate (PDF, DOCX, Images)"
-msgstr "Attestation de Formation (PDF, DOCX, Images)"
+msgstr ""
 
 #: app/admin/forms.py:249
 msgid "Save Initial Training"
-msgstr "Enregistrer la Formation Initiale"
+msgstr ""
 
 #: app/admin/forms.py:253 app/profile/forms.py:12
 msgid "Event Title"
-msgstr "Titre de l'événement"
+msgstr ""
 
 #: app/admin/forms.py:255
 msgid "Description"
-msgstr "Description"
+msgstr ""
 
 #: app/admin/forms.py:256 app/dashboard/routes.py:140 app/profile/forms.py:14
 #, fuzzy
 msgid "Training Type"
-msgstr "Type de Formation"
+msgstr "Parcours de formation"
 
 #: app/admin/forms.py:259
 msgid "Location (if presential)"
-msgstr "Lieu (si présentiel)"
+msgstr ""
 
 #: app/admin/forms.py:260
 msgid "Event Date and Time"
-msgstr "Date et Heure de l'événement"
+msgstr ""
 
 #: app/admin/forms.py:262
 msgid "Duration (hours)"
-msgstr "Durée (heures)"
+msgstr ""
 
 #: app/admin/forms.py:263
 msgid "Program/Document (PDF, DOCX, Images)"
-msgstr "Programme/Document (PDF, DOCX, Images)"
+msgstr ""
 
 #: app/admin/forms.py:266
 msgid "Save Event"
-msgstr "Enregistrer l'événement"
+msgstr ""
 
 #: app/admin/forms.py:272
 msgid "Event"
-msgstr "Événement"
+msgstr ""
 
 #: app/admin/forms.py:273 app/profile/forms.py:15
 msgid "Event Date"
-msgstr "Date de l'événement"
+msgstr ""
 
 #: app/admin/forms.py:275
 msgid "Validated Hours"
-msgstr "Heures Validées"
+msgstr ""
 
 #: app/admin/forms.py:277 app/dashboard/routes.py:140
 msgid "Status"
-msgstr "Statut"
+msgstr ""
 
 #: app/admin/forms.py:280
 msgid "Validate"
-msgstr "Valider"
+msgstr ""
 
 #: app/admin/forms.py:285
 msgid "Validate Selection"
-msgstr "Valider la Sélection"
+msgstr ""
 
 #: app/admin/routes.py:71
 msgid "Manage Continuous Training Events"
-msgstr "Gérer les Événements de Formation Continue"
+msgstr ""
 
 #: app/admin/routes.py:152
 msgid "Continuous training event added successfully!"
-msgstr "Événement de formation continue ajouté avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:155
 msgid "Add Continuous Training Event"
-msgstr "Ajouter un Événement de Formation Continue"
+msgstr ""
 
 #: app/admin/routes.py:168
 msgid "Duration in hours is mandatory to validate the event."
-msgstr "La durée en heures est obligatoire pour valider l'événement."
+msgstr ""
 
 #: app/admin/routes.py:170 app/admin/routes.py:212
 msgid "Edit Continuous Training Event"
-msgstr "Éditer un Événement de Formation Continue"
+msgstr ""
 
 #: app/admin/routes.py:175
 msgid "Continuous training event validated successfully!"
-msgstr "Événement de formation continue validé avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:177
 msgid "Continuous training event updated successfully!"
-msgstr "Événement de formation continue mis à jour avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:223 app/admin/routes.py:224
 msgid "Continuous training event deleted successfully!"
-msgstr "Événement de formation continue supprimé avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:234
 msgid "Manage Initial Regulatory Trainings"
-msgstr "Gérer les Formations Réglementaires Initiales"
+msgstr ""
 
 #: app/admin/routes.py:263
 msgid "Initial regulatory training added successfully!"
-msgstr "Formation réglementaire initiale ajoutée avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:266
 msgid "Add Initial Regulatory Training"
-msgstr "Ajouter une Formation Réglementaire Initiale"
+msgstr ""
 
 #: app/admin/routes.py:297
 msgid "Initial regulatory training updated successfully!"
-msgstr "Formation réglementaire initiale mise à jour avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:305
 msgid "Edit Initial Regulatory Training"
-msgstr "Éditer une Formation Réglementaire Initiale"
+msgstr ""
 
 #: app/admin/routes.py:315
 msgid "Initial regulatory training deleted successfully!"
-msgstr "Formation réglementaire initiale supprimée avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:358
 msgid "Validate Continuous Trainings"
-msgstr "Valider les Formations Continues"
+msgstr ""
 
 #: app/admin/routes.py:376
 msgid "Continuous trainings validated successfully!"
-msgstr "Formations continues validées avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:378
 msgid "Error validating continuous trainings."
-msgstr "Erreur lors de la validation des formations continues."
+msgstr ""
 
 #: app/admin/routes.py:402
 msgid "Invalid validated hours. Must be a positive number."
-msgstr "Heures validées invalides. Doit être un nombre positif."
+msgstr ""
 
 #: app/admin/routes.py:442
 msgid "Continuous training validated successfully!"
-msgstr "Formation continue validée avec succès !"
+msgstr ""
 
 #: app/admin/routes.py:447
 #, python-format
 msgid "Database error during validation: %(error)s"
-msgstr "Erreur de base de données lors de la validation: %(error)s"
+msgstr ""
 
 #: app/admin/routes.py:489
 msgid "Continuous training rejected successfully!"
-msgstr "Formation continue rejetée avec succès !"
+msgstr ""
 
 #: app/dashboard/routes.py:42
 #, python-format
 msgid "Skills Booklet of %(user_name)s - %(generation_date)s"
-msgstr "Livret de Compétences de %(user_name)s - %(generation_date)s"
+msgstr ""
 
 #: app/dashboard/routes.py:61
 #, fuzzy
 msgid "SKILLS BOOKLET"
-msgstr "LIVRET DE COMPÉTENCES"
+msgstr "Compétences"
 
 #: app/dashboard/routes.py:66
 msgid "User Information"
-msgstr "Informations utilisateur"
+msgstr ""
 
 #: app/dashboard/routes.py:72
 msgid "Full Name"
-msgstr "Nom Prénom"
+msgstr ""
 
 #: app/dashboard/routes.py:78
 #, fuzzy
 msgid "Initial Training: Diplomas"
-msgstr "Formation Initiale : Diplômes"
+msgstr "Parcours de formation"
 
 #: app/dashboard/routes.py:82
 msgid "Diploma"
-msgstr "Diplôme"
+msgstr ""
 
 #: app/dashboard/routes.py:82 app/dashboard/routes.py:101
 msgid "Establishment"
-msgstr "Etablissement"
+msgstr ""
 
 #: app/dashboard/routes.py:82
 msgid "Country"
-msgstr "Pays"
+msgstr ""
 
 #: app/dashboard/routes.py:82
 msgid "Date of Success"
-msgstr "Date de réussite"
+msgstr ""
 
 #: app/dashboard/routes.py:82
 msgid "Level of Study"
-msgstr "Niveau d'étude"
+msgstr ""
 
 #: app/dashboard/routes.py:82
 msgid "Remarks"
-msgstr "Remarques"
+msgstr ""
 
 #: app/dashboard/routes.py:97
 msgid "Specific training in animal experimentation"
-msgstr "Formation spécifique à l'expérimentation animale"
+msgstr ""
 
 #: app/dashboard/routes.py:101
 msgid "Level"
-msgstr "Niveau"
+msgstr ""
 
 #: app/dashboard/routes.py:101
 msgid "Module"
-msgstr "Module"
+msgstr ""
 
 #: app/dashboard/routes.py:101 app/dashboard/routes.py:140
 #: app/templates/base.html:41
@@ -251,158 +251,158 @@ msgstr "Espèces"
 
 #: app/dashboard/routes.py:101
 msgid "Approval No."
-msgstr "N° Agrément"
+msgstr ""
 
 #: app/dashboard/routes.py:101
 #, fuzzy
 msgid "Trainer"
-msgstr "Formateur"
+msgstr "Gestionnaire de Formation"
 
 #: app/dashboard/routes.py:101 app/dashboard/routes.py:122
 #: app/dashboard/routes.py:140
 msgid "Date"
-msgstr "Date"
+msgstr ""
 
 #: app/dashboard/routes.py:101
 msgid "days"
-msgstr "jours"
+msgstr ""
 
 #: app/dashboard/routes.py:118
 msgid "Continuous Training"
-msgstr "Formation Continue"
+msgstr ""
 
 #: app/dashboard/routes.py:122
 #, fuzzy
 msgid "Training Name"
-msgstr "Nom de la formation"
+msgstr "Gestionnaire de Formation"
 
 #: app/dashboard/routes.py:122
 msgid "Thematic"
-msgstr "Thematique"
+msgstr ""
 
 #: app/dashboard/routes.py:122
 msgid "Type"
-msgstr "Type"
+msgstr ""
 
 #: app/dashboard/routes.py:122 app/profile/forms.py:13
 #, fuzzy
 msgid "Location"
-msgstr "Lieu"
+msgstr "Connexion"
 
 #: app/dashboard/routes.py:122
 msgid "Duration (d)"
-msgstr "Durée (j)"
+msgstr ""
 
 #: app/dashboard/routes.py:136
 msgid "Technical Skills"
-msgstr "Compétences techniques"
+msgstr ""
 
 #: app/dashboard/routes.py:140
 #, fuzzy
 msgid "Skill Type"
-msgstr "Type de compétence"
+msgstr "Compétences"
 
 #: app/dashboard/routes.py:140
 #, fuzzy
 msgid "Skill"
-msgstr "Compétence"
+msgstr "Compétences"
 
 #: app/dashboard/routes.py:140
 msgid "Tutor"
-msgstr "Tuteur"
+msgstr ""
 
 #: app/dashboard/routes.py:557 app/dashboard/routes.py:559
 msgid "Your continuous training event request has been submitted for validation!"
-msgstr "Votre demande d'événement de formation continue a été soumise pour validation !"
+msgstr ""
 
 #: app/dashboard/routes.py:564 app/dashboard/routes.py:638
 #: app/dashboard/routes.py:958 app/dashboard/routes.py:1018
 #: app/dashboard/routes.py:1391 app/dashboard/routes.py:1508
 msgid "Please correct the form errors."
-msgstr "Veuillez corriger les erreurs du formulaire."
+msgstr ""
 
 #: app/dashboard/routes.py:569
 msgid "Request a Continuous Training Event"
-msgstr "Demander un Événement de Formation Continue"
+msgstr ""
 
 #: app/dashboard/routes.py:618 app/dashboard/routes.py:620
 msgid "The selected continuous training event cannot be found."
-msgstr "L'événement de formation continue sélectionné est introuvable."
+msgstr ""
 
 #: app/dashboard/routes.py:631 app/dashboard/routes.py:633
 msgid ""
 "Your participation in the continuous training has been submitted for "
 "validation!"
-msgstr "Votre participation à la formation continue a été soumise pour validation !"
+msgstr ""
 
 #: app/dashboard/routes.py:643
 msgid "Submit a Continuous Training Attendance"
-msgstr "Soumettre une Participation à une Formation Continue"
+msgstr ""
 
 #: app/dashboard/routes.py:753
 msgid "Your initial regulatory trainings have been successfully saved/updated!"
-msgstr "Vos formations réglementaires initiales ont été enregistrées/mises à jour avec succès !"
+msgstr ""
 
 #: app/dashboard/routes.py:778
 msgid "New API key generated successfully!"
-msgstr "Nouvelle clé API générée avec succès !"
+msgstr ""
 
 #: app/dashboard/routes.py:952 app/dashboard/routes.py:953
 msgid "Your skill proposal has been submitted to the administrators."
-msgstr "Votre proposition de compétence a été soumise aux administrateurs."
+msgstr ""
 
 #: app/dashboard/routes.py:963
 msgid "Propose a Skill"
-msgstr "Proposer une Compétence"
+msgstr ""
 
 #: app/dashboard/routes.py:1012
 msgid "Your external training has been submitted for validation."
-msgstr "Votre formation externe a été soumise pour validation."
+msgstr ""
 
 #: app/dashboard/routes.py:1083
 msgid "Practices and levels updated successfully!"
-msgstr "Pratiques et niveaux mis à jour avec succès !"
+msgstr ""
 
 #: app/dashboard/routes.py:1087
 #, python-format
 msgid "Error while updating practices: %(error)s"
-msgstr "Erreur lors de la mise à jour des pratiques: %(error)s"
+msgstr ""
 
 #: app/dashboard/routes.py:1384 app/dashboard/routes.py:1386
 msgid "Training request updated successfully!"
-msgstr "Demande de formation mise à jour avec succès !"
+msgstr ""
 
 #: app/dashboard/routes.py:1396
 msgid "Edit Training Request"
-msgstr "Modifier la Demande de Formation"
+msgstr ""
 
 #: app/dashboard/routes.py:1414
 msgid "External training deleted successfully!"
-msgstr "Formation externe supprimée avec succès !"
+msgstr ""
 
 #: app/dashboard/routes.py:1498 app/dashboard/routes.py:1500
 msgid "External training updated successfully!"
-msgstr "Formation externe mise à jour avec succès !"
+msgstr ""
 
 #: app/dashboard/routes.py:1517
 msgid "Edit External Training"
-msgstr "Modifier la Formation Externe"
+msgstr ""
 
 #: app/profile/forms.py:16
 msgid "Program (PDF, DOCX, Images)"
-msgstr "Programme (PDF, DOCX, Images)"
+msgstr ""
 
 #: app/profile/forms.py:17
 msgid "Additional Notes"
-msgstr "Notes additionnelles"
+msgstr ""
 
 #: app/profile/forms.py:18
 msgid "Submit Event Request"
-msgstr "Soumettre la Demande d'Événement"
+msgstr ""
 
 #: app/profile/forms.py:45
 msgid "Initial Training Type"
-msgstr "Type de Formation Initiale"
+msgstr ""
 
 #: app/profile/forms.py:49 app/templates/base.html:117
 msgid "Submit"
@@ -410,28 +410,28 @@ msgstr "Envoyer"
 
 #: app/profile/forms.py:56
 msgid "Continuous Training Event"
-msgstr "Événement de Formation Continue"
+msgstr ""
 
 #: app/profile/forms.py:57
 msgid "Attendance Certificate (PDF, DOCX, Images)"
-msgstr "Attestation de Présence (PDF, DOCX, Images)"
+msgstr ""
 
 #: app/profile/forms.py:58
 msgid "Declare my Presence"
-msgstr "Déclarer ma Présence"
+msgstr ""
 
 #: app/profile/forms.py:120
 #, fuzzy
 msgid "Skill Name"
-msgstr "Nom de la Compétence"
+msgstr "Compétences"
 
 #: app/profile/forms.py:121
 msgid "Description (optional)"
-msgstr "Description (optionnel)"
+msgstr ""
 
 #: app/profile/forms.py:122
 msgid "Propose Skill"
-msgstr "Proposer la Compétence"
+msgstr ""
 
 #: app/team/routes.py:19
 msgid "You are not currently leading any teams."
@@ -508,6 +508,5 @@ msgstr "Erreur de chargement des notifications"
 
 #: app/training/forms.py:35
 msgid "End time must be after start time."
-msgstr "L'heure de fin doit être postérieure à l'heure de début."
-
+msgstr ""
 

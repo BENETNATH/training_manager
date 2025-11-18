@@ -1,4 +1,4 @@
-from flask import redirect, url_for
+from flask import redirect, url_for, session, request
 from flask_login import current_user, login_required
 from app.root import bp
 
@@ -15,3 +15,8 @@ def index():
 @login_required # Ensure only logged-in users can access this
 def personal_dashboard_redirect():
     return redirect(url_for('dashboard.dashboard_home'))
+
+@bp.route('/language/<language>')
+def language_switch(language):
+    session['language'] = language
+    return redirect(request.referrer)

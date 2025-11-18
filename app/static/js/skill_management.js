@@ -10,11 +10,11 @@ $(document).ready(function() {
         fetch(addUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
-            $('#skill-edit-modal-label').text('Créer une Compétence');
+            $('#skill-edit-modal-label').text('Create Skill');
             $('#skill-edit-modal .modal-body').html(`<form id="modal-skill-form" action="${addUrl}" method="post" novalidate>${html}</form>`);
             if (window.skillModal) window.skillModal.show();
         })
-        .catch(error => { console.error('Error loading skill form:', error); alert('Erreur lors du chargement du formulaire.'); });
+        .catch(error => { console.error('Error loading skill form:', error); alert('Error loading form.'); });
     });
     
     // Handle modal opening for EDITING a skill
@@ -26,11 +26,11 @@ $(document).ready(function() {
         fetch(editUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(response => response.text())
         .then(html => {
-            $('#skill-edit-modal-label').text('Éditer la Compétence');
+            $('#skill-edit-modal-label').text('Edit Skill');
             $('#skill-edit-modal .modal-body').html(`<form id="modal-skill-form" action="${editUrl}" method="post" novalidate>${html}</form>`);
             if (window.skillModal) window.skillModal.show();
         })
-        .catch(error => { console.error('Error loading skill form:', error); alert('Erreur lors du chargement du formulaire.'); });
+        .catch(error => { console.error('Error loading skill form:', error); alert('Error loading form.'); });
     });
 
     // Handle SAVE button click in the skill modal
@@ -50,10 +50,10 @@ $(document).ready(function() {
             if (data.success) {
                 var skill = data.skill;
                 var table = $('#skills-table').DataTable();
-                var speciesHtml = skill.species && skill.species.length > 0 ? skill.species.map(name => `<span class="badge bg-secondary">${name}</span>`).join(' ') : 'Aucune';
-                var tutorsHtml = skill.tutors && skill.tutors.length > 0 ? skill.tutors.map(name => `<span class="badge bg-dark">${name}</span>`).join(' ') : '<span class="badge bg-warning">Aucun</span>';
-                var actionsHtml = `<button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="/admin/skills/edit/${skill.id}" title="Éditer"><i class="fa fa-edit"></i></button> ` +
-                                  `<button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="${skill.id}" data-delete-url="/admin/skills/delete/${skill.id}" title="Supprimer"><i class="fa fa-trash"></i></button>`;
+                var speciesHtml = skill.species && skill.species.length > 0 ? skill.species.map(name => `<span class="badge bg-secondary">${name}</span>`).join(' ') : 'None';
+                var tutorsHtml = skill.tutors && skill.tutors.length > 0 ? skill.tutors.map(name => `<span class="badge bg-dark">${name}</span>`).join(' ') : '<span class="badge bg-warning">None</span>';
+                var actionsHtml = `<button class="btn btn-sm btn-warning edit-skill-btn" data-edit-url="/admin/skills/edit/${skill.id}" title="Edit"><i class="fa fa-edit"></i></button> ` +
+                                  `<button class="btn btn-sm btn-danger delete-skill-btn" data-skill-id="${skill.id}" data-delete-url="/admin/skills/delete/${skill.id}" title="Delete"><i class="fa fa-trash"></i></button>`;
                 
                 var truncatedDescription = (skill.description || '').substring(0, 120) + ((skill.description || '').length > 120 ? '...' : '');
                 var rowData = [skill.name, truncatedDescription, speciesHtml, tutorsHtml, actionsHtml];
@@ -68,10 +68,10 @@ $(document).ready(function() {
                 if (window.skillModal) window.skillModal.hide();
             } else {
                 if (data.form_html) { form.html(data.form_html); } 
-                else { alert(data.message || 'Erreur lors de la sauvegarde.'); }
+                else { alert(data.message || 'Error while saving.'); }
             }
         })
-        .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
+        .catch(error => { console.error('Error:', error); alert('A network error has occurred.'); });
     });
 
     // Handle AJAX deletion for skills
@@ -81,15 +81,15 @@ $(document).ready(function() {
         var deleteUrl = button.data('delete-url');
         var csrfToken = $('meta[name=csrf-token]').attr('content');
 
-        if (confirm('Êtes-vous sûr de vouloir supprimer cette compétence ?')) {
+        if (confirm('Are you sure you want to delete this skill?')) {
             fetch(deleteUrl, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrfToken } })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     $('#skills-table').DataTable().row('#skill-row-' + skillId).remove().draw();
-                } else { alert('Erreur: ' + (data.message || 'Inconnue.')); }
+                } else { alert('Error: ' + (data.message || 'Unknown.')); }
             })
-            .catch(error => { console.error('Error:', error); alert('Une erreur réseau est survenue.'); });
+            .catch(error => { console.error('Error:', error); alert('A network error has occurred.'); });
         }
     });
 

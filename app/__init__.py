@@ -101,6 +101,8 @@ def clean_dismissed_notifications(dry_run):
 
 def get_locale():
     """Get the best matching language for the user."""
+    if 'language' in session:
+        return session['language']
     return request.accept_languages.best_match(current_app.config['LANGUAGES'])
 
 
