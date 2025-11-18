@@ -1308,6 +1308,10 @@ def add_skill():
 
         skill.species = form.species.data
 
+        requester_id = None
+        if proposal_to_delete and proposal_to_delete.requester_id:
+            requester_id = proposal_to_delete.requester_id
+
         db.session.add(skill)
         
         # If the skill was created from a proposal, delete the proposal
@@ -1317,24 +1321,26 @@ def add_skill():
         db.session.commit()
 
         # Send email to the original proposer if the skill was created from a proposal
-        if proposal_to_delete and proposal_to_delete.requester and proposal_to_delete.requester.email:
-            send_email(
-                '[Training Manager] Your Proposed Skill Has Been Approved!',
-                sender=current_app.config['MAIL_USERNAME'],
-                recipients=[proposal_to_delete.requester.email],
-                text_body=render_template(
-                    'email/skill_approved_notification.txt',
-                    user=proposal_to_delete.requester,
-                    skill_name=skill.name
-                ),
-                html_body=render_template(
-                    'email/skill_approved_notification.html',
-                    user=proposal_to_delete.requester,
-                    skill_name=skill.name
+        if requester_id:
+            requester = User.query.get(requester_id)
+            if requester and requester.email:
+                send_email(
+                    '[Training Manager] Your Proposed Skill Has Been Approved!',
+                    sender=current_app.config['MAIL_USERNAME'],
+                    recipients=[requester.email],
+                    text_body=render_template(
+                        'email/skill_approved_notification.txt',
+                        user=requester,
+                        skill_name=skill.name
+                    ),
+                    html_body=render_template(
+                        'email/skill_approved_notification.html',
+                        user=requester,
+                        skill_name=skill.name
+                    )
                 )
-            )
-            current_app.logger.info(f"Email sent to {proposal_to_delete.requester.full_name} "
-                                   f"for approved skill {skill.name}")
+                current_app.logger.info(f"Email sent to {requester.full_name} "
+                                       f"for approved skill {skill.name}")
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({
