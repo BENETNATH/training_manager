@@ -6,7 +6,6 @@ flask-babel
 flask-restx
 flask-bootstrap
 marshmallow
-psycopg2-binary
 PyMySQL
 python-dotenv
 flask-mail
@@ -21,4 +20,4 @@ Faker
 fpdf2
 requests
 Flask-Limiter
-Pylint
+itsdangerous

@@ -7,6 +7,7 @@ from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm
 from app.email import send_email, send_password_reset_email
 from flask import current_app
 from app.models import User
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 
 @bp.route('/reset_password_request', methods=['GET', 'POST'])
@@ -128,3 +129,33 @@ def logout():
         redirect_url = url_for('auth.login')
     logout_user()
     return redirect(redirect_url)
+
+@bp.route('/sso_login')
+def sso_login():
+    token = request.args.get('token')
+    if not token:
+        flash('Invalid SSO request', 'danger')
+        return redirect(url_for('auth.login'))
+
+    serializer = URLSafeTimedSerializer(current_app.config.get('SSO_SECRET_KEY'))
+    try:
+        data = serializer.loads(token, max_age=30)
+        email = data.get('email')
+        if not email:
+            flash('Invalid SSO token', 'danger')
+            return redirect(url_for('auth.login'))
+
+        user = User.query.filter_by(email=email).first()
+        if not user or not user.is_approved:
+            flash('User not found or not approved', 'danger')
+            return redirect(url_for('auth.login'))
+
+        login_user(user)
+        if user.is_admin:
+            return redirect(url_for('admin.index'))
+        else:
+            return redirect(url_for('dashboard.user_profile', username=user.full_name))
+
+    except (BadSignature, SignatureExpired):
+        flash('Invalid or expired SSO token', 'danger')
+        return redirect(url_for('auth.login'))

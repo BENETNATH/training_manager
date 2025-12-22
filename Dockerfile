@@ -1,37 +1,69 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim-buster
+# Multi-stage build for optimized Docker image
 
-# Set the working directory in the container
-WORKDIR /app
+# Stage 1: Builder
+FROM python:3.9-slim AS builder
 
-# Install system dependencies required for wkhtmltopdf and other packages
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    default-libmysqlclient-dev \
+    gcc \
     libffi-dev \
+    musl-dev \
     libssl-dev \
-    libxml2-dev \
-    libxslt1-dev \
-    zlib1g-dev \
     python3-dev \
-    python3-pip \
-
+    build-essential \
+    pkg-config \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Upgrade pip and install build tools
+RUN pip install --upgrade pip setuptools wheel
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Create wheel cache directory
+WORKDIR /app
 
-# Expose port 5000 for the Flask app
+# Copy requirements and build wheels
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+# Stage 2: Final
+FROM python:3.9-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    default-libmysqlclient-dev \
+    netcat-openbsd \
+    curl \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy wheels from builder and install
+COPY --from=builder /app/wheels /wheels
+RUN pip install --no-cache /wheels/* && rm -rf /wheels
+
+# Copy application code
+COPY . .
+
+# Set proper permissions
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
 EXPOSE 5000
 
-# Define environment variable
+# Set environment
 ENV FLASK_APP=flask_app.py
 ENV FLASK_ENV=production
 
-# Run the application using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "flask_app:app"]
+# Entrypoint and CMD
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "3", "flask_app:app"]

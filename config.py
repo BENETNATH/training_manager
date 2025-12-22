@@ -9,19 +9,25 @@ class Config:
     if not SECRET_KEY:
         raise ValueError("No SECRET_KEY set for Flask application. Set it in .env file.")
     
-    # Ensure the SQLite database path is absolute
+    # Database Configuration
+    DB_TYPE = os.environ.get('DB_TYPE', 'sqlite').lower()
+    DB_HOST = os.environ.get('DB_HOST', 'localhost')
+    DB_PORT = os.environ.get('DB_PORT', '3306')
+    DB_NAME = os.environ.get('DB_NAME', 'training_manager')
+    DB_USER = os.environ.get('DB_USER', 'appuser')
+    DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
+
     db_url = os.environ.get('DATABASE_URL')
-    if db_url and db_url.startswith('sqlite:///'):
-        db_path = db_url.split('sqlite:///')[1]
-        if not os.path.isabs(db_path):
-            # Build absolute path from project root
-            db_path = os.path.join(basedir, db_path)
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + db_path
-    elif db_url:
+    if db_url:
         SQLALCHEMY_DATABASE_URI = db_url
+    elif DB_TYPE == 'mysql':
+        SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    elif DB_TYPE == 'postgresql':
+        SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     else:
-        # Default to an absolute path if DATABASE_URL is not set
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'instance', 'app.db')
+        # Default to SQLite
+        db_path = os.path.join(basedir, 'instance', 'app.db')
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + db_path
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -49,4 +55,10 @@ class Config:
         SESSION_COOKIE_SAMESITE = None
 
     # Logging Level
-    LOG_LEVEL = os.environ.get('LOG_LEVEL') or 'INFO' # Default to INFO
+    LOG_LEVEL = os.environ.get('APP_LOG_LEVEL') or os.environ.get('LOG_LEVEL') or 'INFO' # Default to INFO
+
+    # Service API Key for inter-app communication
+    SERVICE_API_KEY = os.environ.get('SERVICE_API_KEY')
+
+    # SSO Secret Key for seamless login
+    SSO_SECRET_KEY = os.environ.get('SSO_SECRET_KEY')

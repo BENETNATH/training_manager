@@ -131,6 +131,19 @@ declare_practice_payload = api.model('DeclarePracticePayload', {
     'notes': fields.String(description='Optional notes about the practice')
 })
 
+# Public API models
+check_competency_payload = api.model('CheckCompetencyPayload', {
+    'emails': fields.List(fields.String, required=True, description='List of user emails'),
+    'skill_ids': fields.List(fields.Integer, required=True, description='List of skill IDs')
+})
+
+declare_practice_public_payload = api.model('DeclarePracticePublicPayload', {
+    'email': fields.String(required=True, description='User email'),
+    'skill_ids': fields.List(fields.Integer, required=True, description='List of skill IDs'),
+    'date': fields.String(required=True, description='Practice date in YYYY-MM-DD'),
+    'source': fields.String(required=True, description='Source of the practice')
+})
+
 
 # API Key Authentication
 def token_required(f):
@@ -141,7 +154,7 @@ def token_required(f):
         if not api_key:
             current_app.logger.warning(f"API Key missing for API access from IP: {request.remote_addr}.")
             api.abort(401, "API Key is missing")
-        
+
         users_with_keys = User.query.filter(User.api_key.isnot(None)).all()
         found_user = None
         for user in users_with_keys:
@@ -152,14 +165,29 @@ def token_required(f):
         if not found_user:
             current_app.logger.warning(f"Invalid API Key provided from IP: {request.remote_addr}. No active user found for key: {api_key[:5]}...")
             api.abort(401, "Invalid API Key")
-        
+
         if not found_user.is_approved:
             current_app.logger.warning(f"Unapproved user (ID: {found_user.id}) attempted API access with valid API Key from IP: {request.remote_addr}.")
             api.abort(403, "User account is not approved.")
 
         from flask import g
         g.current_user = found_user
-        
+
+        return f(*args, **kwargs)
+    return decorated
+
+# Service Token Authentication for inter-app communication
+def service_token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        service_key = request.headers.get('X-Service-Key')
+        if not service_key:
+            api.abort(401, "Service Key is missing")
+
+        expected_key = current_app.config.get('SERVICE_API_KEY')
+        if not expected_key or not secrets.compare_digest(service_key, expected_key):
+            api.abort(401, "Invalid Service Key")
+
         return f(*args, **kwargs)
     return decorated
 
@@ -194,6 +222,9 @@ ns_competencies = api.namespace('competencies', description='Competency operatio
 ns_skill_practice_events = api.namespace('skill_practice_events', description='Skill Practice Event operations')
 ns_training_requests = api.namespace('training_requests', description='Training Request operations')
 ns_external_trainings = api.namespace('external_trainings', description='External Training operations')
+
+# Public namespace for inter-app communication
+ns_public = api.namespace('public', description='Public endpoints for inter-app communication')
 
 @api.route('/test')
 class TestResource(Resource):
@@ -1468,6 +1499,107 @@ class NotificationDismiss(Resource):
         db.session.commit()
         return {'message': f'Notification type {notification_type} dismissed successfully.'}, 200
 
+# Public Endpoints for Inter-App Communication
+@ns_public.route('/skills')
+class PublicSkills(Resource):
+    @api.marshal_list_with(skill_model)
+    @service_token_required
+    def get(self):
+        """List all skills for inter-app communication"""
+        return Skill.query.all()
+
+@ns_public.route('/check_competency')
+class PublicCheckCompetency(Resource):
+    @api.expect(check_competency_payload)
+    @service_token_required
+    def post(self):
+        """Check competency for users and skills"""
+        data = api.payload
+        emails = data['emails']
+        skill_ids = data['skill_ids']
+
+        result = {}
+        for email in emails:
+            user = User.query.filter_by(email=email).first()
+            if not user:
+                result[email] = {'valid': False, 'details': ['User not found']}
+                continue
+
+            valid = True
+            details = []
+            for skill_id in skill_ids:
+                competency = Competency.query.filter_by(user_id=user.id, skill_id=skill_id).first()
+                if not competency or competency.needs_recycling:
+                    valid = False
+                    skill = Skill.query.get(skill_id)
+                    details.append(f'Not competent in {skill.name if skill else "Unknown skill"}')
+
+            result[email] = {'valid': valid, 'details': details}
+
+        return result
+
+@ns_public.route('/declare_practice')
+class PublicDeclarePractice(Resource):
+    @api.expect(declare_practice_public_payload)
+    @service_token_required
+    def post(self):
+        """Declare practice for a user"""
+        data = api.payload
+        email = data['email']
+        skill_ids = data['skill_ids']
+        date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        source = data['source']
+
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            api.abort(404, "User not found")
+
+        practice_date = datetime.combine(date, datetime.min.time(), tzinfo=timezone.utc)
+
+        for skill_id in skill_ids:
+            skill = Skill.query.get(skill_id)
+            if skill:
+                practice_event = SkillPracticeEvent(
+                    user=user,
+                    practice_date=practice_date,
+                    notes=f'Practice declared from {source}'
+                )
+                practice_event.skills.append(skill)
+                db.session.add(practice_event)
+
+        db.session.commit()
+        return {'message': 'Practice declared successfully'}, 201
+
+@ns_public.route('/user_calendar')
+class PublicUserCalendar(Resource):
+    @service_token_required
+    def get(self):
+        """Get user's training calendar"""
+        email = request.args.get('email')
+        if not email:
+            api.abort(400, "Email parameter required")
+
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return []
+
+        # Get training sessions where user is attendee or tutor
+        sessions = TrainingSession.query.filter(
+            (TrainingSession.attendees.any(User.id == user.id)) |
+            (TrainingSession.tutor_id == user.id)
+        ).all()
+
+        events = []
+        for session in sessions:
+            events.append({
+                'title': session.title,
+                'start': session.start_time.isoformat(),
+                'end': session.end_time.isoformat(),
+                'color': '#8B4513'  # Brown for training events
+            })
+
+        return events
+
 # Register namespaces
 api.add_namespace(ns_users)
 api.add_namespace(ns_tutors)
@@ -1480,3 +1612,4 @@ api.add_namespace(ns_competencies)
 api.add_namespace(ns_skill_practice_events)
 api.add_namespace(ns_training_requests)
 api.add_namespace(ns_external_trainings)
+api.add_namespace(ns_public)
