@@ -611,13 +611,49 @@ def deploy_native():
     # Ensure directories
     ensure_dirs()
     
-    # Run migrations
-    Colors.info("Running database migrations...")
-    run_command(f'"{python_exec}" -m flask db upgrade')
+    # Database initialization
+    Colors.info("Initializing database...")
+    
+    # Check if migrations are properly set up (env.py must exist)
+    migrations_env = os.path.join("migrations", "env.py")
+    
+    if os.path.exists(migrations_env):
+        # Migrations exist, run upgrade
+        Colors.info("Running database migrations...")
+        run_command(f'"{python_exec}" -m flask db upgrade', check=False)
+    else:
+        # No migrations - check if we need to initialize them
+        if os.path.exists("migrations"):
+            # migrations folder exists but no env.py - initialize
+            Colors.info("Initializing Flask-Migrate...")
+            # Remove empty migrations folder
+            shutil.rmtree("migrations")
+        
+        # Try to initialize with flask db init
+        Colors.info("Setting up database migrations...")
+        result = run_command(f'"{python_exec}" -m flask db init', check=False, capture_output=True)
+        
+        if result and "Error" not in str(result):
+            # Generate initial migration
+            Colors.info("Creating initial migration...")
+            run_command(f'"{python_exec}" -m flask db migrate -m "Initial migration"', check=False)
+            
+            # Apply migration
+            Colors.info("Applying migrations...")
+            run_command(f'"{python_exec}" -m flask db upgrade', check=False)
+        else:
+            # Fallback: Try direct table creation via app initialization
+            Colors.info("Creating database tables directly...")
+            # This relies on the app's own db.create_all() logic
+            run_command(f'"{python_exec}" -c "from app import create_app, db; app = create_app(); app.app_context().push(); db.create_all(); print(\'Database tables created.\')"', check=False)
     
     Colors.success("Native deployment complete!")
     Colors.info("To start the application:")
     Colors.info("  python manage.py start")
+    Colors.info("Or manually with gunicorn:")
+    config = ConfigManager.load_env()
+    port = config.get('APP_PORT', '5001')
+    Colors.info(f"  {python_exec} -m gunicorn -w 4 -b 0.0.0.0:{port} 'app:create_app()'")
 
 
 # --- Service Management ---
@@ -634,8 +670,75 @@ def start():
         run_command("docker compose up -d")
         Colors.success("Services started")
     else:
-        Colors.info("Starting in native mode...")
-        Colors.warning("Native start not yet implemented. Use docker mode or run manually.")
+        start_native()
+
+
+def start_native():
+    """Start application in native mode using gunicorn."""
+    Colors.header("Starting Native Application")
+    
+    config = ConfigManager.load_env()
+    port = config.get('APP_PORT', '5001')
+    
+    # Check for venv
+    venv_dir = ".venv" if os.path.exists(".venv") else "venv"
+    if IS_WINDOWS:
+        python_exec = os.path.join(venv_dir, "Scripts", "python.exe")
+    else:
+        python_exec = os.path.join(venv_dir, "bin", "python")
+    
+    # Check if already running
+    pid_file = os.path.join("logs", "gunicorn.pid")
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, 'r') as f:
+                pid = int(f.read().strip())
+            # Check if process is running
+            if IS_WINDOWS:
+                result = subprocess.run(['tasklist', '/FI', f'PID eq {pid}', '/NH'], capture_output=True, text=True)
+                if str(pid) in result.stdout:
+                    Colors.warning(f"Application already running (PID: {pid})")
+                    return
+            else:
+                os.kill(pid, 0)
+                Colors.warning(f"Application already running (PID: {pid})")
+                return
+        except (ProcessLookupError, OSError, ValueError):
+            pass  # Process not running, continue
+    
+    # Ensure logs directory exists
+    if not os.path.exists("logs"):
+        os.makedirs("logs")
+    
+    Colors.info(f"Starting on port {port}...")
+    
+    if IS_WINDOWS:
+        # Windows: Use waitress instead of gunicorn
+        Colors.info("Using waitress on Windows...")
+        log_file = os.path.join("logs", "app.log")
+        cmd = f'start /B "" "{python_exec}" -c "from waitress import serve; from app import create_app; serve(create_app(), host=\'0.0.0.0\', port={port})" > "{log_file}" 2>&1'
+        subprocess.run(cmd, shell=True)
+        Colors.success(f"Application started on http://localhost:{port}")
+        Colors.info(f"Logs: {log_file}")
+    else:
+        # Linux/Mac: Use gunicorn
+        log_file = os.path.join("logs", "gunicorn.log")
+        error_log = os.path.join("logs", "gunicorn_error.log")
+        
+        cmd = f'"{python_exec}" -m gunicorn -w 4 -b 0.0.0.0:{port} --pid "{pid_file}" --access-logfile "{log_file}" --error-logfile "{error_log}" --daemon "app:create_app()"'
+        run_command(cmd, check=False)
+        
+        time.sleep(2)
+        
+        if os.path.exists(pid_file):
+            with open(pid_file, 'r') as f:
+                pid = f.read().strip()
+            Colors.success(f"Application started (PID: {pid})")
+            Colors.info(f"URL: http://localhost:{port}")
+            Colors.info(f"Logs: {log_file}")
+        else:
+            Colors.error("Failed to start. Check logs for details.")
+            Colors.info(f"Error log: {error_log}")
 
 
 def stop():
@@ -650,7 +753,55 @@ def stop():
         run_command("docker compose stop")
         Colors.success("Services stopped")
     else:
-        Colors.warning("Native stop not yet implemented.")
+        stop_native()
+
+
+def stop_native():
+    """Stop native application."""
+    Colors.info("Stopping application...")
+    
+    pid_file = os.path.join("logs", "gunicorn.pid")
+    
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, 'r') as f:
+                pid = int(f.read().strip())
+            
+            if IS_WINDOWS:
+                subprocess.run(f'taskkill /PID {pid} /F', shell=True, capture_output=True)
+            else:
+                os.kill(pid, 15)  # SIGTERM
+                time.sleep(2)
+                try:
+                    os.kill(pid, 0)  # Check if still running
+                    os.kill(pid, 9)  # Force kill with SIGKILL
+                except ProcessLookupError:
+                    pass  # Already dead
+            
+            os.remove(pid_file)
+            Colors.success("Application stopped")
+        except (ValueError, ProcessLookupError, OSError) as e:
+            Colors.warning(f"Could not stop process: {e}")
+            if os.path.exists(pid_file):
+                os.remove(pid_file)
+    else:
+        # Try to find and kill gunicorn processes
+        if not IS_WINDOWS:
+            Colors.info("Looking for gunicorn processes...")
+            result = subprocess.run("pgrep -f 'gunicorn.*app:create_app'", shell=True, capture_output=True, text=True)
+            if result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    try:
+                        os.kill(int(pid), 15)
+                        Colors.info(f"Stopped PID {pid}")
+                    except:
+                        pass
+                Colors.success("Application stopped")
+            else:
+                Colors.info("No running application found")
+        else:
+            Colors.warning("No PID file found")
 
 
 def restart():
@@ -671,7 +822,34 @@ def logs():
         Colors.info("Following logs (Ctrl+C to stop)...")
         run_command("docker compose logs -f")
     else:
-        Colors.warning("Native logs not yet implemented.")
+        logs_native()
+
+
+def logs_native():
+    """Show native application logs."""
+    log_files = [
+        os.path.join("logs", "gunicorn.log"),
+        os.path.join("logs", "gunicorn_error.log"),
+        os.path.join("logs", "app.log")
+    ]
+    
+    existing_logs = [f for f in log_files if os.path.exists(f)]
+    
+    if not existing_logs:
+        Colors.warning("No log files found in logs/")
+        return
+    
+    Colors.info(f"Tailing logs (Ctrl+C to stop)...")
+    
+    if IS_WINDOWS:
+        # Windows: Show last lines of each log file
+        for log_file in existing_logs:
+            Colors.header(os.path.basename(log_file))
+            run_command(f'type "{log_file}"', check=False)
+    else:
+        # Linux/Mac: Use tail -f
+        cmd = f'tail -f {" ".join(existing_logs)}'
+        run_command(cmd, check=False)
 
 
 def create_admin():
