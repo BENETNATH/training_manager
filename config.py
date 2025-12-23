@@ -62,3 +62,6 @@ class Config:
 
     # SSO Secret Key for seamless login
     SSO_SECRET_KEY = os.environ.get('SSO_SECRET_KEY')
+
+    # PC API URL for reverse SSO (when TM redirects to PC)
+    PC_API_URL = os.environ.get('PC_API_URL')

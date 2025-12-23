@@ -130,6 +130,21 @@ def logout():
     logout_user()
     return redirect(redirect_url)
 
+@bp.route('/sso/precliniverse')
+@login_required
+def sso_precliniverse():
+    """Redirect user to Precliniverse with SSO token."""
+    pc_url = current_app.config.get('PC_API_URL')
+    if not pc_url:
+        flash('Precliniverse URL not configured.', 'danger')
+        return redirect(url_for('dashboard.user_profile', username=current_user.full_name))
+
+    serializer = URLSafeTimedSerializer(current_app.config.get('SSO_SECRET_KEY'))
+    token = serializer.dumps({'email': current_user.email}, salt='sso-salt')
+
+    redirect_url = f"{pc_url.rstrip('/')}/auth/sso_login?token={token}"
+    return redirect(redirect_url)
+
 @bp.route('/sso_login')
 def sso_login():
     token = request.args.get('token')
