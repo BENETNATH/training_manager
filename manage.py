@@ -475,6 +475,21 @@ def setup_env_file():
         config['MAIL_USERNAME'] = mail_username
         config['MAIL_PASSWORD'] = mail_password
 
+    # Precliniverse Integration
+    print("\n--- Precliniverse Integration ---")
+    if input("Configure Precliniverse integration? (y/N): ").lower() == 'y':
+        default_pc_url = "http://precliniverse:8000" if deployment_mode == 'docker' else "http://localhost:8000"
+        config['PC_API_URL'] = input(f"Precliniverse API URL [{default_pc_url}]: ").strip() or default_pc_url
+        config['PC_API_KEY'] = input("Precliniverse SERVICE_API_KEY (from Precliniverse .env): ").strip()
+        if not config['PC_API_KEY']:
+            Colors.warning("No key provided. You can set it later with: python manage.py set-config PC_API_KEY <key>")
+        else:
+            Colors.success("Precliniverse integration configured!")
+        config['PC_ENABLED'] = 'True'
+    else:
+        config['PC_ENABLED'] = 'False'
+        Colors.info("Precliniverse integration disabled. Can be enabled later.")
+
     # Save configuration
     ConfigManager.save_env(config, backup=False)
     
@@ -484,7 +499,15 @@ def setup_env_file():
     print("="*60)
     Colors.info(f"Admin Email: {admin_email}")
     Colors.info(f"Admin Password: {admin_password}")
+    
+    # Show inter-app keys
+    Colors.info(f"\nInter-App Communication:")
+    Colors.info(f"SERVICE_API_KEY: {config.get('SERVICE_API_KEY')}")
+    Colors.info(f"SSO_SECRET_KEY: {config.get('SSO_SECRET_KEY')}")
+    Colors.warning("Share these keys with Precliniverse for ecosystem integration!")
+    
     if config.get('DB_TYPE') == 'mysql' and config.get('DB_HOST') == 'db':
+        Colors.info(f"\nDatabase:")
         Colors.info(f"DB Password: {config.get('DB_PASSWORD')}")
         Colors.info(f"DB Root Password: {config.get('DB_ROOT_PASSWORD')}")
     print("="*60)
@@ -865,6 +888,56 @@ def create_admin():
         Colors.warning("Native create-admin not yet implemented.")
 
 
+def link_ecosystem():
+    """Configure ecosystem integration with Precliniverse."""
+    print_banner("Ecosystem Integration Setup")
+    
+    if not os.path.exists(ENV_FILE):
+        Colors.error(f"{ENV_FILE} not found. Run 'setup' first.")
+        sys.exit(1)
+    
+    config = ConfigManager.load_env()
+    
+    # Show current keys
+    Colors.info("Current Training Manager keys for ecosystem:")
+    Colors.info(f"  SERVICE_API_KEY: {config.get('SERVICE_API_KEY', 'Not set')}")
+    Colors.info(f"  SSO_SECRET_KEY: {config.get('SSO_SECRET_KEY', 'Not set')}")
+    
+    if not config.get('SERVICE_API_KEY'):
+        config['SERVICE_API_KEY'] = secrets.token_hex(32)
+        Colors.success(f"Generated new SERVICE_API_KEY: {config['SERVICE_API_KEY']}")
+    
+    if not config.get('SSO_SECRET_KEY'):
+        config['SSO_SECRET_KEY'] = secrets.token_hex(32)
+        Colors.success(f"Generated new SSO_SECRET_KEY: {config['SSO_SECRET_KEY']}")
+    
+    # Configure Precliniverse connection
+    print("\n--- Precliniverse Connection ---")
+    default_url = config.get('PC_API_URL', 'http://localhost:8000')
+    config['PC_API_URL'] = input(f"Precliniverse API URL [{default_url}]: ").strip() or default_url
+    
+    pc_key = input("Precliniverse SERVICE_API_KEY (from Precliniverse .env): ").strip()
+    if pc_key:
+        config['PC_API_KEY'] = pc_key
+        config['PC_ENABLED'] = 'True'
+        Colors.success("Precliniverse integration configured!")
+    else:
+        Colors.warning("No key provided. Integration not enabled.")
+        config['PC_ENABLED'] = 'False'
+    
+    # Save
+    ConfigManager.save_env(config)
+    
+    # Summary
+    print("\n" + "="*60)
+    Colors.header("Ecosystem Keys Summary")
+    print("="*60)
+    Colors.info("Copy these to Precliniverse .env:")
+    Colors.info(f"  TM_API_KEY={config.get('SERVICE_API_KEY')}")
+    Colors.info(f"  TM_API_URL=http://<this-server>:{config.get('APP_PORT', '5001')}")
+    print("="*60)
+
+
 # --- Main ---
 def main():
     parser = argparse.ArgumentParser(description="Training Manager CLI")
@@ -897,6 +970,9 @@ def main():
 
     # Admin command
     subparsers.add_parser('create-admin', help='Create admin user')
+    
+    # Ecosystem integration
+    subparsers.add_parser('link-ecosystem', help='Configure Precliniverse integration')
 
     args = parser.parse_args()
 
@@ -919,6 +995,8 @@ def main():
         logs()
     elif args.command == 'create-admin':
         create_admin()
+    elif args.command == 'link-ecosystem':
+        link_ecosystem()
     
     # Configuration management
     elif args.command == "set-config":
