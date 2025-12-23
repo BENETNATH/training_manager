@@ -1,123 +1,153 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    {% if title %}
-    <title>{{ _(title) }} - {{ _('Training Manager') }}</title>
-    {% else %}
-    <title>{{ _('Training Manager') }}</title>
-    {% endif %}
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.12.1/css/dataTables.bootstrap5.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-  </head>
-  <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <div class="container">
-        <a class="navbar-brand" href="{% if current_user.is_authenticated and current_user.can('admin_access') %}{{ url_for('admin.index') }}{% elif current_user.is_authenticated %}{{ url_for('root.index') }}{% else %}{{ url_for('auth.login') }}{% endif %}">{{ _('Training Manager') }}</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav me-auto">
-            {% if current_user.is_authenticated %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('root.personal_dashboard_redirect') }}">{{ _('Mon Espace Personnel') }}</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('dashboard.skills_list') }}">{{ _('Skills') }}</a>
-            </li>
 
-            {% if current_user.can('admin_access') %}
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                {{ _('Admin') }}
-              </a>
-              <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
-                {% if current_user.can('admin_access') %}<li><a class="dropdown-item" href="{{ url_for('admin.index') }}">{{ _('Dashboard') }}</a></li>{% endif %}
-                {% if current_user.can('species_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_species') }}">{{ _('Species') }}</a></li>{% endif %}
-                {% if current_user.can('training_path_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_training_paths') }}">{{ _('Training Paths') }}</a></li>{% endif %}
-                {% if current_user.can('training_session_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_training_sessions') }}">{{ _('Training Sessions') }}</a></li>{% endif %}
-                {% if current_user.can('role_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_roles') }}">{{ _('Roles') }}</a></li>{% endif %}
-                {% if current_user.can('permission_manage') %}<li><a class="dropdown-item" href="{{ url_for('admin.manage_permissions') }}">{{ _('Permissions') }}</a></li>{% endif %}
-              </ul>
-            </li>
-            {% endif %}
-            {% if current_user.teams_as_lead %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('team.team_competencies') }}">{{ _('Team') }}</a>
-            </li>
-            {% endif %}
-            {% endif %}
-          </ul>
-          <ul class="navbar-nav">
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownLang" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                {{ _('Language') }}
-              </a>
-              <ul class="dropdown-menu" aria-labelledby="navbarDropdownLang">
-                {% for language in config.LANGUAGES %}
-                  <li><a class="dropdown-item" href="{{ url_for('root.language_switch', language=language) }}">{{ language }}</a></li>
-                {% endfor %}
-              </ul>
-            </li>
-            {% if current_user.is_anonymous %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('auth.login') }}">{{ _('Login') }}</a>
-            </li>
-            {% else %}
-            <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownNotifications" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-bell"></i>
-                    <span class="badge rounded-pill bg-danger" id="notification-badge" style="font-size: 0.6em; position: relative; top: -10px; left: -5px;">0</span>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownNotifications" id="notification-list">
-                    <li><a class="dropdown-item text-center" href="{{ url_for('dashboard.dismissed_notifications') }}">{{ _('No new notifications') }}</a></li>
-                </ul>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('dashboard.edit_profile') }}">{{ _('Edit Profile') }}</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
-            </li>
-            {% endif %}
-          </ul>
-        </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  {% if title %}
+  <title>{{ _(title) }} - {{ _('Training Manager') }}</title>
+  {% else %}
+  <title>{{ _('Training Manager') }}</title>
+  {% endif %}
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.12.1/css/dataTables.bootstrap5.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <a class="navbar-brand"
+        href="{% if current_user.is_authenticated and current_user.can('admin_access') %}{{ url_for('admin.index') }}{% elif current_user.is_authenticated %}{{ url_for('root.index') }}{% else %}{{ url_for('auth.login') }}{% endif %}">{{
+        _('Training Manager') }}</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          {% if current_user.is_authenticated %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('root.personal_dashboard_redirect') }}">{{ _('Mon Espace Personnel')
+              }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('dashboard.skills_list') }}">{{ _('Skills') }}</a>
+          </li>
+
+          <!-- Ecosystem Navigation -->
+          {% if config.get('PC_ENABLED', 'False').lower() == 'true' %}
+          <li class="nav-item">
+            <a href="{{ url_for('auth.sso_precliniverse') }}" class="btn btn-warning btn-sm ms-2"
+              title="{{ _('Jump to Precliniverse') }}">
+              <i class="fas fa-flask me-1"></i>{{ _('Precliniverse') }}
+            </a>
+          </li>
+          {% endif %}
+
+          {% if current_user.can('admin_access') %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAdmin" role="button"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              {{ _('Admin') }}
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownAdmin">
+              {% if current_user.can('admin_access') %}<li><a class="dropdown-item"
+                  href="{{ url_for('admin.index') }}">{{ _('Dashboard') }}</a></li>{% endif %}
+              {% if current_user.can('species_manage') %}<li><a class="dropdown-item"
+                  href="{{ url_for('admin.manage_species') }}">{{ _('Species') }}</a></li>{% endif %}
+              {% if current_user.can('training_path_manage') %}<li><a class="dropdown-item"
+                  href="{{ url_for('admin.manage_training_paths') }}">{{ _('Training Paths') }}</a></li>{% endif %}
+              {% if current_user.can('training_session_manage') %}<li><a class="dropdown-item"
+                  href="{{ url_for('admin.manage_training_sessions') }}">{{ _('Training Sessions') }}</a></li>{% endif
+              %}
+              {% if current_user.can('role_manage') %}<li><a class="dropdown-item"
+                  href="{{ url_for('admin.manage_roles') }}">{{ _('Roles') }}</a></li>{% endif %}
+              {% if current_user.can('permission_manage') %}<li><a class="dropdown-item"
+                  href="{{ url_for('admin.manage_permissions') }}">{{ _('Permissions') }}</a></li>{% endif %}
+            </ul>
+          </li>
+          {% endif %}
+          {% if current_user.teams_as_lead %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('team.team_competencies') }}">{{ _('Team') }}</a>
+          </li>
+          {% endif %}
+          {% endif %}
+        </ul>
+        <ul class="navbar-nav">
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownLang" role="button" data-bs-toggle="dropdown"
+              aria-expanded="false">
+              {{ _('Language') }}
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownLang">
+              {% for language in config.LANGUAGES %}
+              <li><a class="dropdown-item" href="{{ url_for('root.language_switch', language=language) }}">{{ language
+                  }}</a></li>
+              {% endfor %}
+            </ul>
+          </li>
+          {% if current_user.is_anonymous %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.login') }}">{{ _('Login') }}</a>
+          </li>
+          {% else %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownNotifications" role="button"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fas fa-bell"></i>
+              <span class="badge rounded-pill bg-danger" id="notification-badge"
+                style="font-size: 0.6em; position: relative; top: -10px; left: -5px;">0</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownNotifications"
+              id="notification-list">
+              <li><a class="dropdown-item text-center" href="{{ url_for('dashboard.dismissed_notifications') }}">{{
+                  _('No new notifications') }}</a></li>
+            </ul>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('dashboard.edit_profile') }}">{{ _('Edit Profile') }}</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a>
+          </li>
+          {% endif %}
+        </ul>
       </div>
-    </nav>
+    </div>
+  </nav>
 
-    <div class="container mt-3">
-        {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            {% for message in messages %}
-            <div class="alert alert-info" role="alert">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-        {% endwith %}
+  <div class="container mt-3">
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-info" role="alert">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
     {% block content %}{% endblock %}
 
     {% block modals %}
     <!-- Generic Modal for Actions -->
     <div class="modal fade" id="action-modal" tabindex="-1" aria-labelledby="action-modal-label">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="action-modal-label"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <!-- Content will be loaded here via AJAX -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close') }}</button>
-                    <button type="submit" class="btn btn-primary" id="submit-action-form-btn">{{ _('Submit') }}</button>
-                </div>
-            </div>
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="action-modal-label"></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Content will be loaded here via AJAX -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('Close') }}</button>
+            <button type="submit" class="btn btn-primary" id="submit-action-form-btn">{{ _('Submit') }}</button>
+          </div>
         </div>
+      </div>
     </div>
     {% endblock %}
 
@@ -129,23 +159,23 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        $(document).ready(function() {
-            function fetchNotifications() {
-                $.ajax({
-                    url: "{{ url_for('api.notification_summary') }}",
-                    method: "GET",
-                    headers: {
-                        'X-API-Key': '{{ api_key }}'
-                    },
-                    success: function(data) {
-                        $('#notification-badge').text(data.total_count);
-                        if (data.total_count > 0) {
-                            $('#notification-badge').show();
-                            let notificationList = $('#notification-list');
-                            notificationList.empty();
-                            $.each(data.notifications, function(index, notification) {
-                            notificationList.append(
-                                `<li>
+      $(document).ready(function () {
+        function fetchNotifications() {
+          $.ajax({
+            url: "{{ url_for('api.notification_summary') }}",
+            method: "GET",
+            headers: {
+              'X-API-Key': '{{ api_key }}'
+            },
+            success: function (data) {
+              $('#notification-badge').text(data.total_count);
+              if (data.total_count > 0) {
+                $('#notification-badge').show();
+                let notificationList = $('#notification-list');
+                notificationList.empty();
+                $.each(data.notifications, function (index, notification) {
+                  notificationList.append(
+                    `<li>
                                     <div class="d-flex justify-content-between align-items-center px-3 py-2">
                                         <a class="dropdown-item flex-grow-1" href="${notification.url}">${notification.title} (${notification.count})</a>
                                         <button class="btn btn-sm btn-outline-secondary dismiss-notification-btn" data-notification-type="${notification.type}" title="Dismiss Notification">
@@ -153,59 +183,60 @@
                                         </button>
                                     </div>
                                 </li>`
-                            );
-                        });
-                        // Add click handler for dismiss button
-                        $(document).on('click', '.dismiss-notification-btn', function(e) {
-                            e.preventDefault(); // Prevent the default action of the button
-                            e.stopPropagation(); // Stop event propagation to prevent dropdown from closing or link from being followed
-
-                            const notificationType = $(this).data('notification-type');
-                            const notificationUrl = $(this).siblings('a').attr('href'); // Get the URL from the sibling <a> tag
-                            const csrfToken = $('meta[name=csrf-token]').attr('content');
-
-                            fetch("{{ url_for('api.notification_dismiss') }}", {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    'X-CSRFToken': csrfToken,
-                                    'X-API-Key': '{{ api_key }}'
-                                },
-                                body: JSON.stringify({ notification_type: notificationType, notification_url: notificationUrl })
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                // if (data.message) {
-                                //     alert(data.message);
-                                // }
-                                fetchNotifications(); // Refresh notifications after dismissal
-                            })
-                            .catch(error => {
-                                console.error('Error dismissing notification:', error);
-                                alert('An error occurred while dismissing the notification.');
-                            });
-                        });
-                        } else {
-                            $('#notification-badge').hide();
-                            $('#notification-list').empty().append(`<li><a class="dropdown-item text-center" href="{{ url_for('dashboard.dismissed_notifications') }}">{{ _('No new notifications') }}</a></li>`);
-                        }
-                    },
-                    error: function(jqXHR, textStatus, errorThrown) {
-                        console.error("Error fetching notifications: ", textStatus, errorThrown);
-                        $('#notification-badge').hide();
-                        $('#notification-list').empty().append('<li><a class="dropdown-item text-center" href="#">{{ _('Error loading notifications') }}</a></li>');
-                    }
+                  );
                 });
+                // Add click handler for dismiss button
+                $(document).on('click', '.dismiss-notification-btn', function (e) {
+                  e.preventDefault(); // Prevent the default action of the button
+                  e.stopPropagation(); // Stop event propagation to prevent dropdown from closing or link from being followed
+
+                  const notificationType = $(this).data('notification-type');
+                  const notificationUrl = $(this).siblings('a').attr('href'); // Get the URL from the sibling <a> tag
+                  const csrfToken = $('meta[name=csrf-token]').attr('content');
+
+                  fetch("{{ url_for('api.notification_dismiss') }}", {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'X-Requested-With': 'XMLHttpRequest',
+                      'X-CSRFToken': csrfToken,
+                      'X-API-Key': '{{ api_key }}'
+                    },
+                    body: JSON.stringify({ notification_type: notificationType, notification_url: notificationUrl })
+                  })
+                    .then(response => response.json())
+                    .then(data => {
+                      // if (data.message) {
+                      //     alert(data.message);
+                      // }
+                      fetchNotifications(); // Refresh notifications after dismissal
+                    })
+                    .catch(error => {
+                      console.error('Error dismissing notification:', error);
+                      alert('An error occurred while dismissing the notification.');
+                    });
+                });
+              } else {
+                $('#notification-badge').hide();
+                $('#notification-list').empty().append(`<li><a class="dropdown-item text-center" href="{{ url_for('dashboard.dismissed_notifications') }}">{{ _('No new notifications') }}</a></li>`);
+              }
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+              console.error("Error fetching notifications: ", textStatus, errorThrown);
+              $('#notification-badge').hide();
+              $('#notification-list').empty().append('<li><a class="dropdown-item text-center" href="#">{{ _('Error loading notifications') }}</a></li>');
             }
+          });
+        }
 
-            // Fetch notifications on page load
-            fetchNotifications();
+        // Fetch notifications on page load
+        fetchNotifications();
 
-            // Fetch notifications every 60 seconds
-            setInterval(fetchNotifications, 60000);
-        });
+        // Fetch notifications every 60 seconds
+        setInterval(fetchNotifications, 60000);
+      });
     </script>
     {% endblock %}
-  </body>
+</body>
+
 </html>
