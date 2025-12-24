@@ -34,19 +34,22 @@ def main():
         deployer.deploy()
         
     elif args.command == "start":
-        # Native start needs to know mode
-        if DockerDeployer().compose_file and os.path.exists("docker-compose.yml"):
-             # Simple heuristic
-             DockerDeployer().start()
-        else:
-             NativeDeployer().start()
+        config = ConfigManager.load_env()
+        mode = config.get('DEPLOYMENT_MODE', 'docker')
+        deployer = DockerDeployer() if mode == 'docker' else NativeDeployer()
+        deployer.start()
         
     elif args.command == "stop":
-         DockerDeployer().stop()
-         NativeDeployer().stop()
+        config = ConfigManager.load_env()
+        mode = config.get('DEPLOYMENT_MODE', 'docker')
+        deployer = DockerDeployer() if mode == 'docker' else NativeDeployer()
+        deployer.stop()
 
     elif args.command == "logs":
-        DockerDeployer().logs()
+        config = ConfigManager.load_env()
+        mode = config.get('DEPLOYMENT_MODE', 'docker')
+        deployer = DockerDeployer() if mode == 'docker' else NativeDeployer()
+        deployer.logs()
         
     else:
         parser.print_help()

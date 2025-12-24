@@ -49,7 +49,7 @@ class ConfigWizard:
         console.print("\n[cyan]--- Database ---[/cyan]")
         if self.config['DEPLOYMENT_MODE'] == 'docker':
             console.print("1. Internal Container (MariaDB)")
-            console.print("2. External")
+            console.print("2. External (e.g. Host/Cloud)")
             c = Prompt.ask("Choice", choices=["1", "2"], default="1")
             
             if c == '1':
@@ -72,21 +72,28 @@ class ConfigWizard:
                 self._ask_external_db()
 
     def _ask_external_db(self):
+        default_host = "host.docker.internal" if self.config.get('DEPLOYMENT_MODE') == 'docker' else "localhost"
+        
         self.config['DB_TYPE'] = 'mysql'
-        self.config['DB_HOST'] = Prompt.ask("DB Host", default="localhost")
+        self.config['DB_HOST'] = Prompt.ask("DB Host", default=default_host)
         self.config['DB_PORT'] = Prompt.ask("DB Port", default="3306")
         self.config['DB_NAME'] = Prompt.ask("DB Name", default="training_manager")
         self.config['DB_USER'] = Prompt.ask("DB User")
         self.config['DB_PASSWORD'] = Prompt.ask("DB Password", password=True)
         
-        if Confirm.ask("Test connection now?"):
-            success, msg = DatabaseManager.test_connection(self.config)
-            if success:
-                console.print(f"[green]{msg}[/green]")
-                if Confirm.ask("Create database if missing?"):
-                     DatabaseManager.create_database_if_not_exists(self.config)
-            else:
-                console.print(f"[red]Connection failed: {msg}[/red]")
+        # Test connection
+        if self.config.get('DEPLOYMENT_MODE') == 'native' or self.config['DB_HOST'] in ['localhost', '127.0.0.1']:
+            if Confirm.ask("Test connection now?"):
+                success, msg = DatabaseManager.test_connection(self.config)
+                if success:
+                    console.print(f"[green]{msg}[/green]")
+                    if Confirm.ask("Create database if missing?"):
+                         DatabaseManager.create_database_if_not_exists(self.config)
+                else:
+                    console.print(f"[red]Connection failed: {msg}[/red]")
+                    if not Confirm.ask("Continue anyway?"):
+                        self._ask_database()
+                        return
 
     def _ask_mail(self):
         console.print("\n[cyan]--- Email ---[/cyan]")
